@@ -10,6 +10,7 @@ import RoundResultScreen from './RoundResultScreen';
 
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
+import { noSelectionAsk } from '@/components/StudioAssistant/readSelection';
 
 interface ExamRoundShellProps {
   round: ReturnType<typeof useExamRound>;
@@ -62,7 +63,8 @@ function ExamRoundShell({
   }
 
   return (
-    <Box sx={{ maxWidth, margin: 'auto', padding: 2 }}>
+    // While a question is answered, selecting its text offers no AI help (the round's result is fine).
+    <Box sx={{ maxWidth, margin: 'auto', padding: 2 }} {...noSelectionAsk()}>
       <RoundProgress answered={round.answered} total={round.roundSize} correct={round.correct} />
       {children}
     </Box>

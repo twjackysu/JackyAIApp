@@ -36,6 +36,7 @@ import {
 } from '@/apis/dashboardApis';
 import { DataAnalysisNav } from '@/components/DataAnalysisNav';
 import { askStudio, READ_DASHBOARD_PROMPT } from '@/components/StudioAssistant/askStudio';
+import { noSelectionAsk } from '@/components/StudioAssistant/readSelection';
 import { dataAnalysisTheme } from '@/DataAnalysis/theme';
 import { GRID_COLS, GRID_ROW_HEIGHT } from '@/DataAnalysis/viz/ResizableWidget';
 
@@ -262,7 +263,8 @@ export default function DashboardView() {
                 這個 dashboard 還沒有 widget。到 Data Analysis 查詢後按「加入 Dashboard」即可。
               </Alert>
             ) : (
-              <Box ref={measureRef}>
+              // While the layout is edited, a drag across a widget is not a selection to ask about.
+              <Box ref={measureRef} {...noSelectionAsk(editing)}>
                 {width === 0 ? (
                   <GridSkeleton />
                 ) : (

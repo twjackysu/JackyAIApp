@@ -110,6 +110,17 @@ describe('QuizCardView', () => {
     expect(container.textContent).toContain('還有 5 個字，去複習');
   });
 
+  it('keeps SelectionBar off a question until it is answered (asking about it would give the answer away)', () => {
+    const marked = () =>
+      !!container.querySelector('[data-testid="quiz-card"][data-no-selection-ask]');
+    render(card());
+    expect(marked()).toBe(true);
+    press('a fruit');
+    expect(marked()).toBe(false);
+    press('下一題');
+    expect(marked()).toBe(true);
+  });
+
   it('says what was recorded, and offers to try again when it was not', () => {
     mocks.sent = { isSuccess: true, data: { data: { xpEarned: 6 } } };
     render(card(2));

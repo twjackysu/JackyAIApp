@@ -106,7 +106,10 @@ jackyaiapp.client/src/
   From the page they go as a new conversation with `quotesPageText` (the chat request's flag: page text may be someone
   else's words, so the server counts the conversation as having read outside text and its writes ask first); from one of
   Studio AI's own answers (the drawer is `[data-studio-drawer]`) they continue the conversation on screen. Text in a box,
-  a dialog, another drawer or a menu is left alone; the bar follows the selection as things scroll, goes on Escape (taken
+  a dialog, another drawer or a menu is left alone, and so is what a page marks with `noSelectionAsk(on)` (`data-no-selection-ask`):
+  a question still being answered, where explaining or translating it would give the answer away (`ExamRoundShell`'s
+  question, the daily challenge's `QuestionCard`, the review `Flashcard` before it is turned, `QuizCardView` before its
+  question is answered; D-088), and a dashboard's grid while its layout is edited; the bar follows the selection as things scroll, goes on Escape (taken
   before MUI's, so the drawer stays open) or when the selection does, stays while pressed (a touch browser may clear the
   selection on the tap), is kept on the screen, and sits
   under the selection on a touch screen, where the browser's own menu is above. On a page without the button only the button goes: the drawer, and the conversation in it, stay

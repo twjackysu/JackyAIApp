@@ -5,6 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import ExamRoundShell from './ExamRoundShell';
 
+// The result screen saves words through the store; what it shows is its own test's.
+vi.mock('./RoundResultScreen', () => ({ default: () => <div>result</div> }));
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 let container: HTMLDivElement;
@@ -55,5 +58,30 @@ describe('ExamRoundShell', () => {
         .click(),
     );
     expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('選取題目不會叫出 Studio AI 的選取工具列（會洩漏答案），回合結果可以', () => {
+    const render = (r: typeof round) =>
+      act(() =>
+        root.render(
+          <MemoryRouter>
+            <ExamRoundShell
+              round={r}
+              isFetching={false}
+              isError={false}
+              error={undefined}
+              onRestart={() => {}}
+            >
+              <div id="question">question</div>
+            </ExamRoundShell>
+          </MemoryRouter>,
+        ),
+      );
+    render(round);
+    expect(container.querySelector('#question')!.closest('[data-no-selection-ask]')).not.toBeNull();
+
+    render({ ...round, roundComplete: true, answered: 10, correct: 7 } as typeof round);
+    expect(container.textContent).toContain('result');
+    expect(container.querySelector('[data-no-selection-ask]')).toBeNull();
   });
 });

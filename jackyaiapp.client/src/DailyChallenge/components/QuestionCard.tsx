@@ -10,6 +10,7 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 
 import { DailyChallengeQuestion } from '@/apis/dailyChallengeApis/types';
+import { noSelectionAsk } from '@/components/StudioAssistant/readSelection';
 
 const TYPE_LABELS: Record<
   string,
@@ -61,6 +62,8 @@ function QuestionCard({
         boxShadow: 3,
         borderRadius: 3,
       }}
+      // Until it is answered, selecting the question offers no AI help (it would give the answer away).
+      {...noSelectionAsk(!showResult)}
     >
       <CardContent sx={{ p: 3 }}>
         {/* Header */}

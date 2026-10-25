@@ -5,6 +5,12 @@ export const STUDIO_DRAWER = '[data-studio-drawer]';
 /** Text that is never asked about: a box the reader types in (Studio AI's own included). */
 const NEVER =
   'input, textarea, [contenteditable=""], [contenteditable="true"], [data-no-selection-ask]';
+/**
+ * Spread on an element whose text must not be asked about while `on`: a test's question (translating it, or
+ * opening the word's dictionary page, would give the answer away) or a layout being dragged.
+ */
+export const noSelectionAsk = (on = true): { 'data-no-selection-ask'?: '' } =>
+  on ? { 'data-no-selection-ask': '' } : {};
 /** Outside Studio AI's drawer, what is not the page's text: a dialog, a drawer, a menu over the page. */
 const NOT_PAGE_TEXT = '[role="dialog"], .MuiModal-root, .MuiDrawer-root';
 

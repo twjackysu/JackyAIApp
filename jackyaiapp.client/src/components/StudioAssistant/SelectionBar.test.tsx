@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
-import { readSelection, SELECTION_SETTLE_MS } from './readSelection';
+import { noSelectionAsk, readSelection, SELECTION_SETTLE_MS } from './readSelection';
 import SelectionBar from './SelectionBar';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -119,6 +119,21 @@ describe('SelectionBar', () => {
     page.appendChild(dialog);
     await selectAndSettle('inside a dialog', dialog.firstChild!);
     expect(bar()).toBeNull();
+  });
+
+  it("leaves alone what a page marks with noSelectionAsk (a test's question), and only while marked", async () => {
+    await renderBar();
+    const question = document.createElement('div');
+    Object.entries(noSelectionAsk()).forEach(([name, value]) => question.setAttribute(name, value));
+    question.innerHTML = '<p>Which word means <b>happy</b>?</p>';
+    page.appendChild(question);
+    await selectAndSettle('happy', question.querySelector('b')!.firstChild!);
+    expect(bar()).toBeNull();
+
+    expect(noSelectionAsk(false)).toEqual({});
+    question.removeAttribute('data-no-selection-ask');
+    await selectAndSettle('happy', question.querySelector('b')!.firstChild!);
+    expect(buttons().map((b) => b.textContent)).toContain('查字典');
   });
 
   it('goes when the selection is cleared, or Escape', async () => {

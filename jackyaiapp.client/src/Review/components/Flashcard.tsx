@@ -14,6 +14,7 @@ import { useState } from 'react';
 
 import { ReviewWordItem } from '@/apis/reviewApis/types';
 import { ActionTooltip } from '@/components/hints';
+import { noSelectionAsk } from '@/components/StudioAssistant/readSelection';
 import { playBrowserTts, playVoiceTube } from '@/Dictionary/utils/audio';
 
 interface FlashcardProps {
@@ -27,7 +28,11 @@ function Flashcard({ word, cardNumber, totalCards, onRate }: FlashcardProps) {
   const [revealed, setRevealed] = useState(false);
 
   return (
-    <Card sx={{ maxWidth: 600, mx: 'auto', boxShadow: 3, borderRadius: 3 }}>
+    // Until the meaning is shown, selecting the word offers no AI help (it would give the meaning away).
+    <Card
+      sx={{ maxWidth: 600, mx: 'auto', boxShadow: 3, borderRadius: 3 }}
+      {...noSelectionAsk(!revealed)}
+    >
       <CardContent sx={{ p: 3 }}>
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>

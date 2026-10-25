@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 
 import { parseQuizCard, qualityOf, quizSummary, type QuizCardData } from './quizCard';
+import { noSelectionAsk } from './readSelection';
 
 import type { CustomCard } from '@/components/aiChat/cards/toolCard';
 
@@ -131,7 +132,8 @@ function Quiz({ quiz, saved }: { quiz: QuizCardData; saved: boolean }) {
   const last = index === total - 1;
 
   return (
-    <Box data-testid="quiz-card">
+    // Until this question is answered, selecting it offers no help (SelectionBar would give the answer away).
+    <Box data-testid="quiz-card" {...noSelectionAsk(!answered)}>
       {header}
       <Typography variant="body2" sx={{ mb: 1, overflowWrap: 'anywhere' }}>
         {q.prompt}
