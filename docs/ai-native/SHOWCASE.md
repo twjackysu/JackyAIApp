@@ -203,5 +203,6 @@ flowchart LR
 | 10/25 | 20 | **AI 之間交棒**（Studio AI 的 `open_page` 帶 `ask`，把做 dashboard、查市場的事交給 /data-analysis、/finance 自己的助理接手）；「我的持股最近外資在買還是賣？」（Studio 讀持股、交給 Stock Intelligence）；/dashboards 的 Studio 建議做新 dashboard；巡檢 /data-analysis 下方「問 AI」結果的選取；審查修正 |
 | 10/25 | 21 | 交棒訊息標「由 Studio AI 轉來」；**Studio AI 的記憶**（`remember`／`forget`、`<user_memories>`、/connectors 的「Studio AI 記得的事」、`AlwaysAsks`） |
 | 10/25 | 22 | 記憶收尾：今日簡報用筆記、資料分析的助理只讀筆記、**Studio 主動提議記住**（確認卡把關）；/connectors 記憶區塊手機版 |
+| 10/25 | 23 | 確認卡打磨：剩餘時間倒數、分頁標題「（等你確認）」、重新整理前先問、時間到寫「沒有在時限內回覆」；評估重新接上確認卡（resumable stream）後不做 |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。
