@@ -107,7 +107,7 @@ namespace JackyAIApp.Server.Controllers
             {
                 var result = await _chatService.StreamChatAsync(
                     userId, request.Profile, request.Message, request.ConversationId, attachments,
-                    PageContext(request.Context), Response, HttpContext.RequestAborted);
+                    PageContext(request.Context), request.QuotesPageText, Response, HttpContext.RequestAborted);
 
                 // The service has already told the client why (an SSE error event with a code).
                 if (!result.StreamingStarted)

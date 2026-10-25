@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation, useNavigate, type NavigateFunction } from 'r
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { askStudio } from './askStudio';
+import { SELECTION_SETTLE_MS } from './readSelection';
 import { isStudioShortcut } from './studioChat';
 
 import StudioAssistant from '.';
@@ -16,7 +17,7 @@ const mocks = vi.hoisted(() => ({
     active: boolean;
     variant?: string;
     onCollapse: () => void;
-    ask?: { id: number; text: string; fresh?: boolean };
+    ask?: { id: number; text: string; fresh?: boolean; quotesPageText?: boolean };
     onAskSent?: () => void;
     onNavigate?: (path: string) => void;
     onToolDone?: (tool: string) => void;
@@ -327,6 +328,105 @@ describe('StudioAssistant', () => {
     await act(async () => askStudio('給我今天的簡報'));
     await settle();
     expect(mocks.panel).toBeNull();
+  });
+
+  describe('what the reader selected on the page', () => {
+    const select = (text: string, where: Element = container) => {
+      const node = document.createElement('p');
+      node.textContent = text;
+      where.appendChild(node);
+      vi.spyOn(window, 'getSelection').mockReturnValue({
+        isCollapsed: false,
+        rangeCount: 1,
+        anchorNode: node.firstChild,
+        focusNode: node.firstChild,
+        getRangeAt: () => ({
+          commonAncestorContainer: node.firstChild,
+          getBoundingClientRect: () => ({
+            left: 10,
+            top: 300,
+            width: 50,
+            height: 20,
+            right: 60,
+            bottom: 320,
+          }),
+        }),
+        toString: () => text,
+        removeAllRanges: () => {},
+      } as unknown as Selection);
+      return act(async () => {
+        document.dispatchEvent(new Event('selectionchange'));
+        await new Promise((r) => setTimeout(r, SELECTION_SETTLE_MS + 10));
+      });
+    };
+    const press = (label: string) =>
+      act(async () =>
+        [...document.querySelectorAll<HTMLButtonElement>('[data-testid="selection-bar"] button')]
+          .find((b) => b.textContent === label)!
+          .click(),
+      );
+    afterEach(() => vi.restoreAllMocks());
+
+    it('explains it in a conversation of its own', async () => {
+      await render('/english/repository');
+      await select('It never rains but it pours.');
+      await press('解釋');
+      await settle();
+
+      expect(mocks.panel).toMatchObject({
+        active: true,
+        ask: {
+          text: '請解釋我在這一頁選取的這段：\n\n「It never rains but it pours.」',
+          fresh: true,
+          quotesPageText: true,
+        },
+      });
+    });
+
+    it('puts a question about it in the box for the reader to finish', async () => {
+      await render('/portfolio');
+      await select('殖利率');
+      await press('問 AI');
+      await settle();
+
+      expect(mocks.panel).toMatchObject({ active: true, inputValue: '關於「殖利率」，' });
+      expect(mocks.panel!.ask).toBeUndefined();
+    });
+
+    it('opens one English word’s dictionary page without the AI', async () => {
+      await render('/english/repository');
+      await select('Resilient');
+      await press('查字典');
+      await settle();
+
+      expect(router.pathname).toBe('/english/dictionary/resilient');
+      expect(mocks.panel).toBeNull();
+    });
+
+    it('asks about a word of one of its own answers in the conversation on screen', async () => {
+      await render('/english/repository');
+      await act(async () => button()!.click());
+      await settle();
+      await select('ephemeral', document.querySelector('[data-testid="panel"]')!);
+      await press('加入單字庫');
+      await settle();
+
+      expect(mocks.panel!.ask).toMatchObject({ text: '把「ephemeral」加入我的單字庫' });
+      expect(mocks.panel!.ask!.fresh).toBeUndefined();
+      expect(mocks.panel!.ask!.quotesPageText).toBeUndefined();
+    });
+
+    it('adds a question about the selection after what the reader had typed', async () => {
+      await render('/portfolio');
+      await act(async () => button()!.click());
+      await settle();
+      await act(async () => mocks.panel!.onInputChange('幫我看看'));
+      await select('殖利率', document.querySelector('[data-testid="panel"]')!);
+      await press('問 AI');
+      await settle();
+
+      expect(mocks.panel!.inputValue).toBe('幫我看看\n關於「殖利率」，');
+    });
   });
 });
 

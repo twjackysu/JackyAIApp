@@ -26,6 +26,11 @@ export interface SendOptions {
    * the new conversation.
    */
   fresh?: boolean;
+  /**
+   * The message quotes text the reader selected on a page (Studio AI's selection bar), which may be
+   * someone else's words: the server treats the conversation as having read outside content.
+   */
+  quotesPageText?: boolean;
 }
 
 /** Maps stored conversation rows (one per turn) into chat bubbles. */
@@ -143,7 +148,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
     text: string,
     attachments: ChatAttachment[],
     edited?: Message,
-    fresh = false,
+    { fresh = false, quotesPageText = false }: SendOptions = {},
   ) => {
     const userMessage: Message = {
       id: `${Date.now()}-${nextTurnKey.current++}`,
@@ -200,6 +205,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
       conversationId: fresh ? '' : conversationId,
       attachmentIds: edited ? [] : attachments.map((a) => a.id),
       editMessageId: edited?.serverId,
+      quotesPageText,
       onStart: (id, userMessageId) => {
         setConversationId(id);
         if (userMessageId) update(userMessage.id, { serverId: userMessageId });
@@ -266,7 +272,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
     if (busy || queued.length === 0) return;
     const [next, ...rest] = queued;
     setQueued(rest);
-    void sendTurn(next.text, next.attachments, undefined, next.fresh);
+    void sendTurn(next.text, next.attachments, undefined, next);
     // sendTurn is a fresh function every render; the queue moves on busy and the queue alone.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy, queued]);
@@ -274,13 +280,20 @@ export function useChatConversation(options?: ChatConversationOptions) {
   /** Sends a message now, or, while an answer is being written, once it is done. */
   const send = (text: string, attachments: ChatAttachment[], options?: SendOptions) => {
     const fresh = options?.fresh === true;
+    const quotesPageText = options?.quotesPageText === true;
     if (busy) {
       setQueued((prev) => [
         ...prev,
-        { key: `queued-${nextTurnKey.current++}`, text, attachments, ...(fresh && { fresh }) },
+        {
+          key: `queued-${nextTurnKey.current++}`,
+          text,
+          attachments,
+          ...(fresh && { fresh }),
+          ...(quotesPageText && { quotesPageText }),
+        },
       ]);
     } else {
-      void sendTurn(text, attachments, undefined, fresh);
+      void sendTurn(text, attachments, undefined, { fresh, quotesPageText });
     }
   };
 

@@ -25,6 +25,8 @@ export interface QueuedMessage {
   attachments: ChatAttachment[];
   /** Goes as the first message of a new conversation (`SendOptions.fresh`). */
   fresh?: boolean;
+  /** Quotes text selected on a page (`SendOptions.quotesPageText`). */
+  quotesPageText?: boolean;
 }
 
 export interface Message {

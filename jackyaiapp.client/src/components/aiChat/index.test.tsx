@@ -192,7 +192,7 @@ let activities: AssistantActivity[];
 const lastActivity = () => activities[activities.length - 1];
 
 /** The panel's owner holds the message being typed, as the one-line box does on the page. */
-type Ask = { id: number; text: string; fresh?: boolean };
+type Ask = { id: number; text: string; fresh?: boolean; quotesPageText?: boolean };
 
 /** Pages an answer took the reader to (`onNavigate`). */
 let navigations: string[];
@@ -503,6 +503,46 @@ describe('AiAssistantPanel', () => {
     expect(chatBodies[1].conversationId).toBe('');
     await waitForText('早安');
     expect(container.textContent).not.toContain('first');
+  });
+
+  it('tells the server a message quotes text selected on a page, sent now or after the reply being written', async () => {
+    await mount();
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '這段是說…' }, { type: 'done', conversationId: 'conv-1' }),
+    );
+    await renderAsk({ id: 1, text: '請解釋：「A」', fresh: true, quotesPageText: true });
+    await waitForText('這段是說…');
+    expect(chatBodies[0]).toEqual({
+      message: '請解釋：「A」',
+      conversationId: '',
+      attachmentIds: [],
+      profile: 'finance',
+      quotesPageText: true,
+    });
+
+    let finish!: () => void;
+    chatReplies.push(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = () =>
+            resolve(
+              sseReply({ type: 'delta', text: '一' }, { type: 'done', conversationId: 'conv-1' }),
+            );
+        }),
+    );
+    await send('first');
+    await renderAsk({ id: 2, text: '翻譯：「B」', quotesPageText: true });
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '二' }, { type: 'done', conversationId: 'conv-1' }),
+    );
+    await act(async () => finish());
+    await waitFor(() => expect(chatBodies).toHaveLength(3));
+    expect(chatBodies[1]).not.toHaveProperty('quotesPageText');
+    expect(chatBodies[2]).toMatchObject({
+      message: '翻譯：「B」',
+      conversationId: 'conv-1',
+      quotesPageText: true,
+    });
   });
 
   it('shows a failed reply inside the conversation, in its own words for the code it got', async () => {

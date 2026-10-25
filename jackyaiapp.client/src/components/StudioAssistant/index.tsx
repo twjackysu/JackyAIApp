@@ -11,6 +11,8 @@ import { ASK_STUDIO_EVENT, askedOf, type AskStudioDetail } from './askStudio';
 import QuickActions from './QuickActions';
 import { quickActionsFor, type QuickAction } from './quickActions';
 import { refreshAfterTool } from './refreshAfterTool';
+import { dictionaryPathOf, selectionMessage, type SelectionActionKind } from './selectionActions';
+import SelectionBar from './SelectionBar';
 import { isStudioShortcut, studioChatConfig, studioShownOn } from './studioChat';
 
 import type { AssistantActivity } from '@/components/aiChat';
@@ -44,7 +46,9 @@ export default function StudioAssistant() {
   const [draft, setDraft] = useState('');
   // A message a page asked Studio AI (askStudio); the id tells the panel a new one from the last.
   // Kept until the panel has sent it, then dropped (the id keeps counting).
-  const [ask, setAsk] = useState<(AskStudioDetail & { id: number }) | undefined>();
+  const [ask, setAsk] = useState<
+    (AskStudioDetail & { id: number; quotesPageText?: boolean }) | undefined
+  >();
   const askId = useRef(0);
   const askSent = useCallback(() => setAsk(undefined), []);
   // The reader's dashboards (the /dashboards list), read each time the drawer opens (Studio AI may have saved a
@@ -119,6 +123,40 @@ export default function StudioAssistant() {
     setOpen(false);
   }, []);
 
+  // What the reader selected (SelectionBar). On the page, explaining, translating or saving it is sent at once
+  // in a conversation of its own (it stands on its own, D-086); in one of Studio AI's answers (a word of the
+  // passage it wrote), in the conversation on screen, which it belongs to. Asking about it puts it in the box
+  // for the reader to finish. One English word's dictionary page is a quick action, no AI; from the drawer
+  // the page changes under it, which on a phone (where the drawer is the whole screen) then closes.
+  const onSelection = useCallback(
+    (kind: SelectionActionKind, text: string, inStudio: boolean) => {
+      if (kind === 'dictionary') {
+        const path = dictionaryPathOf(text);
+        if (!path) return;
+        navigate(path);
+        if (inStudio && fullScreen) setOpen(false);
+        return;
+      }
+      setOpened(true);
+      setOpen(true);
+      if (kind === 'ask') {
+        // After what the reader had typed, never in place of it.
+        setDraft((typed) =>
+          [typed.trimEnd(), selectionMessage('ask', text)].filter(Boolean).join('\n'),
+        );
+        return;
+      }
+      askId.current += 1;
+      setAsk({
+        id: askId.current,
+        text: selectionMessage(kind, text),
+        // Page text may be someone else's words: the server counts it as outside text (writes ask first).
+        ...(!inStudio && { fresh: true, quotesPageText: true }),
+      });
+    },
+    [navigate, fullScreen],
+  );
+
   useEffect(() => {
     if (!shown) return;
     const onKey = (e: KeyboardEvent) => {
@@ -156,6 +194,7 @@ export default function StudioAssistant() {
 
   return (
     <AiChatConfigContext value={config}>
+      <SelectionBar enabled={shown} onAction={onSelection} />
       {shown && (
         <ActionTooltip title="Studio AI（⌘K）">
           <Fab
@@ -186,7 +225,7 @@ export default function StudioAssistant() {
         slotProps={{ paper: { sx: { width: { xs: '100%', sm: 480 }, maxWidth: '100%' } } }}
       >
         {opened && (
-          <Box sx={{ height: '100%' }}>
+          <Box data-studio-drawer sx={{ height: '100%' }}>
             <Suspense fallback={<CenteredSpinner />}>
               <AiAssistantPanel
                 variant="sheet"

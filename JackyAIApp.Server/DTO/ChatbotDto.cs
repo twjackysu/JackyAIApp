@@ -26,6 +26,13 @@ namespace JackyAIApp.Server.DTO
         /// screen). Short keys and values only; the controller drops anything past its limits.
         /// </summary>
         public Dictionary<string, string>? Context { get; set; }
+
+        /// <summary>
+        /// The message quotes text the reader selected on a page (Studio AI's selection bar), which may be
+        /// someone else's words: the conversation counts as having read outside text from this turn on
+        /// (<see cref="Data.Models.SQL.ChatConversation.ReadOutsideText"/>), so its writes ask first.
+        /// </summary>
+        public bool QuotesPageText { get; set; }
     }
 
     /// <summary>A conversation summary returned to the client (title from the first user message).</summary>

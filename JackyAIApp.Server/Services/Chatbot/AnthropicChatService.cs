@@ -87,7 +87,7 @@ namespace JackyAIApp.Server.Services.Chatbot
 
         public async Task<ChatStreamResult> StreamChatAsync(
             string userId, string profileKey, string message, string? conversationId, IReadOnlyCollection<SQL.ChatAttachment> attachments,
-            IReadOnlyDictionary<string, string> pageContext, HttpResponse response, CancellationToken ct)
+            IReadOnlyDictionary<string, string> pageContext, bool quotesPageText, HttpResponse response, CancellationToken ct)
         {
             var apiKey = settings.CurrentValue.AnthropicApiKey;
             if (string.IsNullOrEmpty(apiKey))
@@ -100,6 +100,9 @@ namespace JackyAIApp.Server.Services.Chatbot
             var profile = profiles.Find(profileKey)
                 ?? throw new ArgumentException($"No chat profile '{profileKey}'", nameof(profileKey));
             var (conversation, userMessage, history) = await StartTurnAsync(userId, profile.Key, message, conversationId, attachments, ct);
+            // Text selected on a page may be someone else's words, as a connector's result may: from this turn
+            // on, the conversation's writes ask first (the question says tainted).
+            if (quotesPageText) await RememberOutsideTextAsync(conversation);
             var (setup, askFirst) = await WithPermissionsAsync(
                 userId, await profile.SetupAsync(new ChatProfileContext(userId, _time.GetTaipeiToday(), pageContext), ct), ct);
             Task<MessageCreateParams> RequestFor(bool reupload, CancellationToken token) =>

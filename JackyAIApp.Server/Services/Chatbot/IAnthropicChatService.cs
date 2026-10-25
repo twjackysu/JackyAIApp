@@ -24,10 +24,12 @@ namespace JackyAIApp.Server.Services.Chatbot
         /// <param name="attachments">The caller's still-unsent uploads, tracked by the same
         /// request's context; they are attached to the saved user message and sent with it.</param>
         /// <param name="pageContext">What the asking page says about itself (<see cref="Assistant.ChatProfileContext.Page"/>).</param>
+        /// <param name="quotesPageText">The message quotes text the reader selected on a page, possibly someone
+        /// else's words: the conversation is marked as having read outside text before the turn runs.</param>
         Task<ChatStreamResult> StreamChatAsync(
             string userId, string profileKey, string message, string? conversationId,
             IReadOnlyCollection<Data.Models.SQL.ChatAttachment> attachments,
-            IReadOnlyDictionary<string, string> pageContext,
+            IReadOnlyDictionary<string, string> pageContext, bool quotesPageText,
             HttpResponse response, CancellationToken ct);
     }
 }

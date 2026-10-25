@@ -79,6 +79,9 @@ export interface ChatTurn {
   /** This message is an edit of the reader's stored message with this id: the server removes it and
    *  everything after it, and sends its attachments again with the new wording. */
   editMessageId?: number;
+  /** The message quotes text the reader selected on a page (Studio AI's selection bar), possibly someone
+   *  else's words: the server counts the conversation as having read outside text, so its writes ask first. */
+  quotesPageText?: boolean;
   /** The conversation the turn is in — known before any answer, so even a new one can be stopped. */
   onStart?: (conversationId: string, userMessageId?: number) => void;
   /** The answer so far, each time it grows. */
@@ -165,6 +168,7 @@ export const useChatStreaming = ({
       conversationId,
       attachmentIds,
       editMessageId,
+      quotesPageText,
       onStart,
       onUpdate,
       onComplete,
@@ -193,6 +197,7 @@ export const useChatStreaming = ({
             editMessageId,
             profile,
             context: pageContext,
+            ...(quotesPageText && { quotesPageText: true }),
           }),
           signal: turn.abort.signal,
         });

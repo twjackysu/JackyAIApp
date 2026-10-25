@@ -245,7 +245,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   outside connector's result, or a site tool's marked `OutsideText` because it holds other people's words, a
   calendar invite's, `AiToolDescriptor.ReadsOutsideText`, every call that is not a read asks first, whatever its
   permission, in that turn and every later turn of the conversation, `ChatConversations.ReadOutsideText`: its answers may
-  repeat that text and are sent again as history; the question then says `tainted`): a reply's such calls are put to them together (SSE `approval_required` with `pendingId` and the
+  repeat that text and are sent again as history; the question then says `tainted`; a message that quotes text the reader
+  selected on a page, `ChatRequest.QuotesPageText` from Studio AI's selection bar, marks the conversation so before its turn
+  runs, since that text may be someone else's words too): a reply's such calls are put to them together (SSE `approval_required` with `pendingId` and the
   calls: id, connector, tool, display name, effect, input, and a `summary` in words when a site tool says one,
   `IDescribesCall`, never a connector's), and the turn waits **in its own request**
   (`ChatApprovalRegistry`, a singleton in memory like `ChatTurnRegistry`; at most

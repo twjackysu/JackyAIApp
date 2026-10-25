@@ -42,8 +42,9 @@ interface AiAssistantPanelProps {
    *  with no history column beside it — the history opens over it, as on a phone. */
   variant?: 'inline' | 'sheet';
   /** A message to send as if the reader had typed it (Studio AI's `askStudio`): each id is sent once,
-   *  `fresh` as the first message of a new conversation (`SendOptions.fresh`). */
-  ask?: { id: number; text: string; fresh?: boolean };
+   *  `fresh` as the first message of a new conversation (`SendOptions.fresh`), `quotesPageText` for text the
+   *  reader selected on a page (`SendOptions.quotesPageText`). */
+  ask?: { id: number; text: string; fresh?: boolean; quotesPageText?: boolean };
   /** The `ask` was sent: its owner drops it, so a panel mounted again does not send it twice. */
   onAskSent?: () => void;
   /** An answer takes the reader to a page of the site (Studio AI's `open_page` with `go`); without it, only its link. */
@@ -114,12 +115,13 @@ function AiAssistantPanel({
   useEffect(() => {
     if (!ask || sentAsk.current === ask.id) return;
     sentAsk.current = ask.id;
+    const quotes = ask.quotesPageText ? { quotesPageText: true } : {};
     if (ask.fresh) {
       // A preview of the old conversation's answer has nothing to do with the new one.
       closePreview();
-      send(ask.text, [], { fresh: true });
+      send(ask.text, [], { fresh: true, ...quotes });
     } else {
-      send(ask.text, []);
+      send(ask.text, [], quotes);
     }
     onAskSent?.();
   }, [ask, send, closePreview, onAskSent]);
