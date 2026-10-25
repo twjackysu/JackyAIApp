@@ -1,9 +1,12 @@
 import CheckIcon from '@mui/icons-material/Check';
 import ContentCopyIcon from '@mui/icons-material/ContentCopyOutlined';
 import EditIcon from '@mui/icons-material/EditOutlined';
+import StopIcon from '@mui/icons-material/StopCircleOutlined';
+import VolumeUpIcon from '@mui/icons-material/VolumeUpOutlined';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { useEffect, useState } from 'react';
 
+import { useSpeechOutput } from '../hooks/useSpeechOutput';
 import { copyText } from '../utils/clipboard';
 
 /** How long 已複製 shows before the copy button goes back to normal. */
@@ -14,7 +17,23 @@ interface MessageActionsProps {
   text: string;
   /** Present for the reader's own messages that can be edited now. */
   onEdit?: () => void;
+  /** An answer: it can be read aloud (where the browser can speak). */
+  readAloud?: boolean;
   align: 'left' | 'right';
+}
+
+/** Reads the answer aloud, or stops (`useSpeechOutput`); nothing where the browser cannot speak. */
+function ReadAloudButton({ text, sx }: { text: string; sx: object }) {
+  const { supported, speaking, toggle } = useSpeechOutput(text);
+  if (!supported) return null;
+  const label = speaking ? '停止朗讀' : '朗讀';
+  return (
+    <Tooltip title={label}>
+      <IconButton size="small" aria-label={label} aria-pressed={speaking} onClick={toggle} sx={sx}>
+        {speaking ? <StopIcon sx={{ fontSize: 16 }} /> : <VolumeUpIcon sx={{ fontSize: 16 }} />}
+      </IconButton>
+    </Tooltip>
+  );
 }
 
 /**
@@ -22,7 +41,7 @@ interface MessageActionsProps {
  * the message (or a button has keyboard focus); where there is no hover — phones — they are always
  * shown, as ChatGPT does, since there is nothing to hover with.
  */
-function MessageActions({ text, onEdit, align }: MessageActionsProps) {
+function MessageActions({ text, onEdit, readAloud, align }: MessageActionsProps) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -55,6 +74,7 @@ function MessageActions({ text, onEdit, align }: MessageActionsProps) {
           {copied ? <CheckIcon sx={{ fontSize: 16 }} /> : <ContentCopyIcon sx={{ fontSize: 16 }} />}
         </IconButton>
       </Tooltip>
+      {readAloud && <ReadAloudButton text={text} sx={buttonSx} />}
       {onEdit && (
         <Tooltip title="編輯">
           <IconButton size="small" aria-label="編輯" onClick={onEdit} sx={buttonSx}>

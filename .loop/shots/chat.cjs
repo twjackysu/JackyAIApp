@@ -173,6 +173,18 @@ const studioQuiz = [
   done,
 ];
 
+// 單字庫頁：「用我單字庫裡最近存的字寫一段短文」：saved_words 讀最近存的字，短文裡用粗體標出。
+const studioWriting = [
+  start,
+  { type: 'tool_use', id: 't1', name: 'saved_words', displayName: '我的單字庫' },
+  {
+    type: 'tool_result', id: 't1', name: 'saved_words', ok: true, durationMs: 140,
+    card: { kind: 'link', title: '我的單字庫', description: '共 86 個字，最近加入：serendipity、ephemeral、meticulous、resilient、candid', href: '/english/repository', actionLabel: '前往單字庫' },
+  },
+  delta('用你最近存的 5 個字寫了一段短文：\n\n> It was pure **serendipity** that I found the little bookshop. The owner, a **meticulous** old man, kept every book in perfect order. He was **candid** about his worries: the shop had survived two floods, and he called himself **resilient**, but he knew that, like all good things, it might be **ephemeral**.\n\n**中文翻譯**：我會發現那家小書店純屬**意外的幸運**。店主是位**一絲不苟**的老先生，每本書都排得整整齊齊。他**坦白**說出自己的擔憂：書店撐過兩次水災，他說自己很**有韌性**，但也知道，就像所有美好的事物一樣，它可能只是**短暫的**。'),
+  done,
+];
+
 // 頁面內的 fetch 替身：/api/chatbot/chat 回一個照順序送出事件的串流。
 const fakeChat = (events) => {
   const realFetch = window.fetch.bind(window);
@@ -325,6 +337,26 @@ async function ask(page, text, placeholder) {
     await page.getByRole('button', { name: '看結果' }).click();
     await page.waitForTimeout(600);
     await page.screenshot({ path: `${out}/studio-quiz-result-${name}.png` });
+    await page.close();
+
+    // Studio：/english/repository → ⌘K → 第一個建議「用我單字庫裡最近存的字寫一段短文」→ saved_words、短文、接著問
+    page = await open(browser, viewport, studioWriting);
+    // 朗讀的替身：念到一半（不結束），按鈕停在「停止朗讀」。
+    await page.addInitScript(() => {
+      window.speechSynthesis = { speak() {}, cancel() {} };
+      window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
+    });
+    await page.goto('http://localhost:5173/english/repository');
+    await page.waitForTimeout(1500);
+    await page.keyboard.press('Control+k');
+    await page.waitForTimeout(800);
+    await page.getByRole('button', { name: /用我單字庫裡最近存的字寫一段短文/ }).first().click();
+    await page.getByRole('textbox').last().press('Enter');
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: `${out}/studio-writing-${name}.png` });
+    await page.getByRole('button', { name: '朗讀' }).last().click();
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${out}/studio-read-aloud-${name}.png` });
     await page.close();
 
     // Studio：/portfolio → ⌘K → 持倉表格

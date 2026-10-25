@@ -383,7 +383,7 @@ function MessageArea({
                   </Typography>
                 )}
                 {!answering && message.content && (
-                  <MessageActions text={message.content} align="left" />
+                  <MessageActions text={message.content} align="left" readAloud />
                 )}
                 {message === last && onFollowUp && (
                   <FollowUps texts={followUps} onPick={onFollowUp} />
