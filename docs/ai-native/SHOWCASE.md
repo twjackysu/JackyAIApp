@@ -48,7 +48,7 @@
    ![指令列打開 dashboard](screenshots/studio-quick-dashboard-desktop.png)
 2. **AI 操作網站（30 秒）**：在首頁 ⌘K →「帶我去複習」→ 背後的頁面直接切到「複習」，Studio 說明怎麼翻牌（手機上回答完抽屜自動收起，再按按鈕對話還在）。
    ![帶我去複習](screenshots/studio-go-desktop.png)
-3. **本站即工具（1 分鐘）**：輸入「serendipity 是什麼？幫我加入單字庫」→ 回答上方顯示用了「查字典」→ 單字連結卡 → 出現**確認卡**「加入單字庫：serendipity」→ 按「允許」→「已加入」與「前往單字庫」。
+3. **本站即工具（1 分鐘）**：輸入「serendipity 是什麼？幫我加入單字庫」→ 回答上方顯示用了「查字典」→ 單字連結卡 → 出現**確認卡**「加入單字庫：serendipity」→ 按「允許」→「已加入」與「前往單字庫」。確認卡下方寫著「3 分鐘內沒有回覆，這次就不執行」（最後一分鐘倒數秒數）；切到別的分頁時，分頁標題變成「（等你確認）Jacky's Studio」，這時重新整理頁面，瀏覽器會先問要不要離開（D-105～D-107）。
    ![確認卡](screenshots/studio-approval-desktop.png)
    接著到 /english → ⌘K → 第一個建議「考我今天該複習的單字」→ 回答裡出現**測驗卡**，直接按選項：對錯與解說立刻出現，三題答完顯示「答對 2 / 3 題」並記進複習排程（+XP），下方「再考我 3 題」。
    ![Studio 的複習小測驗](screenshots/studio-quiz-desktop.png)

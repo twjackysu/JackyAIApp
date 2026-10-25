@@ -847,6 +847,7 @@ describe('AiAssistantPanel', () => {
     await waitForText('需要你的確認');
     // Reloading now would end the turn the card waits in, so the browser asks first (D-105).
     expect(unloadIsAsked()).toBe(true);
+    expect(document.title.startsWith('（等你確認）')).toBe(true);
 
     const allow = [...container.querySelectorAll('button')].find((b) => b.textContent === '允許')!;
     await act(async () => allow.click());
@@ -872,6 +873,7 @@ describe('AiAssistantPanel', () => {
     await waitForText('已加入 serendipity');
     expect(container.textContent).toContain('已允許');
     expect(unloadIsAsked()).toBe(false);
+    expect(document.title.startsWith('（等你確認）')).toBe(false);
     expect([...container.querySelectorAll('button')].some((b) => b.textContent === '允許')).toBe(
       false,
     );

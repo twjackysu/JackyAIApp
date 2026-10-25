@@ -15,6 +15,7 @@ import { useChatConversation } from './hooks/useChatConversation';
 import { useKeepPasteFormatting } from './hooks/useKeepPasteFormatting';
 import { usePendingAttachments } from './hooks/usePendingAttachments';
 import { usePreview } from './hooks/usePreview';
+import { useWaitingTitle } from './hooks/useWaitingTitle';
 import { useWarnBeforeLeaving } from './hooks/useWarnBeforeLeaving';
 import { ACCENT, ACCENT_GRADIENT, hairline, panelSurface } from './style';
 import { hasOpenApproval } from './utils/approval';
@@ -95,8 +96,11 @@ function AiAssistantPanel({
     onToolDone,
   });
   const { messages, conversationId, busy } = conversation;
-  // Leaving the page would end the turn a confirmation card waits in (D-105).
-  useWarnBeforeLeaving(hasOpenApproval(messages));
+  // A confirmation card waits: leaving the page would end its turn (D-105), and a reader on another tab
+  // should see that the assistant needs them (D-107).
+  const awaitingReader = hasOpenApproval(messages);
+  useWarnBeforeLeaving(awaitingReader);
+  useWaitingTitle(awaitingReader);
   const preview = usePreview(conversation.blocks, conversation.currentHtmlBlock);
   const attachments = usePendingAttachments();
   const [keepFormatting, setKeepFormatting] = useKeepPasteFormatting();
