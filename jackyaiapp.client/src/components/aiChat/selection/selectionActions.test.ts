@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
   dictionaryPathOf,
+  draftWithSelection,
   isMostlyEnglish,
   SELECTION_MAX,
   selectedTextOf,
   selectedWordOf,
   selectionActionsFor,
   selectionMessage,
+  selectionStepOf,
 } from './selectionActions';
 
 describe('selectedTextOf', () => {
@@ -56,6 +58,17 @@ describe('isMostlyEnglish', () => {
 });
 
 describe('selectionActionsFor', () => {
+  it('explains a word instead of saving it for an assistant without the repository tool', () => {
+    expect(selectionActionsFor('ETF', { canSaveWord: false }).map((a) => a.kind)).toEqual([
+      'explain',
+      'dictionary',
+      'ask',
+    ]);
+    expect(
+      selectionActionsFor('外資連續三天買超', { canSaveWord: false }).map((a) => a.kind),
+    ).toEqual(['explain', 'translate', 'ask']);
+  });
+
   it('offers the dictionary and the repository for one English word', () => {
     expect(selectionActionsFor('resilient').map((a) => a.kind)).toEqual([
       'dictionary',
@@ -102,5 +115,44 @@ describe('dictionaryPathOf', () => {
     expect(dictionaryPathOf('Serendipity')).toBe('/english/dictionary/serendipity');
     expect(dictionaryPathOf("don't")).toBe("/english/dictionary/don't");
     expect(dictionaryPathOf('two words')).toBeUndefined();
+  });
+});
+
+describe('selectionStepOf', () => {
+  it("goes to a word's dictionary page, and does nothing for a dictionary press on anything else", () => {
+    expect(selectionStepOf('dictionary', 'Resilient', false)).toEqual({
+      do: 'go',
+      path: '/english/dictionary/resilient',
+    });
+    expect(selectionStepOf('dictionary', 'two words', false)).toBeNull();
+  });
+
+  it('puts 問 AI in the box, as page text only from the page', () => {
+    expect(selectionStepOf('ask', '本益比', false)).toEqual({
+      do: 'draft',
+      text: '關於「本益比」，',
+      quotesPageText: true,
+    });
+    expect(selectionStepOf('ask', '本益比', true)).toMatchObject({ quotesPageText: false });
+  });
+
+  it("sends the rest at once, from the page or from the assistant's own answer", () => {
+    expect(selectionStepOf('explain', '本益比', false)).toEqual({
+      do: 'send',
+      text: selectionMessage('explain', '本益比'),
+      fromPage: true,
+    });
+    expect(selectionStepOf('save-word', 'resilient', true)).toEqual({
+      do: 'send',
+      text: '把「resilient」加入我的單字庫',
+      fromPage: false,
+    });
+  });
+});
+
+describe('draftWithSelection', () => {
+  it('comes after what was typed, never in place of it', () => {
+    expect(draftWithSelection('', '關於「x」，')).toBe('關於「x」，');
+    expect(draftWithSelection('2330  \n', '關於「x」，')).toBe('2330\n關於「x」，');
   });
 });

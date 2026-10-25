@@ -8,9 +8,9 @@ import { useExamRound } from '../hooks/useExamRound';
 import RoundProgress from './RoundProgress';
 import RoundResultScreen from './RoundResultScreen';
 
+import { noSelectionAsk } from '@/components/aiChat/selection/readSelection';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
-import { noSelectionAsk } from '@/components/StudioAssistant/readSelection';
 
 interface ExamRoundShellProps {
   round: ReturnType<typeof useExamRound>;

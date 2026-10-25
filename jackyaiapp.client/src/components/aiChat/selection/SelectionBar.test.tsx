@@ -218,7 +218,12 @@ describe('readSelection', () => {
       width: 80,
       height: 20,
     });
-    expect(readSelection()).toMatchObject({ left: 140, top: 192, below: false, inStudio: false });
+    expect(readSelection()).toMatchObject({
+      left: 140,
+      top: 192,
+      below: false,
+      inAssistant: false,
+    });
 
     fakeSelection('The market rallied today.', node, { left: 0, top: 20, width: 10, height: 20 });
     expect(readSelection()).toMatchObject({ left: 138, top: 48, below: true });
@@ -226,12 +231,12 @@ describe('readSelection', () => {
 
   it("tells Studio AI's own answers from the page, and takes neither a drawer nor a mix of both", () => {
     const studio = document.createElement('div');
-    studio.setAttribute('data-studio-drawer', '');
+    studio.setAttribute('data-ai-assistant', '');
     studio.className = 'MuiDrawer-root';
     studio.innerHTML = '<p>It might be <b>ephemeral</b>.</p><textarea></textarea>';
     page.appendChild(studio);
     fakeSelection('ephemeral', studio.querySelector('b')!.firstChild!);
-    expect(readSelection()).toMatchObject({ text: 'ephemeral', inStudio: true });
+    expect(readSelection()).toMatchObject({ text: 'ephemeral', inAssistant: true });
 
     fakeSelection('typed', studio.querySelector('textarea')!);
     expect(readSelection()).toBeNull();

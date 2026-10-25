@@ -99,13 +99,15 @@ jackyaiapp.client/src/
   drawer then closes once the answer is done. A site tool's write that worked (`tool_result` with `ok`, the panel's
   `onToolDone`, as it streams) has the page under the drawer read again what it changed (`refreshAfterTool`:
   `update_holding` the portfolio's `Holdings`/`Summary`, `add_word_to_repository` what adding a word on the repository
-  page refreshes), so the change shows there at once. Selecting text on a page also asks it (`SelectionBar`, `readSelection`, `selectionActions`): once a selection
+  page refreshes), so the change shows there at once. Selecting text on a page also asks it (`aiChat/selection`: `SelectionBar`, `readSelection`, `selectionActions`, shared
+  with the apps' own assistants, below): once a selection
   settles (250ms), a bar over it offers 解釋 / 翻成中文 or 翻成英文 / 問 AI, or for one English word 查字典 (straight to
   its page, no AI) / 加入單字庫 / 問 AI. 問 AI puts 「關於「…」，」 in the box after what was typed (from the page, the box then
   sends with `quotesPageText`, the panel's `inputQuotesPageText`, until it is emptied); the others send at once.
   From the page they go as a new conversation with `quotesPageText` (the chat request's flag: page text may be someone
   else's words, so the server counts the conversation as having read outside text and its writes ask first); from one of
-  Studio AI's own answers (the drawer is `[data-studio-drawer]`) they continue the conversation on screen. Text in a box,
+  Studio AI's own answers (the drawer is `[data-ai-assistant]`) they continue the conversation on screen; what each press
+  does is `selectionStepOf`, the same for every assistant. Text in a box,
   a dialog, another drawer or a menu is left alone, and so is what a page marks with `noSelectionAsk(on)` (`data-no-selection-ask`):
   a question still being answered, where explaining or translating it would give the answer away (`ExamRoundShell`'s
   question, the daily challenge's `QuestionCard`, the review `Flashcard` before it is turned, `QuizCardView` before its
@@ -113,7 +115,11 @@ jackyaiapp.client/src/
   before MUI's, so the drawer stays open) or when the selection does, stays while pressed (a touch browser may clear the
   selection on the tap), is kept on the screen, and sits
   under the selection on a touch screen, where the browser's own menu is above. On a page without the button only the button goes: the drawer, and the conversation in it, stay
-  mounted once opened (one of its own link cards may lead to /finance). An app's own assistant (`AiAssistantLauncher`) moves the page only when
+  mounted once opened (one of its own link cards may lead to /finance). An app's own assistant (`AiAssistantLauncher`) is asked the same way on its page (D-089): selecting the
+  page's text (/finance's analyses and digest, /data-analysis's results) or its answers (its box is `[data-ai-assistant]`)
+  shows the same bar, named after it, which opens the conversation as `askStudio` opens Studio AI's (`ask`, from the page
+  `fresh` with `quotesPageText`); it has no repository tool, so one English word offers 解釋 / 查字典 / 問 AI
+  (`canSaveWord: false`). It moves the page only when
   the page passes `onNavigate` (/data-analysis: `save_to_dashboard` asked to open what it saved), and only once the answer is
   done (`AssistantActivity.answered`: not when the reader stopped it, or it failed), since the assistant is part of the page
   it would leave. Leaving a page that holds a chat stops

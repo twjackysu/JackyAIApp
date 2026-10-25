@@ -1,8 +1,11 @@
 import { selectedTextOf } from './selectionActions';
 
-/** Studio AI's own drawer: what its answers say can be asked about too, in the same conversation. */
-export const STUDIO_DRAWER = '[data-studio-drawer]';
-/** Text that is never asked about: a box the reader types in (Studio AI's own included). */
+/**
+ * An assistant's own conversation (Studio AI's drawer, an app's assistant on its page): what its answers say can be
+ * asked about too, in the same conversation.
+ */
+export const ASSISTANT_ANSWERS = '[data-ai-assistant]';
+/** Text that is never asked about: a box the reader types in (an assistant's own included). */
 const NEVER =
   'input, textarea, [contenteditable=""], [contenteditable="true"], [data-no-selection-ask]';
 /**
@@ -11,7 +14,7 @@ const NEVER =
  */
 export const noSelectionAsk = (on = true): { 'data-no-selection-ask'?: '' } =>
   on ? { 'data-no-selection-ask': '' } : {};
-/** Outside Studio AI's drawer, what is not the page's text: a dialog, a drawer, a menu over the page. */
+/** Outside an assistant's conversation, what is not the page's text: a dialog, a drawer, a menu over the page. */
 const NOT_PAGE_TEXT = '[role="dialog"], .MuiModal-root, .MuiDrawer-root';
 
 /** How long the selection must stay put before the bar shows (a drag still selecting is not asked about). */
@@ -26,14 +29,14 @@ export interface Selected {
   left: number;
   top: number;
   below: boolean;
-  /** In one of Studio AI's answers, not on the page under it. */
-  inStudio: boolean;
+  /** In one of the assistant's answers, not on the page around it. */
+  inAssistant: boolean;
 }
 
 const elementOf = (node: Node | null): Element | null =>
   node ? (node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement) : null;
 
-/** The text the reader has selected now — on the page, or in Studio AI's answers — and where it is, or null. */
+/** The text the reader has selected now — on the page, or in an assistant's answers — and where it is, or null. */
 export function readSelection(): Selected | null {
   const selection = window.getSelection?.();
   if (!selection || selection.isCollapsed || selection.rangeCount === 0) return null;
@@ -42,10 +45,10 @@ export function readSelection(): Selected | null {
     elementOf,
   );
   if (elements.some((element) => !element || element.closest(NEVER))) return null;
-  const inStudio = elements.map((element) => !!element!.closest(STUDIO_DRAWER));
-  // Both ends in the drawer, or both on the page; on the page, not in something laid over it.
-  if (inStudio.some((v) => v !== inStudio[0])) return null;
-  if (!inStudio[0] && elements.some((element) => element!.closest(NOT_PAGE_TEXT))) return null;
+  const inAssistant = elements.map((element) => !!element!.closest(ASSISTANT_ANSWERS));
+  // Both ends in the assistant, or both on the page; on the page, not in something laid over it.
+  if (inAssistant.some((v) => v !== inAssistant[0])) return null;
+  if (!inAssistant[0] && elements.some((element) => element!.closest(NOT_PAGE_TEXT))) return null;
   const text = selectedTextOf(selection.toString());
   if (!text || typeof range.getBoundingClientRect !== 'function') return null;
   const rect = range.getBoundingClientRect();
@@ -68,6 +71,6 @@ export function readSelection(): Selected | null {
     left,
     top: Math.max(top, 8),
     below,
-    inStudio: inStudio[0],
+    inAssistant: inAssistant[0],
   };
 }

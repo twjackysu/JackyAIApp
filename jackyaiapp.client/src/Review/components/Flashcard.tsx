@@ -13,8 +13,8 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
 import { ReviewWordItem } from '@/apis/reviewApis/types';
+import { noSelectionAsk } from '@/components/aiChat/selection/readSelection';
 import { ActionTooltip } from '@/components/hints';
-import { noSelectionAsk } from '@/components/StudioAssistant/readSelection';
 import { playBrowserTts, playVoiceTube } from '@/Dictionary/utils/audio';
 
 interface FlashcardProps {

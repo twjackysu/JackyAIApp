@@ -4,10 +4,11 @@ import { MemoryRouter, useLocation, useNavigate, type NavigateFunction } from 'r
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { askStudio } from './askStudio';
-import { SELECTION_SETTLE_MS } from './readSelection';
 import { isStudioShortcut } from './studioChat';
 
 import StudioAssistant from '.';
+
+import { SELECTION_SETTLE_MS } from '@/components/aiChat/selection/readSelection';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

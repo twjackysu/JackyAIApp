@@ -1,5 +1,6 @@
 /**
- * Asking Studio AI about what the reader selected on a page (docs/ai-native DECISIONS D-086): select a
+ * Asking the page's assistant (Studio AI, or an app's own) about what the reader selected (docs/ai-native
+ * DECISIONS D-086, D-089): select a
  * sentence of an example, a paragraph of an analysis, a word in a passage, and a small bar over it offers
  * to explain it, translate it, or ask about it — or, for one English word, to open its dictionary page
  * (no AI) or add it to the repository (the AI's `add_word_to_repository`, which asks first). What is sent
@@ -48,14 +49,26 @@ export function isMostlyEnglish(text: string): boolean {
   return latin > cjk * 3;
 }
 
-/** What the bar offers for `text` (already `selectedTextOf`), in order. */
-export function selectionActionsFor(text: string): SelectionAction[] {
+/**
+ * What the bar offers for `text` (already `selectedTextOf`), in order. An assistant that cannot add a word to the
+ * repository (`canSaveWord: false`, an app's own) explains a word instead: on /finance "ETF" is a term to explain.
+ */
+export function selectionActionsFor(
+  text: string,
+  { canSaveWord = true }: { canSaveWord?: boolean } = {},
+): SelectionAction[] {
   if (selectedWordOf(text)) {
-    return [
-      { kind: 'dictionary', label: '查字典' },
-      { kind: 'save-word', label: '加入單字庫' },
-      { kind: 'ask', label: '問 AI' },
-    ];
+    return canSaveWord
+      ? [
+          { kind: 'dictionary', label: '查字典' },
+          { kind: 'save-word', label: '加入單字庫' },
+          { kind: 'ask', label: '問 AI' },
+        ]
+      : [
+          { kind: 'explain', label: '解釋' },
+          { kind: 'dictionary', label: '查字典' },
+          { kind: 'ask', label: '問 AI' },
+        ];
   }
   return [
     { kind: 'explain', label: '解釋' },
@@ -93,3 +106,34 @@ export function dictionaryPathOf(text: string): string | undefined {
   const word = selectedWordOf(text);
   return word ? `/english/dictionary/${encodeURIComponent(word)}` : undefined;
 }
+
+/**
+ * What pressing an action does, the same for every assistant (D-086, D-089): one English word's dictionary page is
+ * a page to go to (no AI); 問 AI puts the text in the box after what was typed, for the reader to finish; the rest
+ * are sent at once. Text from the page goes as a new conversation (it stands on its own) and counts as outside text
+ * (`quotesPageText`: it may be someone else's words, so the conversation's writes ask first); text from one of the
+ * assistant's own answers continues the conversation it belongs to. Null when there is nothing to do.
+ */
+export type SelectionStep =
+  | { do: 'go'; path: string }
+  | { do: 'draft'; text: string; quotesPageText: boolean }
+  | { do: 'send'; text: string; fromPage: boolean };
+
+export function selectionStepOf(
+  kind: SelectionActionKind,
+  text: string,
+  inAssistant: boolean,
+): SelectionStep | null {
+  if (kind === 'dictionary') {
+    const path = dictionaryPathOf(text);
+    return path ? { do: 'go', path } : null;
+  }
+  if (kind === 'ask') {
+    return { do: 'draft', text: selectionMessage('ask', text), quotesPageText: !inAssistant };
+  }
+  return { do: 'send', text: selectionMessage(kind, text), fromPage: !inAssistant };
+}
+
+/** The box after 問 AI: what was typed, then the selection's opening, never in place of it. */
+export const draftWithSelection = (typed: string, opening: string): string =>
+  [typed.trimEnd(), opening].filter(Boolean).join('\n');

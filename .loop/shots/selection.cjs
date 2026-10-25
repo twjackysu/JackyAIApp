@@ -1,5 +1,7 @@
-// 選取文字問 Studio AI 的截圖（第 17 輪；迴圈專用，合併前與 .loop/ 一起刪）：字典頁選例句 → 翻成中文；Studio 短文裡選一個字。
+// 選取文字問 AI 的截圖（第 17、18 輪；迴圈專用，合併前與 .loop/ 一起刪）：字典頁選例句 → 翻成中文；Studio 短文裡選一個字；
+// /finance 助理的回答裡選一段 → 問 /finance 自己的助理（第 18 輪）。
 // 用法：cd jackyaiapp.client && npm run build && NODE_PATH=$(npm root -g) node ../.loop/shots/selection.cjs <輸出目錄>（前半段與 chat.cjs 相同）
+// 只拍一個情境：ONLY=A|B|C。
 // chat 的串流由頁面內的 fetch 替身送出（addInitScript），可以停在確認卡上不結束，所以拍得到「等待確認」的畫面。
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -324,10 +326,12 @@ async function selectIn(page, locator, text, last = false) {
   }, [text, last]);
   await page.waitForTimeout(700);
 }
+const only = (k) => !process.env.ONLY || process.env.ONLY === k;
 (async () => {
   const out = process.argv[2];
   const browser = await chromium.launch();
   for (const [name, viewport] of [['desktop', { width: 1280, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
+    if (only('A')) {
     // A：字典頁選取例句 → 「解釋／翻成中文／問 AI」→ 按翻成中文 → Studio 打開、新對話、翻譯＋值得學的字
     let page = await open(browser, viewport, translate);
     await page.route('**/api/dictionary/resilient', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ data: word }) }));
@@ -340,6 +344,8 @@ async function selectIn(page, locator, text, last = false) {
     await page.waitForTimeout(3000);
     await page.screenshot({ path: `${out}/select-translate-${name}.png` });
     await page.close();
+    }
+    if (only('B')) {
     // B：Studio 寫的短文裡選一個字 → 「查字典／加入單字庫／問 AI」
     page = await open(browser, viewport, studioWriting);
     await page.goto('http://localhost:5173/english/repository');
@@ -348,9 +354,29 @@ async function selectIn(page, locator, text, last = false) {
     await page.waitForTimeout(800);
     await ask(page, '用我單字庫裡最近存的字寫一段短文');
     await page.waitForTimeout(1500);
-    await selectIn(page, page.locator('[data-studio-drawer]'), 'ephemeral', true);
+    await selectIn(page, page.locator('[data-ai-assistant]'), 'ephemeral', true);
     await page.screenshot({ path: `${out}/select-word-studio-${name}.png` });
     await page.close();
+    }
+    if (only('C')) {
+      // C：/finance 助理的回答裡選「多頭排列」→ 工具列（解釋／翻成英文／問 AI，沒有加入單字庫）→ 解釋，接在同一段對話
+      const page = await open(browser, viewport, financeTrend);
+      await page.goto('http://localhost:5173/finance');
+      await page.waitForTimeout(2500);
+      await page.locator('input[aria-label="AI 助手"]').click();
+      await page.waitForTimeout(1200);
+      const input = page.locator('[data-ai-assistant] textarea').first();
+      await input.fill('台積電最近一個月的走勢怎麼樣？');
+      await input.press('Enter');
+      await page.waitForTimeout(2500);
+      await page.waitForTimeout(1500);
+      await selectIn(page, page.locator('[data-ai-assistant]'), '多頭排列', true);
+      await page.screenshot({ path: `${out}/select-finance-${name}.png` });
+      await page.getByRole('toolbar').getByText('解釋').click();
+      await page.waitForTimeout(3500);
+      await page.screenshot({ path: `${out}/select-finance-explain-${name}.png` });
+      await page.close();
+    }
   }
   await browser.close();
 })();

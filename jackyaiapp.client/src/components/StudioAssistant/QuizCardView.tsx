@@ -7,11 +7,11 @@ import { useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 
 import { parseQuizCard, qualityOf, quizSummary, type QuizCardData } from './quizCard';
-import { noSelectionAsk } from './readSelection';
 
 import type { CustomCard } from '@/components/aiChat/cards/toolCard';
 
 import { useSubmitReviewsMutation } from '@/apis/reviewApis';
+import { noSelectionAsk } from '@/components/aiChat/selection/readSelection';
 import { ACCENT, hairline } from '@/components/aiChat/style';
 
 const LETTERS = 'ABCDEF';

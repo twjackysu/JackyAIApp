@@ -13,19 +13,25 @@ import {
 import { ACCENT, ACCENT_GRADIENT, accentWash, hairline } from '@/components/aiChat/style';
 
 /**
- * The bar over what the reader selected on a page or in Studio AI's answers (`selectionActions`): explain,
- * translate or ask about it,
- * or for one English word open its dictionary page or add it to the repository. Shown once the selection
+ * The bar over what the reader selected on a page or in its assistant's answers (`selectionActions`): explain,
+ * translate or ask about it, or for one English word open its dictionary page or (Studio AI, which has the tool)
+ * add it to the repository. Shown once the selection
  * settles, gone when it is cleared, the page scrolls, or Escape; pressing an action keeps the selection
  * until it has been handed over, then clears it.
  */
 export default function SelectionBar({
   enabled,
   onAction,
+  assistantName = 'Studio AI',
+  canSaveWord = true,
 }: {
   enabled: boolean;
-  /** `inStudio`: selected in one of Studio AI's answers rather than on the page. */
-  onAction: (kind: SelectionActionKind, text: string, inStudio: boolean) => void;
+  /** Who the bar hands the text to, for its label. */
+  assistantName?: string;
+  /** The assistant can add a word to the repository (Studio AI's `add_word_to_repository`). */
+  canSaveWord?: boolean;
+  /** `inAssistant`: selected in one of the assistant's answers rather than on the page. */
+  onAction: (kind: SelectionActionKind, text: string, inAssistant: boolean) => void;
 }) {
   const theme = useTheme();
   const [selected, setSelected] = useState<Selected | null>(null);
@@ -49,7 +55,7 @@ export default function SelectionBar({
       setSelected(null);
       timer = setTimeout(() => setSelected(readSelection()), SELECTION_SETTLE_MS);
     };
-    // Scrolling (the page, or Studio AI's answer growing under the selection) moves the bar with it.
+    // Scrolling (the page, or the assistant's answer growing under the selection) moves the bar with it.
     const follow = () => {
       if (!pressing.current && shownRef.current) setSelected(readSelection());
     };
@@ -83,7 +89,7 @@ export default function SelectionBar({
   const pick = useCallback(
     (action: SelectionAction) => {
       if (!selected) return;
-      onAction(action.kind, selected.text, selected.inStudio);
+      onAction(action.kind, selected.text, selected.inAssistant);
       pressing.current = false;
       setSelected(null);
       window.getSelection?.()?.removeAllRanges();
@@ -92,11 +98,11 @@ export default function SelectionBar({
   );
 
   if (!enabled || !selected) return null;
-  const actions = selectionActionsFor(selected.text);
+  const actions = selectionActionsFor(selected.text, { canSaveWord });
   return (
     <Paper
       role="toolbar"
-      aria-label="用 Studio AI 處理選取的文字"
+      aria-label={`用 ${assistantName} 處理選取的文字`}
       data-testid="selection-bar"
       elevation={6}
       // A press must not move the focus or clear the selection before it is read.

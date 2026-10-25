@@ -11,8 +11,6 @@ import { ASK_STUDIO_EVENT, askedOf, type AskStudioDetail } from './askStudio';
 import QuickActions from './QuickActions';
 import { quickActionsFor, type QuickAction } from './quickActions';
 import { refreshAfterTool } from './refreshAfterTool';
-import { dictionaryPathOf, selectionMessage, type SelectionActionKind } from './selectionActions';
-import SelectionBar from './SelectionBar';
 import { isStudioShortcut, studioChatConfig, studioShownOn } from './studioChat';
 
 import type { AssistantActivity } from '@/components/aiChat';
@@ -20,6 +18,12 @@ import type { AssistantActivity } from '@/components/aiChat';
 import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { useLazyGetDashboardsQuery } from '@/apis/dashboardApis';
 import { AiChatConfigContext } from '@/components/aiChat/config';
+import {
+  draftWithSelection,
+  selectionStepOf,
+  type SelectionActionKind,
+} from '@/components/aiChat/selection/selectionActions';
+import SelectionBar from '@/components/aiChat/selection/SelectionBar';
 import { ACCENT_GRADIENT } from '@/components/aiChat/style';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { ActionTooltip } from '@/components/hints';
@@ -130,36 +134,33 @@ export default function StudioAssistant() {
     setOpen(false);
   }, []);
 
-  // What the reader selected (SelectionBar). On the page, explaining, translating or saving it is sent at once
-  // in a conversation of its own (it stands on its own, D-086); in one of Studio AI's answers (a word of the
-  // passage it wrote), in the conversation on screen, which it belongs to. Asking about it puts it in the box
-  // for the reader to finish. One English word's dictionary page is a quick action, no AI; from the drawer
-  // the page changes under it, which on a phone (where the drawer is the whole screen) then closes.
+  // What the reader selected (SelectionBar, `selectionStepOf`). On the page, explaining, translating or saving it is
+  // sent at once in a conversation of its own (D-086); in one of Studio AI's answers (a word of the passage it wrote),
+  // in the conversation on screen. Asking about it puts it in the box for the reader to finish. One English word's
+  // dictionary page is a quick action, no AI; from the drawer the page changes under it, which on a phone (where the
+  // drawer is the whole screen) then closes.
   const onSelection = useCallback(
-    (kind: SelectionActionKind, text: string, inStudio: boolean) => {
-      if (kind === 'dictionary') {
-        const path = dictionaryPathOf(text);
-        if (!path) return;
-        navigate(path);
-        if (inStudio && fullScreen) setOpen(false);
+    (kind: SelectionActionKind, text: string, inAssistant: boolean) => {
+      const step = selectionStepOf(kind, text, inAssistant);
+      if (!step) return;
+      if (step.do === 'go') {
+        navigate(step.path);
+        if (inAssistant && fullScreen) setOpen(false);
         return;
       }
       setOpened(true);
       setOpen(true);
-      if (kind === 'ask') {
-        // After what the reader had typed, never in place of it.
-        setDraft((typed) =>
-          [typed.trimEnd(), selectionMessage('ask', text)].filter(Boolean).join('\n'),
-        );
-        if (!inStudio) setDraftQuotesPage(true);
+      if (step.do === 'draft') {
+        setDraft((typed) => draftWithSelection(typed, step.text));
+        if (step.quotesPageText) setDraftQuotesPage(true);
         return;
       }
       askId.current += 1;
       setAsk({
         id: askId.current,
-        text: selectionMessage(kind, text),
+        text: step.text,
         // Page text may be someone else's words: the server counts it as outside text (writes ask first).
-        ...(!inStudio && { fresh: true, quotesPageText: true }),
+        ...(step.fromPage && { fresh: true, quotesPageText: true }),
       });
     },
     [navigate, fullScreen],
@@ -233,7 +234,7 @@ export default function StudioAssistant() {
         slotProps={{ paper: { sx: { width: { xs: '100%', sm: 480 }, maxWidth: '100%' } } }}
       >
         {opened && (
-          <Box data-studio-drawer sx={{ height: '100%' }}>
+          <Box data-ai-assistant sx={{ height: '100%' }}>
             <Suspense fallback={<CenteredSpinner />}>
               <AiAssistantPanel
                 variant="sheet"

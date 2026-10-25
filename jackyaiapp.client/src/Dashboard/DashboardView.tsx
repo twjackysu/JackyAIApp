@@ -34,9 +34,9 @@ import {
   useRenameDashboardMutation,
   useUpdateLayoutMutation,
 } from '@/apis/dashboardApis';
+import { noSelectionAsk } from '@/components/aiChat/selection/readSelection';
 import { DataAnalysisNav } from '@/components/DataAnalysisNav';
 import { askStudio, READ_DASHBOARD_PROMPT } from '@/components/StudioAssistant/askStudio';
-import { noSelectionAsk } from '@/components/StudioAssistant/readSelection';
 import { dataAnalysisTheme } from '@/DataAnalysis/theme';
 import { GRID_COLS, GRID_ROW_HEIGHT } from '@/DataAnalysis/viz/ResizableWidget';
 

@@ -1,8 +1,15 @@
 import Box from '@mui/material/Box';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { CompactChatBar } from './components/CompactChatBar';
 import { AiChatConfig, AiChatConfigContext } from './config';
+import {
+  draftWithSelection,
+  selectionStepOf,
+  type SelectionActionKind,
+} from './selection/selectionActions';
+import SelectionBar from './selection/SelectionBar';
 
 import type { AssistantActivity } from '.';
 
@@ -30,7 +37,9 @@ interface AiAssistantLauncherProps {
  * An app's AI assistant on its page (Finance's first): a one-line box, no bigger than a search box,
  * until the visitor puts the cursor in it — then the whole conversation (history column, messages,
  * input) opens in its place. Folding it back keeps the conversation, and a reply still being
- * written carries on.
+ * written carries on. Selecting text on the page (an analysis, a digest) or in its answers asks this assistant
+ * about it, as Studio AI is asked elsewhere (`SelectionBar`, D-089); it has no tool to add a word to the
+ * repository, so a word is explained instead.
  */
 export function AiAssistantLauncher({
   config,
@@ -42,6 +51,19 @@ export function AiAssistantLauncher({
   // Mounted on first open and kept: the conversation lives in the panel.
   const [opened, setOpened] = useState(false);
   const [draft, setDraft] = useState('');
+  // The box holds text selected on the page (問 AI on a selection) until it is emptied: what is sent from it is
+  // page text, possibly someone else's words (D-087).
+  const [draftQuotesPage, setDraftQuotesPage] = useState(false);
+  const changeDraft = useCallback((value: string) => {
+    setDraft(value);
+    if (!value.trim()) setDraftQuotesPage(false);
+  }, []);
+  // A selection's message to send (explain, translate), kept until the panel has sent it.
+  const [ask, setAsk] = useState<
+    { id: number; text: string; fresh?: boolean; quotesPageText?: boolean } | undefined
+  >();
+  const askId = useRef(0);
+  const askSent = useCallback(() => setAsk(undefined), []);
   const [activity, setActivity] = useState<AssistantActivity>(IDLE);
 
   useEffect(() => {
@@ -54,6 +76,34 @@ export function AiAssistantLauncher({
     setExpanded(true);
   }, [isAuthenticated]);
   const collapse = useCallback(() => setExpanded(false), []);
+
+  // What the reader selected (`selectionStepOf`): a word's dictionary page is a page to go to (leaving this one,
+  // as any link would); the rest opens the conversation, from the page as a new one with `quotesPageText`.
+  const navigate = useNavigate();
+  const onSelection = useCallback(
+    (kind: SelectionActionKind, text: string, inAssistant: boolean) => {
+      const step = selectionStepOf(kind, text, inAssistant);
+      if (!step || !isAuthenticated) return;
+      if (step.do === 'go') {
+        navigate(step.path);
+        return;
+      }
+      setOpened(true);
+      setExpanded(true);
+      if (step.do === 'draft') {
+        setDraft((typed) => draftWithSelection(typed, step.text));
+        if (step.quotesPageText) setDraftQuotesPage(true);
+        return;
+      }
+      askId.current += 1;
+      setAsk({
+        id: askId.current,
+        text: step.text,
+        ...(step.fromPage && { fresh: true, quotesPageText: true }),
+      });
+    },
+    [isAuthenticated, navigate],
+  );
 
   // Where an answer asked to go, kept until that answer is done (the last one asked wins).
   const goAfterAnswer = useRef<string | undefined>(undefined);
@@ -75,7 +125,7 @@ export function AiAssistantLauncher({
   const bar = (
     <CompactChatBar
       value={draft}
-      onChange={setDraft}
+      onChange={changeDraft}
       onActivate={open}
       state={isAuthLoading ? 'loading' : isAuthenticated ? 'ready' : 'signedOut'}
       busy={activity.busy}
@@ -85,17 +135,27 @@ export function AiAssistantLauncher({
 
   return (
     <AiChatConfigContext value={config}>
+      <SelectionBar
+        enabled={isAuthenticated}
+        assistantName={config.title ?? 'AI 助手'}
+        canSaveWord={false}
+        onAction={onSelection}
+      />
       {/* More room below than between the market sections, which are one thing among themselves. */}
       <Box sx={{ mb: { xs: 3, sm: 4 } }}>
         {!expanded && bar}
         {opened && (
-          <Box sx={{ display: expanded ? 'block' : 'none' }}>
+          // Its answers are the assistant's own: a selection there continues the conversation.
+          <Box data-ai-assistant sx={{ display: expanded ? 'block' : 'none' }}>
             {/* Until the chunk arrives (normally already fetched), the box stays where it was. */}
             <Suspense fallback={bar}>
               <AiAssistantPanel
                 active={expanded}
                 inputValue={draft}
-                onInputChange={setDraft}
+                onInputChange={changeDraft}
+                inputQuotesPageText={draftQuotesPage}
+                ask={ask}
+                onAskSent={askSent}
                 onCollapse={collapse}
                 onActivityChange={onActivity}
                 onNavigate={onNavigate ? holdNavigation : undefined}

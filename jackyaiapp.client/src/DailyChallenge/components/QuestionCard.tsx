@@ -10,7 +10,7 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 
 import { DailyChallengeQuestion } from '@/apis/dailyChallengeApis/types';
-import { noSelectionAsk } from '@/components/StudioAssistant/readSelection';
+import { noSelectionAsk } from '@/components/aiChat/selection/readSelection';
 
 const TYPE_LABELS: Record<
   string,

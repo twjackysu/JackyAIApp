@@ -1,8 +1,10 @@
 import { act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AiAssistantLauncher } from './AiAssistantLauncher';
+import { SELECTION_SETTLE_MS } from './selection/readSelection';
 
 import type { AssistantActivity } from '.';
 
@@ -17,6 +19,9 @@ interface PanelProps {
   onCollapse: () => void;
   onActivityChange?: (activity: AssistantActivity) => void;
   onNavigate?: (path: string) => void;
+  inputQuotesPageText?: boolean;
+  ask?: { id: number; text: string; fresh?: boolean; quotesPageText?: boolean };
+  onAskSent?: () => void;
 }
 
 // The real panel is tested on its own; here only what the launcher hands it and does with it.
@@ -46,14 +51,25 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  vi.restoreAllMocks();
 });
+
+/** Where the router is (a selected word's dictionary page is a page to go to). */
+function Location() {
+  return <div data-testid="location">{useLocation().pathname}</div>;
+}
 
 async function render(
   auth: { isAuthenticated: boolean; isAuthLoading: boolean },
   onNavigate?: (path: string) => void,
 ) {
   await act(async () =>
-    root.render(<AiAssistantLauncher config={FINANCE_AI_CHAT} {...auth} onNavigate={onNavigate} />),
+    root.render(
+      <MemoryRouter initialEntries={['/finance']}>
+        <AiAssistantLauncher config={FINANCE_AI_CHAT} {...auth} onNavigate={onNavigate} />
+        <Location />
+      </MemoryRouter>,
+    ),
   );
 }
 const signedIn = { isAuthenticated: true, isAuthLoading: false };
@@ -83,6 +99,54 @@ function type(text: string) {
     setValue.call(box(), text);
     box()!.dispatchEvent(new Event('input', { bubbles: true }));
   });
+}
+
+/** jsdom has no layout, so the reader's selection is a stand-in of what the browser gives; then it settles. */
+async function select(text: string, node: Node) {
+  const range = {
+    commonAncestorContainer: node,
+    getBoundingClientRect: () => ({
+      left: 100,
+      top: 200,
+      width: 80,
+      height: 20,
+      right: 180,
+      bottom: 220,
+    }),
+  };
+  vi.spyOn(window, 'getSelection').mockReturnValue({
+    isCollapsed: false,
+    rangeCount: 1,
+    anchorNode: node,
+    focusNode: node,
+    getRangeAt: () => range,
+    toString: () => text,
+    removeAllRanges: () => {},
+  } as unknown as Selection);
+  await act(async () => {
+    document.dispatchEvent(new Event('selectionchange'));
+    await new Promise((resolve) => setTimeout(resolve, SELECTION_SETTLE_MS + 20));
+  });
+}
+
+/** Text on the page around the assistant (an analysis, a digest). */
+function pageText(text: string) {
+  const p = document.createElement('p');
+  p.textContent = text;
+  container.appendChild(p);
+  return p.firstChild!;
+}
+
+const barButtons = () => [
+  ...document.querySelectorAll<HTMLButtonElement>('[data-testid="selection-bar"] button'),
+];
+async function pressBar(label: string) {
+  await act(async () =>
+    barButtons()
+      .find((b) => b.textContent === label)!
+      .click(),
+  );
+  await settle();
 }
 
 describe('AiAssistantLauncher', () => {
@@ -223,5 +287,70 @@ describe('AiAssistantLauncher', () => {
     await focusBox();
 
     expect(panel.props!.onNavigate).toBeUndefined();
+  });
+  describe('selecting text on the page asks this assistant', () => {
+    it('explains a passage of the page in a new conversation, as page text', async () => {
+      await render(signedIn);
+      await select('外資連續五日賣超', pageText('今天外資連續五日賣超，指數收黑。'));
+
+      expect(
+        document.querySelector('[data-testid="selection-bar"]')!.getAttribute('aria-label'),
+      ).toBe('用 AI 助手 處理選取的文字');
+      expect(barButtons().map((b) => b.textContent)).toEqual(['解釋', '翻成英文', '問 AI']);
+      await pressBar('解釋');
+
+      expect(panelShown()).toBe(true);
+      expect(panel.props!.ask).toMatchObject({
+        text: expect.stringContaining('「外資連續五日賣超」'),
+        fresh: true,
+        quotesPageText: true,
+      });
+      await act(async () => panel.props!.onAskSent!());
+      expect(panel.props!.ask).toBeUndefined();
+    });
+
+    it('explains a word rather than offering to save it (it has no repository tool), or opens its dictionary page', async () => {
+      await render(signedIn);
+      await select('ETF', pageText('ETF'));
+      expect(barButtons().map((b) => b.textContent)).toEqual(['解釋', '查字典', '問 AI']);
+
+      await pressBar('查字典');
+      expect(container.querySelector('[data-testid="location"]')!.textContent).toBe(
+        '/english/dictionary/etf',
+      );
+      expect(panelEl()).toBeNull();
+    });
+
+    it('puts 問 AI after what was typed, sent as page text until the box is emptied', async () => {
+      await render(signedIn);
+      type('2330');
+      await select('本益比偏高', pageText('本益比偏高'));
+      await pressBar('問 AI');
+
+      expect(panel.props!.inputValue).toBe('2330\n關於「本益比偏高」，');
+      expect(panel.props!.inputQuotesPageText).toBe(true);
+      await act(async () => panel.props!.onInputChange(''));
+      expect(panel.props!.inputQuotesPageText).toBe(false);
+    });
+
+    it("continues the conversation for a selection in the assistant's own answer", async () => {
+      await render(signedIn);
+      await focusBox();
+      const answer = document.createElement('p');
+      answer.textContent = 'The yield curve inverted.';
+      container.querySelector('[data-ai-assistant]')!.appendChild(answer);
+      await select('The yield curve inverted.', answer.firstChild!);
+      await pressBar('翻成中文');
+
+      expect(panel.props!.ask!.text).toContain('「The yield curve inverted.」');
+      expect(panel.props!.ask!.fresh).toBeUndefined();
+      expect(panel.props!.ask!.quotesPageText).toBeUndefined();
+    });
+
+    it('offers nothing to a signed-out visitor', async () => {
+      await render({ isAuthenticated: false, isAuthLoading: false });
+      await select('外資連續五日賣超', pageText('外資連續五日賣超'));
+      expect(document.querySelector('[data-testid="selection-bar"]')).toBeNull();
+    });
   });
 });
