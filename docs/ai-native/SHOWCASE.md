@@ -16,7 +16,7 @@
 | **「帶我去複習」→ 頁面真的切過去**，對話留在旁邊說明到了之後怎麼做；每個回答下方有 2–3 個 **「接著問」** 一鍵續問 | `open_page` 的 `go` → `tool_result.navigate`（只限本站工具、站內路徑、沒讀過外部內容）；接著問依回答用到的工具決定（不花 token） | AI 不只回答，還會操作網站本身 |
 | **「考我今天該複習的單字」→ 回答裡直接出現可以作答的測驗卡**：一次一題、按下立刻顯示對錯與解說，答完自動記進 SM-2 複習排程（+XP） | `review_quiz`（每日挑戰的題型產生器，不花 AI）→ `quiz` 卡片 → 前端呼叫既有的 `review/submit`；模型被告知考哪些字但不准說出答案 | Generative UI 不只顯示結果，還能「互動」：對話裡長出一個小 app |
 | 單字庫頁「用我單字庫裡最近存的字寫一段短文」→ AI 讀你最近存的 5 個字，寫一段把它們**粗體標出**的英文短文＋中文翻譯，按「朗讀」聽它念 | `saved_words`（最近存的字與一個中文意思、總字數；不花 AI 的讀取）＋模型的寫作 | 個人化的 AI 學習：教材是你自己的字 |
-| **選一段字就能問**：在任何頁面選取一句例句、一段分析 → 選取處上方出現「解釋／翻成中文／問 AI」；選一個英文單字是「查字典／加入單字庫」——在 Studio 自己寫的短文裡選一個不認識的字，一鍵加入單字庫 | `SelectionBar`（前端，選取停 250ms 才出現）；頁面上的文字可能是別人寫的，所以請求帶 `quotesPageText`，伺服器把對話標成讀過外部文字，寫入一律先問 | AI 不在旁邊的框裡等你，而是出現在你正在讀的地方（Notion、Arc、Apple Intelligence 式的 inline AI） |
+| **選一段字就能問**：在任何頁面選取一句例句、一段分析 → 選取處上方出現「解釋／翻成中文／問 AI」；選一個英文單字是「查字典／加入單字庫」——在 Studio 自己寫的短文裡選一個不認識的字，一鍵加入單字庫。/finance 與 /data-analysis 也一樣，問的是那一頁自己的助理（選「多頭排列」→ 解釋）；作答中的考題不給（不會一選就洩漏答案） | `aiChat/selection`（`SelectionBar`、`selectionStepOf`，Studio 與各 app 的助理共用；選取停 250ms 才出現；`noSelectionAsk` 標出作答中的題目）；頁面上的文字可能是別人寫的，所以請求帶 `quotesPageText`，伺服器把對話標成讀過外部文字，寫入一律先問 | AI 不在旁邊的框裡等你，而是出現在你正在讀的地方（Notion、Arc、Apple Intelligence 式的 inline AI） |
 | 「查 serendipity，加入我的單字庫」→ 單字卡 → **確認卡** → 加入 | `look_up_word`（讀）、`add_word_to_repository`（寫，先確認） | Agent 會動手，所以 human-in-the-loop |
 | 「我的投資組合現在怎麼樣？」→ **持倉表格卡片** + 重點分析 | `portfolio_summary`，照 /portfolio 的估值 | 結果是 UI，不是一坨文字（generative UI） |
 | 「我今天加碼 0050 兩張，均價 185，幫我記下來」（或**貼一張券商成交回報的截圖**）→ **確認卡**「『0050』加 2,000（成交價 185）（存成今天的快照）」→ 允許 → 投資組合更新 | `update_holding`（寫入，先確認）：最新快照改那一筆、存成今天的快照，成本照平均成本法（買進加上付出的錢、賣出保留平均成本）；買進沒說價格就先問、對到兩筆就不猜 | 跨 app 的「用說的記帳」：AI 不只讀你的資料，也幫你維護它 |
@@ -53,7 +53,7 @@
    ![答完：答對幾題、記進複習排程與 XP](screenshots/studio-quiz-result-phone.png)
    到 /english/repository → ⌘K → 第一個建議「用我單字庫裡最近存的字寫一段短文」→ 「我的單字庫」卡片（共 86 個字）＋一段用到 5 個字的英文短文（粗體）與中文翻譯 → 按回答下方的 **朗讀**（喇叭圖示），英文用英文聲音、翻譯用中文聲音念；下方「換個主題再寫一段」「考我幾題」。
    ![用自己的單字寫短文](screenshots/studio-writing-desktop.png)
-   **選取就能問**：在短文裡把不認識的「ephemeral」選起來 → 上方出現「查字典／加入單字庫／問 AI」→ 按「加入單字庫」→ 同一個對話裡出現確認卡。再到字典頁，選一句例句 → 「解釋／翻成中文／問 AI」→ 按「翻成中文」→ Studio 開新對話，翻譯＋值得學的字詞表。
+   **選取就能問**：在短文裡把不認識的「ephemeral」選起來 → 上方出現「查字典／加入單字庫／問 AI」→ 按「加入單字庫」→ 同一個對話裡出現確認卡。再到字典頁，選一句例句 → 「解釋／翻成中文／問 AI」→ 按「翻成中文」→ Studio 開新對話，翻譯＋值得學的字詞表。到 /finance 問助理台積電的走勢，在回答裡選「多頭排列」→ 工具列換成 /finance 助理的「解釋／翻成英文／問 AI」→ 按「解釋」，接在同一段對話（截圖 `select-finance-*`）。
    ![在 Studio 的短文裡選一個字](screenshots/select-word-studio-desktop.png)
    ![字典頁選一句例句](screenshots/select-sentence-desktop.png)
    ![翻成中文與值得學的字詞](screenshots/select-translate-desktop.png)
@@ -181,5 +181,6 @@ flowchart LR
 | 10/25 | 15 | Studio AI 讀你的單字庫（`saved_words`），用你自己的字寫短文；回答的「朗讀」（英中分聲音）；今日簡報有到期的字時問要不要考幾題；審查修正 |
 | 10/25 | 16 | **用說的（或貼截圖）記一筆交易**（`update_holding`：確認後更新投資組合、成本照平均成本法、幣別不同只收總額）；巡檢 /english/exam、/english/repository 手機版 Studio |
 | 10/25 | 17 | **選取文字問 Studio AI**（解釋、翻譯、問 AI；一個英文單字查字典或加入單字庫，Studio 短文裡的字也能選）；頁面文字當外部文字（`quotesPageText`） |
+| 10/25 | 18 | 選取工具列擴到 /finance 與 /data-analysis 的助理（共用 `aiChat/selection`）；作答中的考題、每日挑戰、閃卡、測驗卡不給選取工具列 |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

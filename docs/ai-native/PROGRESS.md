@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-25 13:42 – 第 18 輪（選取工具列巡檢、擴到 /finance 與 /data-analysis 的助理、審查）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠。clone 是 shallow，先 `git fetch --unshallow`。
+- **巡檢選取工具列**（D-088）：/english/exam 的題目選起來就能「翻成中文」「查字典」＝把答案遞到手上 → 作答中的題目加 `noSelectionAsk`（`ExamRoundShell` 的題目區、每日挑戰 `QuestionCard` 到顯示結果為止、複習 `Flashcard` 到翻面為止、Studio 的 `QuizCardView` 到該題答完為止）；dashboard 編輯版面時的格線也不給。/portfolio 持倉表的輸入框與 Select 選單本來就被排除。
+- **選取也能問 /finance 與 /data-analysis 的助理**（D-089）：選取三件套搬到共用的 `components/aiChat/selection/`，按下去做什麼抽成 `selectionStepOf`（Studio 與 `AiAssistantLauncher` 共用），助理區塊標記改成 `data-ai-assistant`；launcher 的工具列沒有「加入單字庫」，一個英文字給「解釋／查字典／問 AI」。截圖 `select-finance-*`（`.loop/shots/selection.cjs` 的情境 C，`ONLY=C` 只拍它）。
+- **審查**（subagent）：無高風險（taint 沒有繞過、沒有兩條工具列、Studio 行為不變）。兩個中風險已修：拖過被標記的題目（起點終點都在外面）仍會帶出題目文字 → `readSelection` 也檢查 range 是否碰到標記元素；launcher 回答寫到一半按「查字典」會離開頁面中斷回答 → 等回答結束才前往。低風險（history 欄的標題算在助理區塊、快速連按兩次只送最後一個、Studio 抽屜與 launcher 共用標記）記在 NEXT，現況不會發生或影響很小。
+- 驗證：前端 lint、test（136 檔 1467 個）、build 全過；CI 40167126057（noSelectionAsk）綠、40167921815（launcher 選取）綠；審查修正的 CI 見 NEXT §1。
+- 問題：後半段 auto mode 的安全分類器連續 10 次沒有回應，那一段工作被中斷（不是程式的問題）；恢復後補跑測試再 commit。
+
 ## 2026-10-25 11:41 – 第 17 輪（選取文字問 Studio AI、審查）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠。

@@ -347,6 +347,22 @@ describe('AiAssistantLauncher', () => {
       expect(panel.props!.ask!.quotesPageText).toBeUndefined();
     });
 
+    it('opens a dictionary page only once the answer being written is done (leaving would end it)', async () => {
+      await render(signedIn);
+      await focusBox();
+      await act(async () => panel.props!.onActivityChange!({ busy: true, hasConversation: true }));
+      await select('ETF', pageText('ETF'));
+      await pressBar('查字典');
+      expect(container.querySelector('[data-testid="location"]')!.textContent).toBe('/finance');
+
+      await act(async () =>
+        panel.props!.onActivityChange!({ busy: false, hasConversation: true, answered: true }),
+      );
+      expect(container.querySelector('[data-testid="location"]')!.textContent).toBe(
+        '/english/dictionary/etf',
+      );
+    });
+
     it('offers nothing to a signed-out visitor', async () => {
       await render({ isAuthenticated: false, isAuthLoading: false });
       await select('外資連續五日賣超', pageText('外資連續五日賣超'));

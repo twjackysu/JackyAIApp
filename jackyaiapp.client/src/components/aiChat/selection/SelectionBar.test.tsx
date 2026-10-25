@@ -136,6 +136,30 @@ describe('SelectionBar', () => {
     expect(buttons().map((b) => b.textContent)).toContain('查字典');
   });
 
+  it('leaves alone a drag that runs across a marked question from the text around it', () => {
+    page.innerHTML =
+      '<p id="above">Question 1</p><div id="q"><b>happy</b></div><p id="below">Next</p>';
+    const question = document.getElementById('q')!;
+    Object.entries(noSelectionAsk()).forEach(([name, value]) => question.setAttribute(name, value));
+    const range = document.createRange();
+    range.setStart(document.getElementById('above')!.firstChild!, 0);
+    range.setEnd(document.getElementById('below')!.firstChild!, 4);
+    range.getBoundingClientRect = () => new DOMRect(100, 200, 80, 60);
+    const across = {
+      isCollapsed: false,
+      rangeCount: 1,
+      anchorNode: range.startContainer,
+      focusNode: range.endContainer,
+      getRangeAt: () => range,
+      toString: () => 'Question 1 happy Next',
+    } as unknown as Selection;
+    vi.spyOn(window, 'getSelection').mockReturnValue(across);
+    expect(readSelection()).toBeNull();
+
+    question.removeAttribute('data-no-selection-ask');
+    expect(readSelection()).toMatchObject({ text: 'Question 1 happy Next' });
+  });
+
   it('goes when the selection is cleared, or Escape', async () => {
     await renderBar();
     const text = document.getElementById('text')!;

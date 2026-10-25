@@ -80,12 +80,16 @@ export function AiAssistantLauncher({
   // What the reader selected (`selectionStepOf`): a word's dictionary page is a page to go to (leaving this one,
   // as any link would); the rest opens the conversation, from the page as a new one with `quotesPageText`.
   const navigate = useNavigate();
+  const busy = useRef(false);
+  const dictionaryAfterAnswer = useRef<string | undefined>(undefined);
   const onSelection = useCallback(
     (kind: SelectionActionKind, text: string, inAssistant: boolean) => {
       const step = selectionStepOf(kind, text, inAssistant);
       if (!step || !isAuthenticated) return;
       if (step.do === 'go') {
-        navigate(step.path);
+        // Leaving the page ends an answer being written: the dictionary waits until it is done.
+        if (busy.current) dictionaryAfterAnswer.current = step.path;
+        else navigate(step.path);
         return;
       }
       setOpened(true);
@@ -113,13 +117,22 @@ export function AiAssistantLauncher({
   const onActivity = useCallback(
     (next: AssistantActivity) => {
       setActivity(next);
+      busy.current = next.busy;
+      // A word's dictionary page the reader asked for while the answer was written: however the answer ended.
+      const asked = dictionaryAfterAnswer.current;
+      if (!next.busy && asked) {
+        dictionaryAfterAnswer.current = undefined;
+        goAfterAnswer.current = undefined;
+        navigate(asked);
+        return;
+      }
       const path = goAfterAnswer.current;
       if (next.busy || !path) return;
       goAfterAnswer.current = undefined;
       // Stopped, or failed after the tool ran: the reader stays, with the answer's link.
       if (next.answered) onNavigate?.(path);
     },
-    [onNavigate],
+    [onNavigate, navigate],
   );
 
   const bar = (

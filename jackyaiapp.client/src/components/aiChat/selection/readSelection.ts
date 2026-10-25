@@ -6,8 +6,8 @@ import { selectedTextOf } from './selectionActions';
  */
 export const ASSISTANT_ANSWERS = '[data-ai-assistant]';
 /** Text that is never asked about: a box the reader types in (an assistant's own included). */
-const NEVER =
-  'input, textarea, [contenteditable=""], [contenteditable="true"], [data-no-selection-ask]';
+const NO_ASK = '[data-no-selection-ask]';
+const NEVER = `input, textarea, [contenteditable=""], [contenteditable="true"], ${NO_ASK}`;
 /**
  * Spread on an element whose text must not be asked about while `on`: a test's question (translating it, or
  * opening the word's dictionary page, would give the answer away) or a layout being dragged.
@@ -45,6 +45,13 @@ export function readSelection(): Selected | null {
     elementOf,
   );
   if (elements.some((element) => !element || element.closest(NEVER))) return null;
+  // A drag across a marked element (from above a test's question to below it) takes its text too.
+  if (
+    typeof range.intersectsNode === 'function' &&
+    [...document.querySelectorAll(NO_ASK)].some((marked) => range.intersectsNode(marked))
+  ) {
+    return null;
+  }
   const inAssistant = elements.map((element) => !!element!.closest(ASSISTANT_ANSWERS));
   // Both ends in the assistant, or both on the page; on the page, not in something laid over it.
   if (inAssistant.some((v) => v !== inAssistant[0])) return null;
