@@ -7,7 +7,7 @@
 - **朗讀**（D-079）：三個助理的回答下方多「朗讀」（`useSpeechOutput`＋`utils/speechText`：Markdown 變成字、英中分段各用自己的聲音）。
 - **審查**（subagent，D-080）：無高風險；兩個中風險（朗讀的擁有權、長段落）與三個低風險已修。
 - 文件：兩份 CLAUDE.md、D-078～D-080、SHOWCASE（亮點兩列、demo 第 3 步之後、日誌）、PLAN；截圖 `studio-writing-*`、`studio-read-aloud-*`（`.loop/shots/chat.cjs` 加了這個情境）。
-- 驗證：cscheck 只有已知雜訊（`AsNoTracking`）；前端 lint、test（130 檔 1397 個，加上這輪的新測試）、build 全過；CI 40144454772（saved_words，第一次就綠）、40145153097（朗讀）綠、**40145843957（本輪最後一次含程式碼的 push：審查修正）見下一則確認**。
+- 驗證：cscheck 只有已知雜訊（`AsNoTracking`）；前端 lint、test（130 檔 1397 個，加上這輪的新測試）、build 全過；CI 40144454772（saved_words，第一次就綠）、40145153097（朗讀）綠、**40145843957（本輪最後一次含程式碼的 push：審查修正）綠**。
 - 問題：Write 工具把 regex 裡的 `\u3000` 這類跳脫寫成真的字元，被 eslint 的 no-irregular-whitespace 擋下——regex 裡的 Unicode 範圍用 python 寫入或事後 grep 確認。
 
 ## 2026-10-25 05:41 – 第 14 輪（指令列打開 dashboard、頁面建議、複習小測驗、審查）
