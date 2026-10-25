@@ -31,7 +31,10 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
-        dotnet-version: '10.0.x'
+        # Pinned while 10.0.403 (released 2026-10-25) is in the release metadata but not yet downloadable:
+        # '10.0.x' picks it and setup-dotnet fails with "Could not find .NET Core SDK". Back to '10.0.x' once
+        # the CDN has it (docs/ai-native/NEXT.md).
+        dotnet-version: '10.0.402'
 
     - name: Restore dependencies
       run: dotnet restore JackyAIApp.Server/JackyAIApp.Server.csproj
