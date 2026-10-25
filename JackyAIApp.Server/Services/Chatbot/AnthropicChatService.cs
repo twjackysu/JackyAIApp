@@ -145,7 +145,7 @@ namespace JackyAIApp.Server.Services.Chatbot
                 var chosen = await toolPermissions.ChosenAsync(userId, group.Key, ct);
                 foreach (var tool in group)
                 {
-                    var permission = ToolPermissions.For(tool.Descriptor.PermissionName, tool.Descriptor.Effect, chosen);
+                    var permission = ToolPermissions.For(tool.Descriptor, chosen);
                     if (permission == ToolPermission.Disabled) continue;
                     offered.Add(tool);
                     if (ToolPermissions.AsksFirst(permission)) askFirst.Add(tool.Descriptor.Name);

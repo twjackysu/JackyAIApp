@@ -29,6 +29,15 @@ namespace JackyAIApp.Server.Services.Connectors
         public static ToolPermission For(string toolName, ToolEffect effect, IReadOnlyDictionary<string, ToolPermission> chosen) =>
             chosen.TryGetValue(toolName, out var permission) && Allowed(effect, permission) ? permission : Default(effect);
 
+        /// <summary>Whether the reader may choose <paramref name="permission"/> for <paramref name="tool"/>: also never on its own
+        /// for one that <see cref="AiToolDescriptor.AlwaysAsks"/>.</summary>
+        public static bool Allowed(AiToolDescriptor tool, ToolPermission permission) =>
+            Allowed(tool.Effect, permission) && !(tool.AlwaysAsks && permission == ToolPermission.Auto);
+
+        /// <summary><paramref name="tool"/>'s permission, given the reader's choices, under its <see cref="AiToolDescriptor.PermissionName"/>.</summary>
+        public static ToolPermission For(AiToolDescriptor tool, IReadOnlyDictionary<string, ToolPermission> chosen) =>
+            chosen.TryGetValue(tool.PermissionName, out var permission) && Allowed(tool, permission) ? permission : Default(tool.Effect);
+
         /// <summary>Whether a call of a tool with this permission waits for the reader.</summary>
         public static bool AsksFirst(ToolPermission permission) => permission == ToolPermission.Confirm;
 

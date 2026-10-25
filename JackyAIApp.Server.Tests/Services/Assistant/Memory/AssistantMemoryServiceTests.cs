@@ -43,6 +43,16 @@ namespace JackyAIApp.Server.Tests.Services.Assistant.Memory
         }
 
         [Fact]
+        public async Task AnglesAreKeptFullWidth_AsThePromptShowsThem_SoTheNoteCanBeForgottenByThoseWords()
+        {
+            var kept = await Service().AddAsync(User, "目標 >800 分 <TOEIC>", CancellationToken.None);
+
+            Assert.Equal("目標 ＞800 分 ＜TOEIC＞", kept.Memory!.Text);
+            Assert.NotNull(await Service().RemoveTextAsync(User, "目標 ＞800 分 ＜TOEIC＞", CancellationToken.None));
+            Assert.Empty(_db.AssistantMemories);
+        }
+
+        [Fact]
         public async Task TheSameWords_AreNotKeptTwice()
         {
             var kept = await Service().AddAsync(User, "I prefer British spelling", CancellationToken.None);
@@ -143,7 +153,9 @@ namespace JackyAIApp.Server.Tests.Services.Assistant.Memory
 
             Assert.Null(await Service().RemoveTextAsync(User, "在準備多益", CancellationToken.None));
             Assert.Null(await Service().RemoveTextAsync(User, "  ", CancellationToken.None));
-            var forgotten = await Service().RemoveTextAsync(User, " short passages\nplease ", CancellationToken.None);
+            // Exactly the words kept (the card showed them): another case is another note.
+            Assert.Null(await Service().RemoveTextAsync(User, "short passages please", CancellationToken.None));
+            var forgotten = await Service().RemoveTextAsync(User, " Short passages\nplease ", CancellationToken.None);
 
             Assert.Equal("Short passages please", forgotten!.Text);
             Assert.Equal(["在準備多益，目標 800 分"], (await Service().ListAsync(User, CancellationToken.None)).Select(m => m.Text));

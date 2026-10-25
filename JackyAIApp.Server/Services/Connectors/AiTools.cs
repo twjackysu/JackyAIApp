@@ -39,10 +39,12 @@ namespace JackyAIApp.Server.Services.Connectors
     /// <param name="ConnectorName">What the reader calls that connector ("Jira"); null for the site's own.</param>
     /// <param name="OutsideText">A site tool whose results hold words of other people's (a calendar invite's title):
     /// read as an outside connector's are (<see cref="ReadsOutsideText"/>).</param>
+    /// <param name="AlwaysAsks">A site tool that, though it can be undone, never runs on its own and is never offered by the
+    /// site's MCP server: what it writes steers Studio AI in every later conversation (<c>remember</c>, design/08).</param>
     public sealed record AiToolDescriptor(
         string Name, string DisplayName, string Description, JsonElement InputSchema, ToolEffect Effect,
         string Connector = AiToolDescriptor.SiteConnector, string? ConnectorName = null, bool OutsideText = false,
-        string? PermissionKey = null)
+        string? PermissionKey = null, bool AlwaysAsks = false)
     {
         /// <summary>
         /// The name the reader's permission for this tool is kept under: the server's own tool name for a connector's

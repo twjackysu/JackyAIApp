@@ -152,7 +152,7 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
         }
 
         internal static bool Offered(AiToolDescriptor tool, IReadOnlyDictionary<string, ToolPermission> chosen, bool allowWrites) =>
-            ToolPermissions.For(tool.Name, tool.Effect, chosen) != ToolPermission.Disabled && tool.Effect switch
+            !tool.AlwaysAsks && ToolPermissions.For(tool, chosen) != ToolPermission.Disabled && tool.Effect switch
             {
                 ToolEffect.Read => true,
                 ToolEffect.Write => allowWrites,

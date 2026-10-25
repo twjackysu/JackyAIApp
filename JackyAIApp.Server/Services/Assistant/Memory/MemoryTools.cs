@@ -41,7 +41,9 @@ namespace JackyAIApp.Server.Services.Assistant.Memory
             "把一則關於使用者的事實或偏好記下來（例如「在準備多益，目標 800 分」「短文用商務情境」），之後的每個對話都會看到。" +
             "只在使用者要你記住、或說了「以後都…」時使用；用他的話寫成一句簡短的第三人稱筆記，一次一則；執行前會請使用者確認。",
             MemoryInput.Schema("要記住的一句話（200 字以內）"),
-            ToolEffect.Write);
+            ToolEffect.Write,
+            // A note is in every later prompt, so it is always put to the reader, and never kept by another AI (D-101).
+            AlwaysAsks: true);
 
         public AiToolDescriptor Descriptor => Definition;
 

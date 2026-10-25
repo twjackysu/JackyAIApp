@@ -23,6 +23,25 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Equal(ToolPermission.Confirm, ToolPermissions.For("c", ToolEffect.Destructive, chosen));
         }
 
+        [Fact]
+        public void AToolThatAlwaysAsks_NeverRunsOnItsOwn_WhateverWasStored()
+        {
+            var schema = System.Text.Json.JsonSerializer.SerializeToElement(new { type = "object" });
+            var remember = new AiToolDescriptor("remember", "記住", "keeps a note about the reader", schema, ToolEffect.Write, AlwaysAsks: true);
+            var plain = remember with { Name = "plain", AlwaysAsks = false };
+            var chosen = ToolPermissions.Parse("""{"remember":"Auto","plain":"Auto"}""");
+
+            Assert.Equal(ToolPermission.Confirm, ToolPermissions.For(remember, chosen));
+            Assert.Equal(ToolPermission.Auto, ToolPermissions.For(plain, chosen));
+            Assert.False(ToolPermissions.Allowed(remember, ToolPermission.Auto));
+            Assert.True(ToolPermissions.Allowed(remember, ToolPermission.Disabled));
+            Assert.Equal(ToolPermission.Disabled,
+                ToolPermissions.For(remember, ToolPermissions.Parse("""{"remember":"Disabled"}""")));
+            // The site's MCP server never offers it, even to a token that may write.
+            Assert.False(JackyAIApp.Server.Services.Connectors.SiteMcp.SiteMcpServer.Offered(remember, chosen, allowWrites: true));
+            Assert.True(JackyAIApp.Server.Services.Connectors.SiteMcp.SiteMcpServer.Offered(plain, chosen, allowWrites: true));
+        }
+
         [Theory]
         [InlineData(null)]
         [InlineData("")]

@@ -31,6 +31,8 @@ namespace JackyAIApp.Server.Tests.Services.Assistant.Memory
         {
             Assert.Equal(ToolEffect.Write, RememberTool.Definition.Effect);
             Assert.Equal(ToolEffect.Destructive, ForgetTool.Definition.Effect);
+            // A note lasts into every later prompt: never kept without the reader, nor by another AI (D-101).
+            Assert.True(RememberTool.Definition.AlwaysAsks);
         }
 
         [Fact]

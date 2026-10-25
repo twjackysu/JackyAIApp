@@ -88,14 +88,14 @@ namespace JackyAIApp.Server.Services.Connectors
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "不認得的權限。");
 
             SQL.ConnectorInstallation? row;
-            IReadOnlyList<(string Name, ToolEffect Effect)> tools;
+            IReadOnlyList<(string Name, ToolEffect Effect, bool AlwaysAsks)> tools;
             if (request.InstallationId == null)
             {
                 // Only an always-on connector is set without a row; the site's own is the one there is.
                 if (request.DefinitionKey != SiteConnector.Key) return NotFound();
                 row = await db.ConnectorInstallations
                     .FirstOrDefaultAsync(c => c.UserId == userId && c.DefinitionKey == SiteConnector.Key, ct);
-                tools = _siteTools.Select(t => (t.Name, t.Effect)).ToList();
+                tools = _siteTools.Select(t => (t.Name, t.Effect, t.AlwaysAsks)).ToList();
             }
             else
             {
@@ -103,14 +103,16 @@ namespace JackyAIApp.Server.Services.Connectors
                     .FirstOrDefaultAsync(c => c.Id == request.InstallationId && c.UserId == userId, ct);
                 if (row == null || row.DefinitionKey != request.DefinitionKey) return NotFound();
                 tools = row.DefinitionKey == SiteConnector.Key
-                    ? _siteTools.Select(t => (t.Name, t.Effect)).ToList()
-                    : CachedTools.Parse(row.ToolsCacheJson).Select(t => (t.Name, t.Effect)).ToList();
+                    ? _siteTools.Select(t => (t.Name, t.Effect, t.AlwaysAsks)).ToList()
+                    : CachedTools.Parse(row.ToolsCacheJson).Select(t => (t.Name, t.Effect, false)).ToList();
             }
 
             var tool = tools.FirstOrDefault(t => t.Name == request.ToolName);
             if (tool.Name == null) return ServiceResult.Fail(ErrorCodes.BadRequest, "這個 connector 沒有這個工具。");
             if (!ToolPermissions.Allowed(tool.Effect, permission))
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "無法復原的動作一定要先問你，不能設成自動執行。");
+            if (tool.AlwaysAsks && permission == ToolPermission.Auto)
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "這個動作會影響之後的每個對話，一定要先問你，不能設成自動執行。");
 
             var now = time.GetUtcNow().UtcDateTime;
             if (row == null)
@@ -163,7 +165,7 @@ namespace JackyAIApp.Server.Services.Connectors
             var chosen = ToolPermissions.Parse(row?.ToolSettingsJson);
             var tools = _siteTools
                 .Select(t => new ConnectorToolDto(t.Name, t.DisplayName, t.Description, t.Effect.WireName(),
-                    ToolPermissions.For(t.Name, t.Effect, chosen).WireName()))
+                    ToolPermissions.For(t, chosen).WireName()))
                 .ToList();
             return new InstalledConnectorDto(row?.Id, SiteConnector.Key, SiteConnector.DisplayName, SiteConnector.Description,
                 "site", null, "none", "ok", AlwaysOn: true, null, null, [], tools);

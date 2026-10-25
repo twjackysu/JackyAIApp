@@ -102,7 +102,8 @@ namespace JackyAIApp.Server.Services.Assistant.Memory
             var note = Normalize(text);
             if (note.Length == 0) return null;
             var kept = await db.AssistantMemories.Where(m => m.UserId == userId).ToListAsync(ct);
-            var row = kept.FirstOrDefault(m => string.Equals(m.Text, note, StringComparison.OrdinalIgnoreCase));
+            // Exactly the words the confirmation card showed (a note differing only in case is another note).
+            var row = kept.FirstOrDefault(m => string.Equals(m.Text, note, StringComparison.Ordinal));
             if (row == null) return null;
             db.AssistantMemories.Remove(row);
             await db.SaveChangesAsync(ct);
@@ -111,11 +112,14 @@ namespace JackyAIApp.Server.Services.Assistant.Memory
 
         /// <summary>
         /// A note as it is kept: trimmed, its line breaks and runs of white space made one space, so each memory is one
-        /// line of the prompt's list.
+        /// line of the prompt's list, and <c>&lt;</c>/<c>&gt;</c> full-width, as the prompt shows them (so the words the
+        /// model copies to forget one are the words kept).
         /// </summary>
         internal static string Normalize(string? text) =>
-            string.Join(' ', (text ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+            string.Join(' ', (text ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+                .Replace('<', '＜').Replace('>', '＞');
 
-        private static AssistantMemoryDto Dto(SQL.AssistantMemory m) => new(m.Id, m.Text, m.CreatedAt);
+        private static AssistantMemoryDto Dto(SQL.AssistantMemory m) =>
+            new(m.Id, m.Text, DateTime.SpecifyKind(m.CreatedAt, DateTimeKind.Utc));
     }
 }
