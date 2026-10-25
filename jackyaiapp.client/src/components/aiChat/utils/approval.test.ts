@@ -10,6 +10,7 @@ import {
   decisionsFor,
   formatArgument,
   hasOpenApproval,
+  resolveApproval,
   type ApprovalCall,
   type MessageApproval,
 } from './approval';
@@ -131,5 +132,35 @@ describe('approvalTimeLeft', () => {
       text: '時間到了，這次不會執行',
       urgent: true,
     });
+  });
+});
+
+describe('resolveApproval', () => {
+  const waiting = (state: MessageApproval['state']): MessageApproval => ({
+    request: { pendingId: 'p1', calls: [call('t1'), call('t2')] },
+    state,
+  });
+  const no = [
+    { toolUseId: 't1', approve: false },
+    { toolUseId: 't2', approve: false },
+  ];
+
+  it('takes all-no for a card the reader never sent as the time running out', () => {
+    expect(resolveApproval(waiting('pending'), no)).toEqual({
+      ...waiting('pending'),
+      state: 'resolved',
+      decisions: no,
+      expired: true,
+    });
+  });
+
+  it("keeps the reader's own answer as theirs", () => {
+    expect(resolveApproval(waiting('sending'), no).expired).toBe(false);
+    expect(
+      resolveApproval(waiting('pending'), [
+        { toolUseId: 't1', approve: true },
+        { toolUseId: 't2', approve: false },
+      ]).expired,
+    ).toBe(false);
   });
 });

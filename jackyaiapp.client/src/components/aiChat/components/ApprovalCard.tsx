@@ -30,6 +30,8 @@ interface ApprovalCardProps {
   state: ApprovalState;
   /** What was decided, once sent (shown in place of the buttons). */
   decisions?: readonly ApprovalDecision[];
+  /** The server's time ran out before the reader answered (`resolveApproval`). */
+  expired?: boolean;
   onSubmit: (decisions: ApprovalDecision[]) => void;
   /** The calls the reader allowed and asked to let run on their own from now on (`canAlwaysAllow`). */
   onAlwaysAllow?: (calls: ApprovalCall[]) => void;
@@ -72,6 +74,7 @@ export default function ApprovalCard({
   approval,
   state,
   decisions,
+  expired = false,
   onSubmit,
   onAlwaysAllow,
 }: ApprovalCardProps) {
@@ -200,7 +203,11 @@ export default function ApprovalCard({
                 color: decided.get(call.toolUseId) ? 'success.main' : 'text.secondary',
               }}
             >
-              {decided.get(call.toolUseId) ? '已允許' : '已拒絕'}
+              {decided.get(call.toolUseId)
+                ? '已允許'
+                : expired
+                  ? '沒有在時限內回覆，沒有執行'
+                  : '已拒絕'}
             </Typography>
           ) : single ? (
             <Box sx={{ display: 'flex', gap: 1, mt: 1, '& .MuiButton-root': { minHeight: 44 } }}>

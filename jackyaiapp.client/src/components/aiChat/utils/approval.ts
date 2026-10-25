@@ -34,6 +34,8 @@ export interface MessageApproval {
   request: PendingApproval;
   state: ApprovalState;
   decisions?: ApprovalDecision[];
+  /** The server's time ran out before the reader answered: every call was counted as a no (D-108). */
+  expired?: boolean;
 }
 
 /** The site's own tools: no "on ○○" line, the action happens here. */
@@ -95,3 +97,17 @@ export const approvalTimeLeft = (
   if (left <= 60) return { text: `${left} 秒內沒有回覆，這次就不執行`, urgent: true };
   return { text: `${Math.ceil(left / 60)} 分鐘內沒有回覆，這次就不執行`, urgent: false };
 };
+
+/**
+ * A card once the server has its decisions (`approval_resolved`). One still waiting on the reader (not sent by
+ * them) that comes back all no ran out of time: the card says so rather than that they refused (D-108).
+ */
+export const resolveApproval = (
+  approval: MessageApproval,
+  decisions: ApprovalDecision[],
+): MessageApproval => ({
+  ...approval,
+  state: 'resolved',
+  decisions,
+  expired: approval.state === 'pending' && decisions.every((d) => !d.approve),
+});

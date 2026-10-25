@@ -275,6 +275,22 @@ describe('ApprovalCard', () => {
     });
   });
 
+  it('says the time ran out rather than that the reader refused', () => {
+    act(() =>
+      root.render(
+        <ApprovalCard
+          approval={{ pendingId: 'p', calls: [call('a')] }}
+          state="resolved"
+          decisions={[{ toolUseId: 'a', approve: false }]}
+          expired
+          onSubmit={vi.fn()}
+        />,
+      ),
+    );
+    expect(container.textContent).toContain('沒有在時限內回覆，沒有執行');
+    expect(container.textContent).not.toContain('已拒絕');
+  });
+
   describe('time left to answer', () => {
     afterEach(() => vi.useRealTimers());
     const timeLeft = () =>

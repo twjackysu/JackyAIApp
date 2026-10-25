@@ -335,6 +335,7 @@ function MessageArea({
               approval={message.approval.request}
               state={message.approval.state}
               decisions={message.approval.decisions}
+              expired={message.approval.expired}
               onSubmit={(decisions) => onDecide?.(message.approval!.request.pendingId, decisions)}
               onAlwaysAllow={onAlwaysAllow}
             />

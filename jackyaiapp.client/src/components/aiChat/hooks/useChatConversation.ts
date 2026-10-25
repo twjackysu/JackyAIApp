@@ -7,6 +7,7 @@ import {
   ApprovalCall,
   ApprovalDecision,
   MessageApproval,
+  resolveApproval,
 } from '../utils/approval';
 import { handoffOf } from '../utils/handoff';
 import { applyToolEvent, settleToolSteps, ToolStep } from '../utils/toolActivity';
@@ -252,7 +253,13 @@ export function useChatConversation(options?: ChatConversationOptions) {
                 state: 'pending',
               },
             })
-          : updateApproval(event.pendingId, { state: 'resolved', decisions: event.decisions }),
+          : setMessages((prev) =>
+              prev.map((msg) =>
+                msg.approval?.request.pendingId === event.pendingId
+                  ? { ...msg, approval: resolveApproval(msg.approval, event.decisions) }
+                  : msg,
+              ),
+            ),
       // What was said before the stop stays, marked the way the server stores it. `parsedBlocks` is
       // cleared so the bubble renders `content`, mark included.
       onStopped: (partial, assistantMessageId) => {
