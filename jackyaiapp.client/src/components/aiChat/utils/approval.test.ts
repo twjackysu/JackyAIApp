@@ -5,7 +5,9 @@ import {
   canAlwaysAllow,
   decisionsFor,
   formatArgument,
+  hasOpenApproval,
   type ApprovalCall,
+  type MessageApproval,
 } from './approval';
 
 const call = (toolUseId: string): ApprovalCall => ({
@@ -71,5 +73,22 @@ describe('canAlwaysAllow', () => {
     expect(canAlwaysAllow(siteWrite({ alwaysAsks: true }))).toBe(false);
     expect(canAlwaysAllow(siteWrite({ connector: 'inst-1', tool: 'm1__create' }))).toBe(false);
     expect(canAlwaysAllow(siteWrite({}), true)).toBe(false);
+  });
+});
+
+describe('hasOpenApproval', () => {
+  const approval = (state: MessageApproval['state']): { approval: MessageApproval } => ({
+    approval: { request: { pendingId: 'p1', calls: [call('t1')] }, state },
+  });
+
+  it('is open while a card waits, is being sent, or failed to send', () => {
+    expect(hasOpenApproval([{}, approval('pending')])).toBe(true);
+    expect(hasOpenApproval([approval('sending')])).toBe(true);
+    expect(hasOpenApproval([approval('failed')])).toBe(true);
+  });
+
+  it('is closed with no card or only answered ones', () => {
+    expect(hasOpenApproval([])).toBe(false);
+    expect(hasOpenApproval([{}, approval('resolved')])).toBe(false);
   });
 });

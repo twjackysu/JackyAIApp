@@ -65,7 +65,7 @@ jackyaiapp.client/src/
   and 「以後直接執行」 is offered once per tool; MessageArea keys it by `pendingId`, so a later question is a new card; a call the site describes in words,
   `summary`, shows that with its raw arguments behind 「顯示送出的參數」, an outside connector's always shows them; while it waits it comes after the
   answer's text, with no thinking dots, and once answered it stays above the text as a record; the header says
-  what the turn is doing, `hooks/chatStatus`, a tool by its display name and「等你確認」while it waits; for a site tool's write, outside a
+  what the turn is doing, `hooks/chatStatus`, a tool by its display name and「等你確認」while it waits; while a card waits (`hasOpenApproval`), reloading or closing the page asks the browser's 「確定要離開？」 first (`useWarnBeforeLeaving`, D-105), since leaving ends the turn the card waits in; for a site tool's write, outside a
   conversation that read outside content, it offers to let the tool run on its own from now on, `canAlwaysAllow`, which
   sets the same permission as the connectors page). Under the last answer that finished
   in this session (`Message.answered`), `FollowUps` offers up to three questions to carry on with, which a press sends:

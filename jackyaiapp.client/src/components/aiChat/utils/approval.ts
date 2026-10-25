@@ -65,3 +65,11 @@ export const alwaysAllowRequest = (call: ApprovalCall): ToolPermissionRequest =>
   toolName: call.tool,
   permission: 'auto',
 });
+
+/**
+ * Whether a card is still waiting on the reader's answer in its turn's own request: asked, being sent, or
+ * sent and failed (the turn still waits). Reloading or closing the page then ends that request, and the turn
+ * with it, so nothing on the card is done (D-026, D-105).
+ */
+export const hasOpenApproval = (messages: readonly { approval?: MessageApproval }[]): boolean =>
+  messages.some((m) => m.approval !== undefined && m.approval.state !== 'resolved');

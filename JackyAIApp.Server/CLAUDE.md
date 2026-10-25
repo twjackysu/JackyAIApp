@@ -256,7 +256,7 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   that user, that conversation, once; a call left out is a no; NotFound otherwise), then `approval_resolved`.
   A declined or unanswered call is reported to the model as not done; stopping the turn while it waits ends
   it with nothing run. Nothing of the turn is stored while it waits, so reloading the page loses the
-  question. A failing tool is reported to the model as failed, never with its exception's text. A tool's card
+  question (the turn ends with the request; the client asks before the page unloads, D-105). A failing tool is reported to the model as failed, never with its exception's text. A tool's card
   is held to what the client draws before it is sent (`ToolCardGuard`: a known shape of kind, a table cut to
   12 columns and 200 rows, a link only to this site or https, 200k characters in all), and the cards a turn's tools showed are kept
   with its answer (`ChatMessages.CardsJson`, a JSON array as streamed) and come back as `ChatMessageDto.Cards`

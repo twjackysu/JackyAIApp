@@ -304,6 +304,13 @@ async function openConversation(title: string) {
   await act(async () => row(title).click());
 }
 
+/** Whether reloading or closing the page now would ask the reader first. */
+const unloadIsAsked = () => {
+  const event = new Event('beforeunload', { cancelable: true });
+  window.dispatchEvent(event);
+  return event.defaultPrevented;
+};
+
 describe('AiAssistantPanel', () => {
   it('is a block with a header and a greeting, not a dialog that can be closed', async () => {
     await mount();
@@ -838,6 +845,8 @@ describe('AiAssistantPanel', () => {
     );
     await send('把 serendipity 加入單字庫');
     await waitForText('需要你的確認');
+    // Reloading now would end the turn the card waits in, so the browser asks first (D-105).
+    expect(unloadIsAsked()).toBe(true);
 
     const allow = [...container.querySelectorAll('button')].find((b) => b.textContent === '允許')!;
     await act(async () => allow.click());
@@ -862,6 +871,7 @@ describe('AiAssistantPanel', () => {
     });
     await waitForText('已加入 serendipity');
     expect(container.textContent).toContain('已允許');
+    expect(unloadIsAsked()).toBe(false);
     expect([...container.querySelectorAll('button')].some((b) => b.textContent === '允許')).toBe(
       false,
     );
