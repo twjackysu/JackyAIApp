@@ -164,7 +164,7 @@ export function studioChatConfig(
     title: 'Studio AI',
     greetingTitle: '我是 Studio AI，想做什麼？',
     greeting:
-      '告訴我你想做的事，我帶你到對的地方，也能使用你在 Connectors 接上的工具（會改變東西的動作會先問你）。打頁面名稱、dashboard 名稱或一個英文單字，可以不經 AI 直接前往。',
+      '告訴我你想做的事，我帶你到對的地方，也能使用你在 Connectors 接上的工具（會改變東西的動作會先問你）。打頁面名稱、dashboard 名稱或一個英文單字，可以不經 AI 直接前往；在頁面上選取一段字，也能直接叫我解釋或翻譯。',
     examples: ['這個網站可以做哪些事？', '幫我查一個英文單字', '我的投資組合現在怎麼樣？'],
     suggestions: studioSuggestionsFor(path, dashboards),
     connectedLabel: '全站助理',

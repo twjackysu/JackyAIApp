@@ -1,5 +1,16 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-25 11:41 – 第 17 輪（選取文字問 Studio AI、審查）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠。
+- **選取文字問 Studio AI**（D-086）：任何有 Studio 的頁面選一段字 → 上方工具列「解釋／翻成中文（或英文）／問 AI」；選一個英文單字 →「查字典（不經 AI）／加入單字庫／問 AI」。Studio 自己回答裡的選取（短文裡不認識的字）接在原對話，頁面上的選取開新對話。前端：`SelectionBar`、`readSelection`、`selectionActions`；Studio 的 `onSelection`。
+- **頁面文字當外部文字**：chat 請求多 `quotesPageText`（`ChatRequest.QuotesPageText`），伺服器在這一輪開始前把對話標成讀過外部文字（寫入一律先問）。測試：`AnthropicChatStreamTests`（引用頁面文字的訊息，自動的寫入照樣被問、對話被標記）、面板（立即送、排隊送、輸入框送都帶旗標）、Studio、SelectionBar、selectionActions。
+- **審查**（subagent，D-087）：一個高風險已修（「問 AI」放進輸入框的頁面文字送出時沒帶旗標 → `inputQuotesPageText`），兩個中風險、兩個低風險已修。
+- 文件：兩份 CLAUDE.md、D-086～D-087、SHOWCASE（亮點一列、demo 第 3 步、已知限制、日誌）；截圖 `select-sentence-*`、`select-translate-*`、`select-word-studio-*`（`.loop/shots/selection.cjs`）。
+- **巡檢 /portfolio 的 Studio 歡迎畫面**（桌機、手機，`studio-portfolio-welcome-*`）：四個建議排列正常；歡迎訊息多一句「在頁面上選取一段字，也能直接叫我解釋或翻譯」，讓人發現選取工具列。
+- 驗證：cscheck 新診斷 0；前端 lint、test（136 檔 1454 個）、build 全過；CI 40160603830（選取文字＋quotesPageText，第一次就綠）、**40161718965（審查修正）綠**；最後的歡迎訊息 commit 見下一輪開工時的 CI。
+- 問題：無阻礙。
+
 ## 2026-10-25 09:42 – 第 16 輪（用說的／貼截圖記交易、審查、巡檢）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠。
