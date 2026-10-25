@@ -9,7 +9,7 @@
 - **確認卡的「全部允許（N）／全部拒絕」**（D-091）：只在全部是本站工具、沒有 destructive、沒讀過外部內容時給全部允許；「以後直接執行」每個工具只問一次；`ApprovalCard` 以 `pendingId` 為 key。截圖 `data-whole-dashboard-*`（情境 E）。
 - **上傳檔案時不提 dashboard**（D-094）：`dataAnalysisAiChatFor(uploadedFile)`，建議、接著問、歡迎訊息拿掉 dashboard。
 - **審查**（subagent，D-093）：無高風險；中風險「外部 MCP 的 effect 是對方自己說的，全部允許可能放行夾帶的刪除」已修（只限本站工具）；上傳檔案時查完第一張就停（prompt）。其餘低風險記在 D-093。
-- 驗證：前端 lint、test（137 檔 1477＋個）、build 全過；CI 40174073059、40174872913、40175193675（後端 prompt＋測試，第一次就綠）、40175961415 綠；審查修正的 CI 見 NEXT §1。
+- 驗證：前端 lint、test（137 檔 1477＋個）、build 全過；CI 40174073059、40174872913、40175193675（後端 prompt＋測試，第一次就綠）、40175961415 綠；40176286605（審查修正）、**40177212324（本輪最後一次含程式碼的 push）綠**。
 - 問題：無阻礙。
 
 ## 2026-10-25 13:42 – 第 18 輪（選取工具列巡檢、擴到 /finance 與 /data-analysis 的助理、審查）
@@ -18,7 +18,7 @@
 - **巡檢選取工具列**（D-088）：/english/exam 的題目選起來就能「翻成中文」「查字典」＝把答案遞到手上 → 作答中的題目加 `noSelectionAsk`（`ExamRoundShell` 的題目區、每日挑戰 `QuestionCard` 到顯示結果為止、複習 `Flashcard` 到翻面為止、Studio 的 `QuizCardView` 到該題答完為止）；dashboard 編輯版面時的格線也不給。/portfolio 持倉表的輸入框與 Select 選單本來就被排除。
 - **選取也能問 /finance 與 /data-analysis 的助理**（D-089）：選取三件套搬到共用的 `components/aiChat/selection/`，按下去做什麼抽成 `selectionStepOf`（Studio 與 `AiAssistantLauncher` 共用），助理區塊標記改成 `data-ai-assistant`；launcher 的工具列沒有「加入單字庫」，一個英文字給「解釋／查字典／問 AI」。截圖 `select-finance-*`（`.loop/shots/selection.cjs` 的情境 C，`ONLY=C` 只拍它）。
 - **審查**（subagent）：無高風險（taint 沒有繞過、沒有兩條工具列、Studio 行為不變）。兩個中風險已修：拖過被標記的題目（起點終點都在外面）仍會帶出題目文字 → `readSelection` 也檢查 range 是否碰到標記元素；launcher 回答寫到一半按「查字典」會離開頁面中斷回答 → 等回答結束才前往。低風險（history 欄的標題算在助理區塊、快速連按兩次只送最後一個、Studio 抽屜與 launcher 共用標記）記在 NEXT，現況不會發生或影響很小。
-- 驗證：前端 lint、test（136 檔 1467 個）、build 全過；CI 40167126057（noSelectionAsk）綠、40167921815（launcher 選取）綠；審查修正的 CI 見 NEXT §1。
+- 驗證：前端 lint、test（136 檔 1467 個）、build 全過；CI 40167126057（noSelectionAsk）綠、40167921815（launcher 選取）綠；40176286605（審查修正）、**40177212324（本輪最後一次含程式碼的 push）綠**。
 - 問題：後半段 auto mode 的安全分類器連續 10 次沒有回應，那一段工作被中斷（不是程式的問題）；恢復後補跑測試再 commit。
 
 ## 2026-10-25 11:41 – 第 17 輪（選取文字問 Studio AI、審查）

@@ -11,7 +11,7 @@
 
 ## 1. CI 狀態
 
-- 第 19 輪：開工時最新 CI 紅（Jacky 改名 `QuickActionChips.tsx` 沒改 import），已修；本輪最後一次含程式碼的 push 40176286605（審查修正）綠。截圖 `selection.cjs` 多了情境 D（/data-analysis 回答裡選取）、E（一句話做出整個 dashboard 的確認卡），`ONLY=D|E`。
+- 第 19 輪：開工時最新 CI 紅（Jacky 改名 `QuickActionChips.tsx` 沒改 import），已修；審查修正 40176286605 綠；**本輪最後一次含程式碼的 push 40177212324（上傳檔案時不提 dashboard）綠**。截圖 `selection.cjs` 多了情境 D（/data-analysis 回答裡選取）、E（一句話做出整個 dashboard 的確認卡），`ONLY=D|E`。
 - **Jacky 在旅行中仍可能直接 push 到這個 branch**（25c21dd）：開工先看 `git log` 有沒有不是迴圈的 commit，看懂再接著做，不要蓋掉。
 - clone 可能是 shallow：開工先 `git fetch --unshallow origin`（否則 merge-base 與 `rev-list --count` 不對）。
 - 截圖：`.loop/shots/chat.cjs`（Studio／指令列／測驗／短文＋朗讀／記交易、貼截圖記交易／Data Analysis／今日簡報／語音／帶我去／換圖＋接著問／dashboard 的 AI 解讀／/finance，桌機＋手機）、**`selection.cjs`**（第 17 輪：字典頁選例句→翻成中文；Studio 短文裡選字；選取用 `selectIn(page, locator, text, last)` 在頁面內建 Range）、`connectors.cjs`、`mcp-app.cjs`。只想拍一個情境：用 python 取 chat.cjs 開頭到 `(async () => {` 之前（dist 與 fixtures 路徑改成絕對路徑），加上只含那一段的 IIFE，另存在 scratch 跑。
