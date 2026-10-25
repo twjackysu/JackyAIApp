@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
     onInputChange: (value: string) => void;
     inputQuotesPageText?: boolean;
     inputAccessory?: ReactNode;
+    onSendDraft?: (text: string) => boolean;
   } | null,
   narrow: false,
   boards: [] as { id: string; name: string }[],
@@ -387,6 +388,38 @@ describe('StudioAssistant', () => {
     expect(mocks.panel!.active).toBe(true);
     expect(mocks.panel!.inputValue).toBe('');
     expect(mocks.panel!.ask).toEqual({ id: 1, text: '考我今天該複習的單字' });
+  });
+
+  it('sends the first ready-made request listed on Enter, and anything else as typed (D-115)', async () => {
+    await render('/');
+    await act(async () => button()!.click());
+    await settle();
+    await act(async () => mocks.panel!.onInputChange('/考'));
+    const first = document.querySelector('[data-testid="quick-actions"] button')!;
+    expect(first.getAttribute('aria-keyshortcuts')).toBe('Enter');
+
+    let taken = false;
+    await act(async () => {
+      taken = mocks.panel!.onSendDraft!('/考');
+    });
+    await settle();
+    expect(taken).toBe(true);
+    expect(mocks.panel!.inputValue).toBe('');
+    expect(mocks.panel!.ask).toEqual({ id: 1, text: '考我今天該複習的單字' });
+
+    expect(mocks.panel!.onSendDraft!('/xyz123')).toBe(false);
+    expect(mocks.panel!.onSendDraft!('複習')).toBe(false);
+    expect(mocks.panel!.onSendDraft!('serendipity 是什麼？')).toBe(false);
+  });
+
+  it('marks no quick action as Enter’s: Enter on a page’s name asks the AI', async () => {
+    await render('/');
+    await act(async () => button()!.click());
+    await settle();
+    await act(async () => mocks.panel!.onInputChange('複習'));
+    const quick = [...document.querySelectorAll('[data-testid="quick-actions"] button')];
+    expect(quick.length).toBeGreaterThan(0);
+    expect(quick.some((b) => b.hasAttribute('aria-keyshortcuts'))).toBe(false);
   });
 
   it('sends the briefing from a slash in a new conversation, as the home page does', async () => {

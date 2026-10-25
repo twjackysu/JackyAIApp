@@ -24,6 +24,7 @@ interface PanelProps {
   ask?: { id: number; text: string; fresh?: boolean; quotesPageText?: boolean };
   onAskSent?: (id: number) => void;
   inputAccessory?: ReactNode;
+  onSendDraft?: (text: string) => boolean;
 }
 
 // The real panel is tested on its own; here only what the launcher hands it and does with it.
@@ -219,6 +220,26 @@ describe('AiAssistantLauncher', () => {
     expect(panel.props!.ask?.fresh).toBeUndefined();
     act(() => panel.props!.onInputChange('外資最近在買什麼'));
     expect(chips()).toEqual([]);
+  });
+
+  it('sends the first request listed on Enter, and anything else as typed (D-115)', async () => {
+    await render(signedIn);
+    await focusBox();
+    act(() => panel.props!.onInputChange('/景氣'));
+    expect(
+      container
+        .querySelector('[data-testid="quick-actions"] button')!
+        .getAttribute('aria-keyshortcuts'),
+    ).toBe('Enter');
+    let taken = false;
+    act(() => {
+      taken = panel.props!.onSendDraft!('/景氣');
+    });
+    expect(taken).toBe(true);
+    expect(panel.props!.inputValue).toBe('');
+    expect(panel.props!.ask).toMatchObject({ text: '現在景氣燈號是什麼顏色？' });
+    expect(panel.props!.onSendDraft!('/xyz123')).toBe(false);
+    expect(panel.props!.onSendDraft!('分析台積電最近的走勢')).toBe(false);
   });
 
   it('lists none for an assistant without them', async () => {

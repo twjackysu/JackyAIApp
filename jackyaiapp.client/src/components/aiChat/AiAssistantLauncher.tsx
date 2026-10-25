@@ -139,6 +139,16 @@ export function AiAssistantLauncher({
     },
     [changeDraft, enqueueAsk],
   );
+  // Enter on a `/` draft sends the first request listed, as a press would (D-115); with none listed, the text as typed.
+  const sendDraft = useCallback(
+    (text: string) => {
+      const first = config.slashCommands && matchSlashCommands(text, config.slashCommands)[0];
+      if (!first) return false;
+      pickCommand(first);
+      return true;
+    },
+    [config.slashCommands, pickCommand],
+  );
 
   // Where an answer asked to go, kept until that answer is done (the last one asked wins).
   const goAfterAnswer = useRef<string | undefined>(undefined);
@@ -204,8 +214,11 @@ export function AiAssistantLauncher({
                 onActivityChange={onActivity}
                 onNavigate={onNavigate ? holdNavigation : undefined}
                 inputAccessory={
-                  config.slashCommands && <QuickChips actions={commands} onPick={pickCommand} />
+                  config.slashCommands && (
+                    <QuickChips actions={commands} onPick={pickCommand} enterPicksFirst />
+                  )
                 }
+                onSendDraft={sendDraft}
               />
             </Suspense>
           </Box>

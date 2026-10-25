@@ -63,6 +63,10 @@ interface AiAssistantPanelProps {
   onToolDone?: (tool: string) => void;
   /** Over the message box, from the app that holds the panel (Studio AI's quick actions for what is typed). */
   inputAccessory?: ReactNode;
+  /** What the reader sends from the box, offered to the panel's owner first: true when the owner took it (Enter on a
+   *  `/` draft sends the first ready-made request listed, D-115), and then the box is only emptied, the picked files
+   *  staying for the next message. */
+  onSendDraft?: (text: string) => boolean;
 }
 
 /**
@@ -84,6 +88,7 @@ function AiAssistantPanel({
   onNavigate,
   onToolDone,
   inputAccessory,
+  onSendDraft,
 }: AiAssistantPanelProps) {
   const sheet = variant === 'sheet';
   const config = useAiChatConfig();
@@ -187,6 +192,10 @@ function AiAssistantPanel({
     if (!inputValue.trim()) return;
     if (attachments.uploading) return;
     const text = inputValue;
+    if (onSendDraft?.(text)) {
+      setInputValue('');
+      return;
+    }
     const sent = attachments.takeForMessage();
     setInputValue('');
     conversation.send(text, sent, inputQuotesPageText ? { quotesPageText: true } : undefined);

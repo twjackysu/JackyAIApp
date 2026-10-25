@@ -33,9 +33,12 @@ export interface QuickChipItem {
 export default function QuickChips<T extends QuickChipItem>({
   actions,
   onPick,
+  enterPicksFirst = false,
 }: {
   actions: readonly T[];
   onPick: (action: T) => void;
+  /** Enter in the box picks the first ready-made request (the owner's `onSendDraft`, D-115): it is marked so. */
+  enterPicksFirst?: boolean;
 }) {
   const theme = useTheme();
   const commands = actions.some((a) => a.kind === 'command');
@@ -59,18 +62,31 @@ export default function QuickChips<T extends QuickChipItem>({
           <Typography component="span" variant="caption" color="text.secondary" sx={{ mr: 0.25 }}>
             {commands ? '現成指令：' : '不用問 AI，直接：'}
           </Typography>
-          {actions.map((action) => {
+          {actions.map((action, i) => {
             const Icon = ICONS[action.kind];
+            // What Enter sends: outlined, and on a keyboard's screen marked ↵ (a pseudo-element, so the name stays the label).
+            const onEnter = enterPicksFirst && commands && i === 0;
             return (
               <ButtonBase
                 key={action.key}
                 onClick={() => onPick(action)}
+                aria-keyshortcuts={onEnter ? 'Enter' : undefined}
+                data-enter={onEnter || undefined}
                 sx={{
+                  ...(onEnter && {
+                    '&::after': {
+                      content: '"↵"',
+                      display: { xs: 'none', sm: 'inline' },
+                      ml: 0.25,
+                      fontSize: 12,
+                      color: 'text.secondary',
+                    },
+                  }),
                   gap: 0.5,
                   px: 1.25,
                   py: 0.5,
                   borderRadius: 99,
-                  border: `1px solid ${hairline(theme)}`,
+                  border: `1px solid ${onEnter ? ACCENT : hairline(theme)}`,
                   color: 'text.primary',
                   bgcolor: accentWash(theme, 0.04),
                   transition: 'border-color 120ms, background-color 120ms',

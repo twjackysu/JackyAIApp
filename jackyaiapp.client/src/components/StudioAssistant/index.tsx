@@ -146,6 +146,18 @@ export default function StudioAssistant() {
     },
     [navigate, changeDraft, enqueueAsk],
   );
+  // Enter on a `/` draft sends the first ready-made request listed, as a press would (D-115); a quick action is only
+  // ever pressed (Enter on a page's name asks the AI, as typed).
+  const sendDraft = useCallback(
+    (text: string) => {
+      if (!isSlashDraft(text)) return false;
+      const first = slashCommandsFor(text, pathname, boards ?? [])[0];
+      if (!first) return false;
+      pickQuick(first);
+      return true;
+    },
+    [pathname, boards, pickQuick],
+  );
 
   // Closed by hand meanwhile: the reader has taken over, nothing closes it for them later.
   const closeByHand = useCallback(() => {
@@ -264,7 +276,10 @@ export default function StudioAssistant() {
                 onInputChange={changeDraft}
                 inputQuotesPageText={draftQuotesPage}
                 onCollapse={closeByHand}
-                inputAccessory={<QuickChips actions={quickActions} onPick={pickQuick} />}
+                inputAccessory={
+                  <QuickChips actions={quickActions} onPick={pickQuick} enterPicksFirst />
+                }
+                onSendDraft={sendDraft}
               />
             </Suspense>
           </Box>

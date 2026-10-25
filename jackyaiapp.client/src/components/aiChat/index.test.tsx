@@ -208,6 +208,9 @@ let toolsDone: string[];
 /** The box holds text selected on a page (`inputQuotesPageText`). */
 let inputQuotes = false;
 
+/** The owner's `onSendDraft` (D-115), when a test sets one. */
+let sendDraft: ((text: string) => boolean) | undefined;
+
 function Harness({ initialDraft, ask }: { initialDraft: string; ask?: Ask }) {
   const [draft, setDraft] = useState(initialDraft);
   return (
@@ -224,6 +227,7 @@ function Harness({ initialDraft, ask }: { initialDraft: string; ask?: Ask }) {
       inputQuotesPageText={inputQuotes}
       onCollapse={() => (collapses += 1)}
       onActivityChange={(a) => activities.push(a)}
+      onSendDraft={sendDraft}
     />
   );
 }
@@ -237,6 +241,7 @@ async function mount(initialDraft = '', ask?: Ask) {
   handoffs = [];
   toolsDone = [];
   inputQuotes = false;
+  sendDraft = undefined;
   const store = configureStore({
     reducer: { [chatbotApis.reducerPath]: chatbotApis.reducer },
     middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(chatbotApis.middleware),
@@ -1148,6 +1153,20 @@ describe('AiAssistantPanel', () => {
     await mount();
     chatReplies.push(() => sseReply({ type: 'done', conversationId: 'conv-1' }));
     await send('hi');
+    expect(textarea().value).toBe('');
+  });
+
+  it('lets its owner take what is sent first, then only empties the box (D-115)', async () => {
+    await mount();
+    const offered: string[] = [];
+    sendDraft = (text) => {
+      offered.push(text);
+      return text.startsWith('/');
+    };
+    await renderAsk();
+    await send('/quiz');
+    expect(offered).toEqual(['/quiz']);
+    expect(chatBodies).toEqual([]);
     expect(textarea().value).toBe('');
   });
 
