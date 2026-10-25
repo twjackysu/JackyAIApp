@@ -1,5 +1,13 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-26 03:42 – 第 25 輪（「/」指令跟著頁面走、CI 的 .NET SDK）
+
+- 開工：master 沒有新 commit（已合過）；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。
+- **Studio 的「/」加上頁面自己的指令，排在最前面**（D-113、`pageSlashCommands`）：字典單字頁「解釋 {word}」（key `explain_word`）、/portfolio「記一筆交易」（`RECORD_TRADE`）、/dashboards「做一個新的 dashboard」（`MAKE_DASHBOARD`）、自己的 dashboard「解讀這個 dashboard」（`read_my_dashboard`，只給 `isOwner`、清單讀到才給，開新對話）。只動前端。截圖 `studio-slash-dashboard-desktop`、`studio-slash-word-desktop`（`slash.cjs` 第二段）。
+- **CI 紅（不是程式的問題）**：.NET 10.0.403 今天發布，`10.0.x` 挑到它但 CDN 還下載不到（annotation：Could not find .NET Core SDK with version = 10.0.403；版本從 GitHub 上的 dotnet/core `releases.json` 查到）。`ai-native-ci.yml` 暫時釘 `10.0.402` → 綠。FOR_JACKY 第 11 條。
+- 驗證：前端 lint、test（143 檔 1536 個）、build 全過；CI 40227880687、40228819697 紅（SDK 下載）→ 40229106292（釘版本）綠；**40229794608（本輪最後一次含程式碼的 push 0e16958：/portfolio 指令）綠**。
+- 問題：見上（SDK）。
+
 ## 2026-10-26 01:42 – 第 24 輪（本站 MCP server 的現成指令、Studio 的「/」、審查）
 
 - 開工：master 沒有新 commit（已合過）；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。clone 是 shallow，先 `git fetch --unshallow`。
