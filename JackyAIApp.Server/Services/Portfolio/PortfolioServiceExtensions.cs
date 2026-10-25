@@ -34,6 +34,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             services.AddScoped<ISiteTool, PortfolioSummaryTool>();
             services.AddScoped<ISiteTool, UpdateHoldingTool>();
             services.AddSingleton(new SiteToolSet("投資組合", [PortfolioSummaryTool.Definition, UpdateHoldingTool.Definition]));
+            foreach (var prompt in PortfolioSitePrompts.All) services.AddSingleton(prompt);
 
             // Singleton: holds the search list in memory and opens its own DbContexts through
             // the factory, so the background refresher can share the one instance.

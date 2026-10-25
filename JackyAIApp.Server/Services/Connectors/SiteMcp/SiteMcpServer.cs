@@ -14,8 +14,10 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
     /// The site's own MCP server (docs/ai-native/design/03 §9): another AI — Claude Desktop, Claude Code, Cursor, ChatGPT —
     /// uses the site's tools (every <see cref="ISiteTool"/> a feature registers) in the name of the reader whose token it
     /// holds. Streamable HTTP without sessions: every POST is one JSON-RPC message answered with JSON, which the transport
-    /// allows (no SSE, no server-to-client requests). The methods are <c>initialize</c>, <c>ping</c>, <c>tools/list</c>
-    /// and <c>tools/call</c>.
+    /// allows (no SSE, no server-to-client requests). The methods are <c>initialize</c>, <c>ping</c>, <c>tools/list</c>,
+    /// <c>tools/call</c>, the MCP App's <c>resources/list</c> and <c>resources/read</c>, and the site's ready-made
+    /// requests, <c>prompts/list</c> and <c>prompts/get</c> (<see cref="SitePrompt"/>: offered only where the token may
+    /// use every tool a prompt asks for).
     /// <para>
     /// Which tools are offered: the reader's permission for each (the connectors page) — one they turned off is not
     /// offered — and the token's: a read always, a write only with a token that allows writes, something that cannot be
@@ -33,7 +35,11 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
     }
 
     public sealed class SiteMcpServer(
-        IEnumerable<ISiteTool> siteTools, IToolPermissionSource permissions, TimeProvider time, ILogger<SiteMcpServer> logger)
+        IEnumerable<ISiteTool> siteTools,
+        IEnumerable<SitePrompt> sitePrompts,
+        IToolPermissionSource permissions,
+        TimeProvider time,
+        ILogger<SiteMcpServer> logger)
         : ISiteMcpServer
     {
         /// <summary>The protocol versions this server speaks, newest first; one a client asks for is answered in kind.</summary>
@@ -64,6 +70,7 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
         internal const int ResourceNotFound = -32002;
 
         private readonly IReadOnlyList<ISiteTool> _tools = siteTools.ToList();
+        private readonly IReadOnlyList<SitePrompt> _prompts = sitePrompts.ToList();
 
         public async Task<SiteMcpReply> HandleAsync(JsonNode? message, SiteTokenHolder holder, string siteOrigin, CancellationToken ct)
         {
@@ -94,6 +101,8 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                 "tools/call" => await CallToolAsync(id, parameters, holder, siteOrigin, ct),
                 "resources/list" => Result(id, new JsonObject { ["resources"] = new JsonArray(SiteMcpApp.ResourceJson()) }),
                 "resources/read" => ReadResource(id, parameters),
+                "prompts/list" => Result(id, await ListPromptsAsync(holder, ct)),
+                "prompts/get" => await GetPromptAsync(id, parameters, holder, ct),
                 _ => Error(id, MethodNotFound, $"Method not found: {method}"),
             };
         }
@@ -112,6 +121,8 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                     ["tools"] = new JsonObject { ["listChanged"] = false },
                     // The one resource is the MCP App drawing the tools' cards (SiteMcpApp).
                     ["resources"] = new JsonObject { ["listChanged"] = false },
+                    // The site's ready-made requests (SitePrompt): Claude Code's slash commands, Claude Desktop's prompt menu.
+                    ["prompts"] = new JsonObject { ["listChanged"] = false },
                     ["extensions"] = new JsonObject
                     {
                         [SiteMcpApp.ExtensionKey] = new JsonObject { ["mimeTypes"] = new JsonArray(SiteMcpApp.MimeType) },
@@ -183,6 +194,73 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
             // Every site tool's result has a card; a client drawing MCP Apps shows it with this app.
             ["_meta"] = SiteMcpApp.ToolMeta(),
         };
+
+        /// <summary>The prompts this holder may use: those whose every tool is offered to it (see <see cref="SitePrompt"/>).</summary>
+        internal async Task<IReadOnlyList<SitePrompt>> OfferedPromptsAsync(SiteTokenHolder holder, CancellationToken ct)
+        {
+            if (_prompts.Count == 0) return [];
+            var tools = (await OfferedAsync(holder, ct)).Select(t => t.Descriptor.Name).ToHashSet();
+            return _prompts.Where(p => p.Tools.All(tools.Contains)).ToList();
+        }
+
+        private async Task<JsonObject> ListPromptsAsync(SiteTokenHolder holder, CancellationToken ct)
+        {
+            var prompts = new JsonArray();
+            foreach (var prompt in await OfferedPromptsAsync(holder, ct)) prompts.Add(PromptJson(prompt));
+            return new JsonObject { ["prompts"] = prompts };
+        }
+
+        internal static JsonObject PromptJson(SitePrompt prompt)
+        {
+            var arguments = new JsonArray();
+            foreach (var argument in prompt.Arguments)
+            {
+                arguments.Add(new JsonObject
+                {
+                    ["name"] = argument.Name,
+                    ["description"] = argument.Description,
+                    ["required"] = argument.Required,
+                });
+            }
+            return new JsonObject
+            {
+                ["name"] = prompt.Name,
+                ["title"] = prompt.Title,
+                ["description"] = prompt.Description,
+                ["arguments"] = arguments,
+            };
+        }
+
+        private async Task<SiteMcpReply> GetPromptAsync(JsonNode id, JsonObject? parameters, SiteTokenHolder holder, CancellationToken ct)
+        {
+            var name = parameters?["name"]?.GetValueKind() == JsonValueKind.String ? (string?)parameters["name"] : null;
+            if (name == null) return Error(id, InvalidParams, "prompts/get needs a prompt name.");
+            // As with a tool: a prompt this holder may not use is answered as one that does not exist.
+            var prompt = (await OfferedPromptsAsync(holder, ct)).FirstOrDefault(p => p.Name == name);
+            if (prompt == null) return Error(id, InvalidParams, $"Unknown prompt: {name}");
+
+            var given = parameters!["arguments"];
+            if (given != null && given is not JsonObject) return Error(id, InvalidParams, "A prompt's arguments are an object.");
+
+            // Only the arguments the prompt names; MCP sends each as a string.
+            var values = new Dictionary<string, string>();
+            foreach (var argument in prompt.Arguments)
+            {
+                var raw = given?[argument.Name] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+                if (SitePrompts.Clean(raw) is { } cleaned) values[argument.Name] = cleaned;
+                else if (argument.Required) return Error(id, InvalidParams, $"Missing required argument: {argument.Name}");
+            }
+
+            return Result(id, new JsonObject
+            {
+                ["description"] = prompt.Description,
+                ["messages"] = new JsonArray(new JsonObject
+                {
+                    ["role"] = "user",
+                    ["content"] = new JsonObject { ["type"] = "text", ["text"] = prompt.Text(values) },
+                }),
+            });
+        }
 
         private static SiteMcpReply ReadResource(JsonNode id, JsonObject? parameters)
         {

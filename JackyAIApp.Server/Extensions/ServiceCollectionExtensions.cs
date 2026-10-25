@@ -61,6 +61,8 @@ namespace JackyAIApp.Server.Extensions
             // Studio AI, the assistant on every page, and its own tool (listed with the site's tools).
             services.AddScoped<IChatProfile, StudioChatProfile>();
             services.AddSingleton(new SiteToolSet("全站", [OpenPageTool.Definition]));
+            // Its morning briefing as a ready-made request for other AIs (the site's MCP server's prompts, design/03 §9.3).
+            foreach (var prompt in StudioSitePrompts.All) services.AddSingleton(prompt);
             // What the reader asked Studio AI to remember (docs/ai-native/design/08).
             services.AddScoped<IAssistantMemoryService, AssistantMemoryService>();
             services.AddScoped<IAssistantMemoryPage, AssistantMemoryPage>();
@@ -133,6 +135,7 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<ISiteTool, SavedWordsTool>();
             services.AddSingleton(new SiteToolSet("英文學習",
                 [LookUpWordTool.Definition, AddWordToRepositoryTool.Definition, SavedWordsTool.Definition, LearningProgressTool.Definition, ReviewQuizTool.Definition]));
+            foreach (var prompt in EnglishSitePrompts.All) services.AddSingleton(prompt);
             services.AddScoped<IWordOfTheDayService, WordOfTheDayService>();
 
             // Shared SM-2 scheduling (Review flow + exam-result feedback)

@@ -37,6 +37,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             // Studio AI (and the site's MCP server) reads the reader's own dashboards.
             services.AddScoped<ISiteTool, ReadDashboardTool>();
             services.AddSingleton(new SiteToolSet("資料分析", [AskDataTool.Definition, DescribeDataTool.Definition, SaveToDashboardTool.Definition, ReadDashboardTool.Definition]));
+            foreach (var prompt in DataAnalysisSitePrompts.All) services.AddSingleton(prompt);
 
             // Session uploads live in this process's memory, so the store and its byte budget are
             // process-wide singletons; the admission filter reads the same budget before a body is read.
