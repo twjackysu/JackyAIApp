@@ -91,8 +91,11 @@ export default function StudioAssistant() {
   const goTo = useCallback(
     (path: string, handoff?: string) => {
       if (tookOver.current) return;
-      if (studioShownOn(path)) navigate(path);
-      else afterAnswer.current = { ...afterAnswer.current, path, handoff };
+      // The last page asked for wins: going somewhere now drops a page (and task) held for the end of the answer.
+      if (studioShownOn(path)) {
+        afterAnswer.current = { close: afterAnswer.current.close };
+        navigate(path);
+      } else afterAnswer.current = { ...afterAnswer.current, path, handoff };
       if (fullScreen) afterAnswer.current.close = true;
     },
     [navigate, fullScreen],

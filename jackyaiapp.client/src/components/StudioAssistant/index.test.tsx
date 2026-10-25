@@ -267,6 +267,26 @@ describe('StudioAssistant', () => {
     expect(handoffFromState(router.state)).toBeUndefined();
   });
 
+  it('drops a task held for the end of the answer when a later result goes somewhere at once', async () => {
+    await render('/');
+    await act(async () => button()!.click());
+    await settle();
+
+    await act(async () =>
+      mocks.panel!.onNavigate!('/data-analysis', '幫我做一個業績總覽 dashboard'),
+    );
+    await act(async () => mocks.panel!.onNavigate!('/english/review'));
+    await settle();
+    expect(router.pathname).toBe('/english/review');
+
+    await act(async () =>
+      mocks.panel!.onActivityChange!({ busy: false, hasConversation: true, answered: true }),
+    );
+    await settle();
+    expect(router.pathname).toBe('/english/review');
+    expect(handoffFromState(router.state)).toBeUndefined();
+  });
+
   it('on a phone, a drawer the reader closed meanwhile is not closed for them later', async () => {
     mocks.narrow = true;
     await render('/');
