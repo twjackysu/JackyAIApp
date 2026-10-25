@@ -11,7 +11,7 @@
 
 ## 1. CI 狀態
 
-- 第 18 輪：CI 40167126057（noSelectionAsk）綠；後面兩個 commit（launcher 選取、審查修正）的結果見 PROGRESS；開工時照 §0 看最新一次。截圖 `selection.cjs` 可用 `ONLY=A|B|C` 只拍一個情境。
+- 第 18 輪：CI 40167126057（noSelectionAsk）綠；40167921815（launcher 選取）、40169497101（審查修正，本輪最後一次含程式碼的 push）都綠；開工時照 §0 看最新一次。截圖 `selection.cjs` 可用 `ONLY=A|B|C` 只拍一個情境。
 - clone 可能是 shallow：開工先 `git fetch --unshallow origin`（否則 merge-base 與 `rev-list --count` 不對）。
 - 截圖：`.loop/shots/chat.cjs`（Studio／指令列／測驗／短文＋朗讀／記交易、貼截圖記交易／Data Analysis／今日簡報／語音／帶我去／換圖＋接著問／dashboard 的 AI 解讀／/finance，桌機＋手機）、**`selection.cjs`**（第 17 輪：字典頁選例句→翻成中文；Studio 短文裡選字；選取用 `selectIn(page, locator, text, last)` 在頁面內建 Range）、`connectors.cjs`、`mcp-app.cjs`。只想拍一個情境：用 python 取 chat.cjs 開頭到 `(async () => {` 之前（dist 與 fixtures 路徑改成絕對路徑），加上只含那一段的 IIFE，另存在 scratch 跑。
 - **前端改動一定要跑 `npm run build`**（vitest 不做型別檢查），**改了 `SitePages.cs` 也要跑前端測試**（`quickActions.test.ts` 讀它）。`npm run lint`＋`npm run test` 加起來約 6 分鐘，放背景跑再看 log。`npx tsc -b` 會改 `tsconfig.node.tsbuildinfo`，commit 前 `git checkout` 它。**regex 裡的 `\uXXXX` 用 Write 工具寫會變成真的字元**，寫完 grep 確認（或用 python 寫）。
@@ -19,11 +19,10 @@
 
 ## 2. 下一步（依序）
 
-1. **確認第 18 輪最後的 CI**：第 18 輪最後一個含程式碼的 commit（審查修正：拖過題目、launcher 回答中查字典）若 CI 紅，先修。
-2. **第 18 輪審查剩下的低風險**（小，看值不值得）：
+1. **第 18 輪審查剩下的低風險**（小，看值不值得）：
    - /finance 桌機的 history 欄在 `[data-ai-assistant]` 裡，選到別的對話標題會被當成「助理自己的回答」接在目前對話、不帶 `quotesPageText`。修法：`data-ai-assistant` 只放在訊息列表上（要動 `components/aiChat/index.tsx` 的版面），或 history 欄加一個排除標記。
    - 面板 lazy 載入前快速按兩次，`ask` 被覆蓋只送最後一個（Studio 也是）。
-3. **選做（少而精，11/3 前）**：
+2. **選做（少而精，11/3 前）**：
    - 新增本站寫入工具時，記得在 `refreshAfterTool` 補上它改了哪些 tag（D-085）。
    - 巡檢 /data-analysis 的選取（查詢結果表、「問 AI」的回答）：截圖腳本 `selection.cjs` 可仿情境 C 加一個。
 3. **SHOWCASE 定稿**（11/4–11/5）：最終統計（輪數、commit 數：`git rev-list --count --no-merges origin/master..HEAD`）、demo 腳本走一遍、合併檢查清單再對一次 migration 清單（`git diff --stat origin/master -- JackyAIApp.Server/Data/Migrations`；第 14–17 輪沒有新 migration）。
