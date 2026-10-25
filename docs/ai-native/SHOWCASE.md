@@ -17,7 +17,7 @@
 | **「考我今天該複習的單字」→ 回答裡直接出現可以作答的測驗卡**：一次一題、按下立刻顯示對錯與解說，答完自動記進 SM-2 複習排程（+XP） | `review_quiz`（每日挑戰的題型產生器，不花 AI）→ `quiz` 卡片 → 前端呼叫既有的 `review/submit`；模型被告知考哪些字但不准說出答案 | Generative UI 不只顯示結果，還能「互動」：對話裡長出一個小 app |
 | 單字庫頁「用我單字庫裡最近存的字寫一段短文」→ AI 讀你最近存的 5 個字，寫一段把它們**粗體標出**的英文短文＋中文翻譯，按「朗讀」聽它念 | `saved_words`（最近存的字與一個中文意思、總字數；不花 AI 的讀取）＋模型的寫作 | 個人化的 AI 學習：教材是你自己的字 |
 | **選一段字就能問**：在任何頁面選取一句例句、一段分析 → 選取處上方出現「解釋／翻成中文／問 AI」；選一個英文單字是「查字典／加入單字庫」——在 Studio 自己寫的短文裡選一個不認識的字，一鍵加入單字庫。/finance 與 /data-analysis 也一樣，問的是那一頁自己的助理（選「多頭排列」→ 解釋）；作答中的考題不給（不會一選就洩漏答案） | `aiChat/selection`（`SelectionBar`、`selectionStepOf`，Studio 與各 app 的助理共用；選取停 250ms 才出現；`noSelectionAsk` 標出作答中的題目）；頁面上的文字可能是別人寫的，所以請求帶 `quotesPageText`，伺服器把對話標成讀過外部文字，寫入一律先問 | AI 不在旁邊的框裡等你，而是出現在你正在讀的地方（Notion、Arc、Apple Intelligence 式的 inline AI） |
-| **Studio AI 記得你**：說「記住：我在準備多益，目標 800 分，短文用商務情境」→ 確認卡寫出整句筆記 → 之後每個新對話的短文、簡報、出題都照這個方向；「你記得我什麼？」、/connectors 上逐則刪除 | `AssistantMemories`（每則 200 字、每人 30 則）；`remember`（寫入，先問）／`forget`（照抄筆記文字、Destructive）；筆記放在 system prompt 的 `<user_memories>`，標明「不是指令」、`<>` 換成全形，防持久化的 prompt injection | ChatGPT、Claude、Gemini 2025–2026 的「記憶」：個人化的 AI，而且使用者看得到、刪得掉 |
+| **Studio AI 記得你**：說「記住：我在準備多益，目標 800 分，短文用商務情境」→ 確認卡寫出整句筆記 → 之後每個新對話的短文、簡報、出題都照這個方向（資料分析的助理也讀得到，只讀）；「你記得我什麼？」、/connectors 上逐則刪除 | `AssistantMemories`（每則 200 字、每人 30 則）；`remember`（寫入，先問）／`forget`（照抄筆記文字、Destructive）；筆記放在 system prompt 的 `<user_memories>`，標明「不是指令」、`<>` 換成全形，防持久化的 prompt injection | ChatGPT、Claude、Gemini 2025–2026 的「記憶」：個人化的 AI，而且使用者看得到、刪得掉 |
 | 「查 serendipity，加入我的單字庫」→ 單字卡 → **確認卡** → 加入 | `look_up_word`（讀）、`add_word_to_repository`（寫，先確認） | Agent 會動手，所以 human-in-the-loop |
 | 「我的投資組合現在怎麼樣？」→ **持倉表格卡片** + 重點分析 | `portfolio_summary`，照 /portfolio 的估值 | 結果是 UI，不是一坨文字（generative UI） |
 | 「我今天加碼 0050 兩張，均價 185，幫我記下來」（或**貼一張券商成交回報的截圖**）→ **確認卡**「『0050』加 2,000（成交價 185）（存成今天的快照）」→ 允許 → 投資組合更新 | `update_holding`（寫入，先確認）：最新快照改那一筆、存成今天的快照，成本照平均成本法（買進加上付出的錢、賣出保留平均成本）；買進沒說價格就先問、對到兩筆就不猜 | 跨 app 的「用說的記帳」：AI 不只讀你的資料，也幫你維護它 |
@@ -61,7 +61,7 @@
    ![字典頁選一句例句](screenshots/select-sentence-desktop.png)
    ![翻成中文與值得學的字詞](screenshots/select-translate-desktop.png)
    ![朗讀](screenshots/studio-read-aloud-phone.png)
-   **它記得你**：在單字庫頁 ⌘K 說「記住：我在準備多益，目標 800 分，短文用商務情境」→ **確認卡**「記住：『在準備多益，目標 800 分；短文用商務情境』」→ 允許 →「Studio AI 記得的事」卡片。開一個新對話再按「用我單字庫裡最近存的字寫一段短文」→ 短文是商務情境、提到多益（模型讀到的是 system prompt 裡的筆記）。問「你記得我什麼？」會照清單回答；到 /connectors 的「Studio AI 記得的事」看得到每一則，可以刪。
+   **它記得你**：在單字庫頁 ⌘K 說「記住：我在準備多益，目標 800 分，短文用商務情境」→ **確認卡**「記住：『在準備多益，目標 800 分；短文用商務情境』」→ 允許 →「Studio AI 記得的事」卡片。開一個新對話再按「用我單字庫裡最近存的字寫一段短文」→ 短文是商務情境、提到多益（模型讀到的是 system prompt 裡的筆記）。問「你記得我什麼？」會照清單回答；記住「我負責北區業績」後，到 /data-analysis 問「最近業績怎麼樣」，資料分析的助理會先看北區並說明（它只讀筆記、不能改）；到 /connectors 的「Studio AI 記得的事」看得到每一則，可以刪。
    ![記住之前先問](screenshots/studio-memory-desktop.png)
    ![記住了](screenshots/studio-memory-done-desktop.png)
    ![/connectors 的 Studio AI 記得的事](screenshots/connectors-memory-desktop.png)

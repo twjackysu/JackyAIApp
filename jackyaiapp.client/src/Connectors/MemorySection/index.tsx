@@ -10,6 +10,11 @@ import {
 } from '@/apis/assistantMemoryApis';
 import { getApiErrorMessage, getCaughtErrorMessage } from '@/apis/utils/errorMessage';
 
+// One string, so no line break in the source turns into a space between Chinese words.
+const INTRO =
+  '跟 Studio AI 說「記住我在準備多益」，它確認後就會記下來，之後每個對話都會參考（例如短文的情境、簡報的重點），' +
+  '資料分析的 AI 助理也會參考（只讀）。這裡列出它記得的每一則，不需要的可以刪掉。';
+
 interface MemorySectionProps {
   notify: (message: string, severity: 'success' | 'error') => void;
 }
@@ -44,19 +49,33 @@ export default function MemorySection({ notify }: MemorySectionProps) {
       variant="outlined"
       sx={{ p: { xs: 2, sm: 3 }, mb: 5 }}
     >
-      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 1, flexWrap: 'wrap' }}>
+      {/* One line on a phone too: the title is a little smaller there rather than wrapping beside the count. */}
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 1 }}>
         <Psychology color="primary" />
-        <Typography id="memory-title" variant="h6" component="h2" sx={{ flex: 1 }}>
+        <Typography
+          id="memory-title"
+          variant="h6"
+          component="h2"
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            fontSize: { xs: '1rem', sm: undefined },
+            whiteSpace: 'nowrap',
+          }}
+        >
           Studio AI 記得的事
         </Typography>
         {list && (
-          <Chip size="small" variant="outlined" label={`${memories.length} / ${list.limit}`} />
+          <Chip
+            size="small"
+            variant="outlined"
+            label={`${memories.length} / ${list.limit}`}
+            sx={{ flexShrink: 0 }}
+          />
         )}
       </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        跟 Studio AI
-        說「記住我在準備多益」，它確認後就會記下來，之後每個對話都會參考（例如短文的情境、簡報的重點）。
-        這裡列出它記得的每一則，不需要的可以刪掉。
+        {INTRO}
       </Typography>
 
       {isLoading ? null : error ? (
