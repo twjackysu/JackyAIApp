@@ -56,7 +56,8 @@ jackyaiapp.client/src/
   placeholders, the server profile, error wording, words for tools the server names no display name for,
   `toolLabels`: Finance's hosted tw-stock tools, `FINANCE_TOOL_LABELS`, so its chips and header read 「個股歷史股價」
   rather than "stock history") is an `AiChatConfig` (`components/aiChat/config.ts`)
-  that the app passes to `AiAssistantLauncher` (Finance's is `Finance/aiChatConfig.ts`); the chat's
+  that the app passes to `AiAssistantLauncher` (Finance's is `Finance/aiChatConfig.ts`; Data Analysis's depends on what
+  is on screen, `dataAnalysisAiChatFor`: nothing about dashboards for an uploaded file, whose charts cannot be saved); the chat's
   parts read it with `useAiChatConfig()`, so their tests render under an `AiChatConfigContext`. The tools
   an answer used are `ToolActivity` (from the stream's `tool_use`/`tool_result`, `utils/toolActivity`),
   a write waiting for the reader is `ApprovalCard` (`approval_required`, `utils/approval`; several calls are decided one

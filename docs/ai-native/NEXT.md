@@ -23,7 +23,6 @@
 1. **選做（少而精，11/3 前）**——挑一個做完、能 demo、有測試：
    - 「一句話做出整個 dashboard」在 Studio AI 裡也能用？（Studio 沒有 `ask_data`；評估是否值得，或只在 /dashboards 的 Studio 建議導去 /data-analysis。）
    - /data-analysis 的「問 AI」（下方）的回答與查詢結果表的選取巡檢（需要假的 sources 與 summarize API，截圖腳本仿 `selection.cjs` 情境 D）。
-   - 上傳檔案（session）時，/data-analysis 的「做一整個 dashboard」建議隱藏或換字（現在只靠 prompt 在第一張後停下，D-093）——`AiChatConfig.suggestions` 是靜態的，要看 `AiAssistantLauncher` 能否依頁面狀態換。
    - 新增本站寫入工具時，記得在 `refreshAfterTool` 補上它改了哪些 tag（D-085）。
 2. **SHOWCASE 定稿**（11/4–11/5）：最終統計（輪數、commit 數：`git rev-list --count --no-merges origin/master..HEAD`）、demo 腳本走一遍、合併檢查清單再對一次 migration 清單（`git diff --stat origin/master -- JackyAIApp.Server/Data/Migrations`；第 14–19 輪沒有新 migration）。
 

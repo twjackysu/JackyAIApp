@@ -7,7 +7,7 @@ import { useGetUserInfoQuery } from '../apis/accountApis';
 import { useGetSchemaQuery } from '../apis/dataAnalysisApis';
 import { DataAnalysisNav } from '../components/DataAnalysisNav';
 
-import { DATA_ANALYSIS_AI_CHAT } from './aiChatConfig';
+import { dataAnalysisAiChatFor } from './aiChatConfig';
 import { AnalysisTabs } from './components/AnalysisTabs';
 import { DetailsTab } from './components/DetailsTab';
 import { OverviewStrip } from './components/OverviewStrip';
@@ -68,7 +68,7 @@ export default function DataAnalysis() {
   // The assistant reads the data on screen: the page tells it which with every message.
   const aiChat = useMemo(
     () => ({
-      ...DATA_ANALYSIS_AI_CHAT,
+      ...dataAnalysisAiChatFor(!!sessionId),
       pageContext: dataAnalysisPageContext({
         sourceId: ctxSourceId,
         tableName: ctxTableName,

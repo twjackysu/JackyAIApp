@@ -53,3 +53,21 @@ export const DATA_ANALYSIS_AI_CHAT: AiChatConfig = {
     { texts: ['畫出近 12 個月的趨勢'] },
   ],
 };
+
+/**
+ * The assistant for what is on screen. An uploaded file (a session) has no source a dashboard widget could query
+ * again, so its charts cannot be saved: nothing offers to save one there (D-094).
+ */
+export function dataAnalysisAiChatFor(uploadedFile: boolean): AiChatConfig {
+  if (!uploadedFile) return DATA_ANALYSIS_AI_CHAT;
+  return {
+    ...DATA_ANALYSIS_AI_CHAT,
+    greeting:
+      '我是資料分析 AI 助手，會自己查詢、彙總你上傳的檔案，畫成圖表並說明重點。用平常說話的方式問就好。',
+    suggestions: DATA_ANALYSIS_AI_CHAT.suggestions.filter((s) => !s.text.includes('dashboard')),
+    followUps: (DATA_ANALYSIS_AI_CHAT.followUps ?? [])
+      .filter((rule) => !rule.tools?.includes('save_to_dashboard'))
+      .map((rule) => ({ ...rule, texts: rule.texts.filter((t) => !t.includes('dashboard')) }))
+      .filter((rule) => rule.texts.length > 0),
+  };
+}

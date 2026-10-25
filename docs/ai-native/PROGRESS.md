@@ -7,6 +7,7 @@
 - **巡檢 /data-analysis 的選取**：助理回答裡選「南區則緩步下滑」→ 工具列「解釋／翻成英文／問 AI」，按下送出的訊息正確（接在原對話、沒有 quotesPageText，以 console 確認）。截圖 `select-data-*`（`selection.cjs` 情境 D）。
 - **一句話做出整個 dashboard**（D-090）：只改 /data-analysis 助理的 prompt 與歡迎畫面第四個建議；多個 `save_to_dashboard` 依序執行，第一張建立、之後的找到它（新測試）。
 - **確認卡的「全部允許（N）／全部拒絕」**（D-091）：只在全部是本站工具、沒有 destructive、沒讀過外部內容時給全部允許；「以後直接執行」每個工具只問一次；`ApprovalCard` 以 `pendingId` 為 key。截圖 `data-whole-dashboard-*`（情境 E）。
+- **上傳檔案時不提 dashboard**（D-094）：`dataAnalysisAiChatFor(uploadedFile)`，建議、接著問、歡迎訊息拿掉 dashboard。
 - **審查**（subagent，D-093）：無高風險；中風險「外部 MCP 的 effect 是對方自己說的，全部允許可能放行夾帶的刪除」已修（只限本站工具）；上傳檔案時查完第一張就停（prompt）。其餘低風險記在 D-093。
 - 驗證：前端 lint、test（137 檔 1477＋個）、build 全過；CI 40174073059、40174872913、40175193675（後端 prompt＋測試，第一次就綠）、40175961415 綠；審查修正的 CI 見 NEXT §1。
 - 問題：無阻礙。
