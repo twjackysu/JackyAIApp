@@ -43,7 +43,8 @@ const REPOSITORY: AiChatSuggestion[] = [
 ];
 const PORTFOLIO: AiChatSuggestion[] = [
   { text: '幫我看看我的持股，哪幾檔虧最多？', icon: PieChartIcon },
-  { text: '我的資產配置現在偏重哪裡？', icon: PieChartIcon },
+  // The model asks which holding, how many and at what price, or for the trade confirmation's screenshot.
+  { text: '幫我記一筆今天的交易', icon: EditNoteIcon },
 ];
 /** A word's dictionary page as the server's `open_page` makes it: letters, an apostrophe or a hyphen. */
 const DICTIONARY_WORD = /^\/english\/dictionary\/([a-z][a-z'-]{0,29})$/i;
