@@ -298,8 +298,11 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   their words, `AssistantMemories` (module Assistant), one line each, at most 200 characters and 30 a reader, the same words
   kept once (`AssistantMemoryService`). Every note is in each Studio prompt (`StudioChatProfile.MemoryPrompt`), inside
   `<user_memories>` with `<`/`>` made full-width so no note can close it, and called the reader's notes, not instructions:
-  a note lasts into every later conversation, so one slipped in by someone else's words would too. Hence `remember` is a write
-  (asked first, its card saying the whole note, `IDescribesCall`), and `forget` names a note by its words as kept (so its card
+  a note lasts into every later conversation, so one slipped in by someone else's words would too (an attachment does not taint
+  a conversation). Hence `remember` is a write that `AlwaysAsks` (`AiToolDescriptor.AlwaysAsks`: `ToolPermissions.For(descriptor, …)`
+  never gives it Auto, the connectors page refuses to set it so, and the site's MCP server never offers it; the client gets the
+  flag on the tool, `ConnectorToolDto.AlwaysAsks`, and on the call, `approval_required`'s `alwaysAsks`), its card saying the whole
+  note (`IDescribesCall`; `<`/`>` are kept full-width, as the prompt shows them), and `forget` names a note by its words as kept (so its card
   shows exactly what goes) and is `Destructive` (always asked; never offered by the site's MCP server). The connectors page
   lists and forgets them (`GET`/`DELETE api/assistant/memories`, `AssistantMemoriesController` → `AssistantMemoryPage`,
   someone else's NotFound). Only Studio AI reads them

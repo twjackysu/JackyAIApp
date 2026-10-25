@@ -20,6 +20,7 @@
 5. [UX](design/05-ux.md)
 6. [安全](design/06-security.md)
 7. [實作計畫](design/07-implementation-plan.md)
+8. [Studio AI 的記憶](design/08-memory.md)（第 21 輪新增，D-100）
 
 ## 時程（台北時間）
 

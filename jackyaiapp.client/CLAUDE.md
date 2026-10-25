@@ -149,7 +149,9 @@ sent or stored, so a reopened conversation shows a plain message. A site tool's 
   `AddMcpServerDialog/addMcpServer`. The catalog failing to load leaves the account connections working.
   Below it, `MemorySection` lists what the reader asked Studio AI to remember (`assistantMemoryApis`, in the shared API,
   tag `AssistantMemory`, which Studio's `remember`/`forget` also refresh through `refreshAfterTool`) and forgets one on a
-  second press; keeping one is only Studio AI's 「記住…」, asked first in the chat (D-100).
+  second press; keeping one is only Studio AI's 「記住…」, asked first in the chat (D-100). A tool the server marks `alwaysAsks`
+  (`remember`) is like one that cannot be undone there: no 自動 on the connectors page (`allowedPermissions`), no 「以後直接執行」
+  (`canAlwaysAllow`) and no 全部允許 on the card (D-101).
   Below that, `SiteMcpSection` lets other AIs use the site: the site's MCP address, the reader's tokens (revoked after a
   second click) and `CreateTokenDialog`, which shows a new token once, with the settings for Claude Code, Claude
   Desktop, Cursor and VS Code filled in (`clientConfigs`); what a token's row says is `tokenView`

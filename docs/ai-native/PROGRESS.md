@@ -1,5 +1,16 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-25 19:42 – 第 21 輪（交棒標示、截圖巡檢、Studio AI 的記憶、審查）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。clone 是 shallow，先 `git fetch --unshallow`。
+- **交棒來的訊息標「由 Studio AI 轉來」**（D-099）：只在前端（`SendOptions.handedOverBy` → `Message.handedOverBy` → `MessageArea` 的 caption），請求 body 不變。截圖 `studio-handoff-from-*`（`selection.cjs` 情境 F）。
+- **截圖巡檢**：重拍 `chat.cjs` 全部情境，與 repo 裡的比對；差異都是前幾輪刻意的改動（接著問、歡迎訊息），更新截圖。沒有退化。
+- **Studio AI 的記憶**（design/08、D-100）：「記住：我在準備多益…」→ 確認卡寫出整句筆記 → 之後每個對話的 system prompt 都有 `<user_memories>`（標明不是指令、`<>` 全形）。`AssistantMemories` 資料表＋手寫 migration `20261025200000_AddAssistantMemories`（只新增）、`AssistantMemoryService`（每則 200 字、每人 30 則、同樣的話不重複）、`remember`／`forget`（照抄文字、Destructive）、`GET`／`DELETE api/assistant/memories`、/connectors 的 `MemorySection`、Studio 歡迎訊息與「你記得我什麼？」。**交給 /data-analysis 帶資料源**評估後不做（D-100）。
+- **審查**（subagent，D-101）：三個中風險已修——`remember` 可設自動而附件不 taint、本站 MCP server 對外提供 `remember`、`<>` 全形造成忘不掉 → `AiToolDescriptor.AlwaysAsks`（伺服器與前端都照它：不給自動、不對外、確認卡沒有以後直接執行與全部允許）、`Normalize` 存全形；低風險 `forget` 大小寫完全相符、`CreatedAt` 標 UTC 已修；上限的併發競爭接受。
+- 文件：兩份 CLAUDE.md、design/08、D-099～D-101、SHOWCASE（亮點一列、demo 第 3 步）、PLAN；截圖 `studio-memory-*`、`connectors-memory-*`（`.loop/shots/memory.cjs`）。
+- 驗證：前端 lint、test（140 檔 1500＋個）、build 全過；CI 40190641700（交棒標示）、40191141568（資料表＋migration，ModelMatchesMigrations 第一次就綠）、40191402480（工具＋prompt）、40191760063（API）、40192581910（/connectors）綠；審查修正 40192873631 被下一次 push 取消（正常），**40193004221（本輪最後一次含程式碼的 push：AlwaysAsks 送到前端，含審查修正）綠**。前端最後一次 lint、test（140 檔 1501 個）、build 全過。
+- 問題：`memory.cjs` 用 chat.cjs 的 `open()`（含 chat 的 fetch 替身）開 /connectors 會是空白頁，原因沒追；改成跟 `connectors.cjs` 一樣只用一個 route 就正常。
+
 ## 2026-10-25 17:41 – 第 20 輪（AI 之間交棒、持股外資動向、/dashboards 建議、選取巡檢、審查）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。
