@@ -11,7 +11,7 @@
 
 ## 1. CI 狀態
 
-- 第 16 輪最後一次含程式碼的 push 是「/portfolio 的建議」（CI 40153238288）。開工時照 §0 看最新一次。
+- 第 16 輪最後一次含程式碼的 push 是「寫入後頁面重讀」（CI 40154034322，綠）。開工時照 §0 看最新一次。
 - clone 可能是 shallow：開工先 `git fetch --unshallow origin`（否則 merge-base 與 `rev-list --count` 不對）。
 - 截圖：`.loop/shots/chat.cjs`（Studio／指令列／測驗／短文＋朗讀／**記交易、貼截圖記交易**／Data Analysis／今日簡報／語音／帶我去／換圖＋接著問／dashboard 的 AI 解讀／/finance，桌機＋手機）、`connectors.cjs`、`mcp-app.cjs`。只想拍一個情境：用 python 取 chat.cjs 開頭到 `(async () => {` 之前（dist 與 fixtures 路徑改成絕對路徑），加上只含那一段的 IIFE，另存在 scratch 跑。附件的假 API（`/api/chatbot/attachments`）已在 `open()` 裡。
 - **前端改動一定要跑 `npm run build`**（vitest 不做型別檢查），**改了 `SitePages.cs` 也要跑前端測試**（`quickActions.test.ts` 讀它）。`npm run lint`＋`npm run test` 加起來超過 2 分鐘，放背景跑再看 log。**regex 裡的 `\uXXXX` 用 Write 工具寫會變成真的字元**（eslint no-irregular-whitespace），寫完 grep 確認。
