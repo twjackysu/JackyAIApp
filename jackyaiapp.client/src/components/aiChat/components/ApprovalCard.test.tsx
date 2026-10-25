@@ -274,4 +274,33 @@ describe('ApprovalCard', () => {
       expect(checkbox()).toBeNull();
     });
   });
+
+  describe('time left to answer', () => {
+    afterEach(() => vi.useRealTimers());
+    const timeLeft = () =>
+      container.querySelector('[data-testid="approval-time-left"]')?.textContent ?? null;
+
+    it('counts down while the card waits, from when the question arrived', () => {
+      vi.useFakeTimers();
+      const askedAt = Date.now();
+      render({ pendingId: 'p', calls: [call('a')], askedAt });
+      expect(timeLeft()).toBe('3 分鐘內沒有回覆，這次就不執行');
+
+      act(() => vi.advanceTimersByTime(2 * 60 * 1000 + 30_000));
+      expect(timeLeft()).toBe('30 秒內沒有回覆，這次就不執行');
+    });
+
+    it('is gone once sent or answered, and not shown without a time', () => {
+      vi.useFakeTimers();
+      const askedAt = Date.now();
+      render({ pendingId: 'p', calls: [call('a')], askedAt }, vi.fn(), 'sending');
+      expect(timeLeft()).toBeNull();
+      render({ pendingId: 'p', calls: [call('a')], askedAt }, vi.fn(), 'resolved', [
+        { toolUseId: 'a', approve: true },
+      ]);
+      expect(timeLeft()).toBeNull();
+      render({ pendingId: 'p', calls: [call('a')] });
+      expect(timeLeft()).toBeNull();
+    });
+  });
 });

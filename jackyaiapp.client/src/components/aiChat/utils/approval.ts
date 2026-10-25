@@ -16,6 +16,9 @@ export interface PendingApproval {
   calls: ApprovalCall[];
   /** The conversation has read outside (untrusted) content: every write needs a yes. */
   tainted?: boolean;
+  /** When the question arrived (ms since the epoch, the client's clock): the turn waits at most
+   *  `APPROVAL_TIMEOUT_MS` from about then. */
+  askedAt?: number;
 }
 
 export interface ApprovalDecision {
@@ -73,3 +76,22 @@ export const alwaysAllowRequest = (call: ApprovalCall): ToolPermissionRequest =>
  */
 export const hasOpenApproval = (messages: readonly { approval?: MessageApproval }[]): boolean =>
   messages.some((m) => m.approval !== undefined && m.approval.state !== 'resolved');
+
+/** How long the server waits for an answer before counting every call as a no (`ClientToolRunner.ApprovalTimeout`). */
+export const APPROVAL_TIMEOUT_MS = 3 * 60 * 1000;
+
+/**
+ * What the card says about the time left to answer, or nothing when it does not know when it was asked. The server
+ * started counting a moment before the question arrived, so this is never later than its own limit. Under a minute
+ * it counts the seconds (`urgent`); at the end, the server's no is on its way.
+ */
+export const approvalTimeLeft = (
+  askedAt: number | undefined,
+  now: number,
+): { text: string; urgent: boolean } | null => {
+  if (askedAt === undefined) return null;
+  const left = Math.ceil((askedAt + APPROVAL_TIMEOUT_MS - now) / 1000);
+  if (left <= 0) return { text: '時間到了，這次不會執行', urgent: true };
+  if (left <= 60) return { text: `${left} 秒內沒有回覆，這次就不執行`, urgent: true };
+  return { text: `${Math.ceil(left / 60)} 分鐘內沒有回覆，這次就不執行`, urgent: false };
+};

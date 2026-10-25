@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
+import clientToolRunnerCs from '../../../../../JackyAIApp.Server/Services/Chatbot/ClientToolRunner.cs?raw';
+
 import {
   alwaysAllowRequest,
+  APPROVAL_TIMEOUT_MS,
+  approvalTimeLeft,
   canAlwaysAllow,
   decisionsFor,
   formatArgument,
@@ -90,5 +94,42 @@ describe('hasOpenApproval', () => {
   it('is closed with no card or only answered ones', () => {
     expect(hasOpenApproval([])).toBe(false);
     expect(hasOpenApproval([{}, approval('resolved')])).toBe(false);
+  });
+});
+
+describe('approvalTimeLeft', () => {
+  const asked = 1_000_000;
+
+  it("counts to the server's own limit", () => {
+    const minutes = /ApprovalTimeout = TimeSpan\.FromMinutes\((\d+)\)/.exec(clientToolRunnerCs);
+    expect(minutes).not.toBeNull();
+    expect(Number(minutes![1]) * 60 * 1000).toBe(APPROVAL_TIMEOUT_MS);
+  });
+
+  it('says nothing without knowing when it was asked', () => {
+    expect(approvalTimeLeft(undefined, asked)).toBeNull();
+  });
+
+  it('counts whole minutes, then seconds in the last minute, then that the time is up', () => {
+    expect(approvalTimeLeft(asked, asked)).toEqual({
+      text: '3 分鐘內沒有回覆，這次就不執行',
+      urgent: false,
+    });
+    expect(approvalTimeLeft(asked, asked + 61_000)).toEqual({
+      text: '2 分鐘內沒有回覆，這次就不執行',
+      urgent: false,
+    });
+    expect(approvalTimeLeft(asked, asked + APPROVAL_TIMEOUT_MS - 60_000)).toEqual({
+      text: '60 秒內沒有回覆，這次就不執行',
+      urgent: true,
+    });
+    expect(approvalTimeLeft(asked, asked + APPROVAL_TIMEOUT_MS - 4_500)).toEqual({
+      text: '5 秒內沒有回覆，這次就不執行',
+      urgent: true,
+    });
+    expect(approvalTimeLeft(asked, asked + APPROVAL_TIMEOUT_MS + 2_000)).toEqual({
+      text: '時間到了，這次不會執行',
+      urgent: true,
+    });
   });
 });

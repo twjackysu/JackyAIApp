@@ -243,7 +243,12 @@ export function useChatConversation(options?: ChatConversationOptions) {
         event.type === 'approval_required'
           ? updateBot({
               approval: {
-                request: { pendingId: event.pendingId, calls: event.calls, tainted: event.tainted },
+                request: {
+                  pendingId: event.pendingId,
+                  calls: event.calls,
+                  tainted: event.tainted,
+                  askedAt: Date.now(),
+                },
                 state: 'pending',
               },
             })

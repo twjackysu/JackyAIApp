@@ -11,12 +11,13 @@ import {
   Typography,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   ApprovalCall,
   ApprovalDecision,
   ApprovalState,
+  approvalTimeLeft,
   canAlwaysAllow,
   decisionsFor,
   formatArgument,
@@ -32,6 +33,18 @@ interface ApprovalCardProps {
   onSubmit: (decisions: ApprovalDecision[]) => void;
   /** The calls the reader allowed and asked to let run on their own from now on (`canAlwaysAllow`). */
   onAlwaysAllow?: (calls: ApprovalCall[]) => void;
+}
+
+/** The time now, again every second while `ticking`: the card counts down the time left to answer. */
+function useNow(ticking: boolean) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!ticking) return;
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [ticking]);
+  return now;
 }
 
 /** One tool of one connector: what a permission is set for. */
@@ -94,6 +107,8 @@ export default function ApprovalCard({
   const open = state === 'pending' || state === 'failed';
   const decided = new Map(decisions?.map((d) => [d.toolUseId, d.approve]));
   const allChosen = approval.calls.every((c) => c.toolUseId in chosen);
+  const now = useNow(open && approval.askedAt !== undefined);
+  const timeLeft = open ? approvalTimeLeft(approval.askedAt, now) : null;
 
   return (
     <Box
@@ -292,6 +307,16 @@ export default function ApprovalCard({
           {canAllowAll
             ? '也可以逐項選好允許或拒絕，再按「照上面的選擇送出」'
             : '每一項都選好允許或拒絕後才能送出'}
+        </Typography>
+      )}
+      {timeLeft && (
+        <Typography
+          variant="caption"
+          color={timeLeft.urgent ? 'warning.main' : 'text.secondary'}
+          sx={{ display: 'block', mt: 0.5 }}
+          data-testid="approval-time-left"
+        >
+          {timeLeft.text}
         </Typography>
       )}
       {state === 'sending' && (
