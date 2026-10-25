@@ -80,7 +80,7 @@ export const DATA_ANALYSIS_AI_CHAT: AiChatConfig = {
   signedOutPlaceholder: '登入後即可問 AI 你的資料',
   inputPlaceholder: {
     narrow: '問問你的資料…',
-    wide: '問問你的資料，例如：去年各月營收趨勢，畫成折線圖；打 / 看現成指令（Enter 送出）',
+    wide: '問問你的資料，例如：去年各月營收趨勢，畫成折線圖；打 / 看現成指令（Enter 送出，Shift+Enter 換行）',
   },
   slashCommands: DATA_ANALYSIS_SLASH_COMMANDS,
   cardRenderers: { chart: ChartCardView },

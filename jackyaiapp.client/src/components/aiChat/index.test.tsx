@@ -1324,6 +1324,24 @@ const uploadsSettled = () =>
   );
 
 describe('AiAssistantPanel — attachments', () => {
+  it('sends a / draft with picked files as typed, never offering it to its owner (D-115)', async () => {
+    await mount();
+    const offered: string[] = [];
+    sendDraft = (text) => {
+      offered.push(text);
+      return true;
+    };
+    await renderAsk();
+    uploadReplies.push(() => json({ data: uploaded(7, '持股.xlsx') }));
+    await attach(file('持股.xlsx'));
+    await uploadsSettled();
+    chatReplies.push(() => sseReply({ type: 'done', conversationId: 'conv-1' }));
+    await send('/今天');
+    await waitFor(() => expect(chatBodies.length).toBe(1));
+    expect(offered).toEqual([]);
+    expect(chatBodies[0]).toMatchObject({ message: '/今天', attachmentIds: [7] });
+  });
+
   it('uploads a picked file, then sends its id with the message and shows it on the bubble', async () => {
     await mount();
     uploadReplies.push(() => json({ data: uploaded(7, '持股.xlsx') }));

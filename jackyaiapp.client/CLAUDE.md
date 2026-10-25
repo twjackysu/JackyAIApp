@@ -59,8 +59,8 @@ jackyaiapp.client/src/
   Finance's market questions that name no stock, `FINANCE_SLASH_COMMANDS`, each one of its example questions, and Data Analysis's
   columns, highlights, trend and a whole dashboard, that last left out for an uploaded file; matched as Studio AI's are,
   `utils/slashCommands`' `matchSlashCommands`, drawn by the same chips, `components/QuickChips`, and a press empties the box and
-  sends one in the conversation on screen; so does Enter on a `/` draft, for the first one listed, which the chip marks ↵,
-  through the panel's `onSendDraft`, D-115, and with none listed the text goes as typed) is an `AiChatConfig` (`components/aiChat/config.ts`)
+  sends one in the conversation on screen; so does Enter (or the send button) on a `/` draft, for the first one listed, which the chip marks ↵,
+  through the panel's `onSendDraft`, D-115; with none listed, or with files picked, the text goes as typed) is an `AiChatConfig` (`components/aiChat/config.ts`)
   that the app passes to `AiAssistantLauncher` (Finance's is `Finance/aiChatConfig.ts`; Data Analysis's depends on what
   is on screen, `dataAnalysisAiChatFor`: nothing about dashboards for an uploaded file, whose charts cannot be saved); the chat's
   parts read it with `useAiChatConfig()`, so their tests render under an `AiChatConfigContext`. The tools

@@ -63,9 +63,9 @@ interface AiAssistantPanelProps {
   onToolDone?: (tool: string) => void;
   /** Over the message box, from the app that holds the panel (Studio AI's quick actions for what is typed). */
   inputAccessory?: ReactNode;
-  /** What the reader sends from the box, offered to the panel's owner first: true when the owner took it (Enter on a
-   *  `/` draft sends the first ready-made request listed, D-115), and then the box is only emptied, the picked files
-   *  staying for the next message. */
+  /** What the reader sends from the box (Enter or the send button), offered to the panel's owner first: true when the
+   *  owner took it (a `/` draft sends the first ready-made request listed, D-115), and then the box is only emptied.
+   *  Not offered while files are picked: the message, files and all, goes as typed. */
   onSendDraft?: (text: string) => boolean;
 }
 
@@ -192,7 +192,8 @@ function AiAssistantPanel({
     if (!inputValue.trim()) return;
     if (attachments.uploading) return;
     const text = inputValue;
-    if (onSendDraft?.(text)) {
+    // With files picked, the message is the reader's own: a ready-made request would leave them behind.
+    if (attachments.pending.length === 0 && onSendDraft?.(text)) {
       setInputValue('');
       return;
     }

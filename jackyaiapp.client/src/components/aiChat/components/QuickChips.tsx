@@ -64,7 +64,7 @@ export default function QuickChips<T extends QuickChipItem>({
           </Typography>
           {actions.map((action, i) => {
             const Icon = ICONS[action.kind];
-            // What Enter sends: outlined, and on a keyboard's screen marked ↵ (a pseudo-element, so the name stays the label).
+            // What Enter sends: outlined, and on a keyboard's screen marked ↵.
             const onEnter = enterPicksFirst && commands && i === 0;
             return (
               <ButtonBase
@@ -75,7 +75,8 @@ export default function QuickChips<T extends QuickChipItem>({
                 sx={{
                   ...(onEnter && {
                     '&::after': {
-                      content: '"↵"',
+                      // Empty alt text: aria-keyshortcuts already says it, the name stays the label.
+                      content: '"↵" / ""',
                       display: { xs: 'none', sm: 'inline' },
                       ml: 0.25,
                       fontSize: 12,
