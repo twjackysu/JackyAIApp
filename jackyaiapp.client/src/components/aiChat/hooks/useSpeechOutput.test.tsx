@@ -92,4 +92,31 @@ describe('useSpeechOutput', () => {
     expect(synthesis.speak).not.toHaveBeenCalled();
     expect(result.current.speaking).toBe(false);
   });
+
+  it('a reading started elsewhere resets this one, and this one no longer stops it', () => {
+    const a = renderHook('first answer');
+    const b = renderHook('second answer');
+    act(() => a.result.current.toggle());
+    act(() => b.result.current.toggle());
+
+    expect(a.result.current.speaking).toBe(false);
+    expect(b.result.current.speaking).toBe(true);
+    synthesis.cancel.mockClear();
+    a.unmount();
+    expect(synthesis.cancel).not.toHaveBeenCalled();
+    expect(b.result.current.speaking).toBe(true);
+    b.unmount();
+  });
+
+  it('a late event of an old reading does not end a new one', () => {
+    const { result, unmount } = renderHook('hello');
+    act(() => result.current.toggle());
+    const old = spoken[0];
+    act(() => result.current.toggle());
+    act(() => result.current.toggle());
+
+    act(() => old.onerror!());
+    expect(result.current.speaking).toBe(true);
+    unmount();
+  });
 });

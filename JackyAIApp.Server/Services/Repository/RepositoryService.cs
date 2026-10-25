@@ -312,7 +312,8 @@ namespace JackyAIApp.Server.Services.Repository
 
             var mine = _dbContext.UserWords.AsNoTracking().Where(uw => uw.UserId == userId);
             var total = await mine.CountAsync(ct);
-            // Only the word and its first meaning's part of speech and Chinese: a list for the AI, not the entries.
+            // Only the word and one meaning's part of speech and Chinese: a list for the AI, not the entries. Meanings
+            // have no order of their own (their ids are GUIDs), so "first" is by id, stable but not the dictionary's order.
             var words = await mine
                 .OrderByDescending(uw => uw.DateAdded)
                 .ThenByDescending(uw => uw.Id)

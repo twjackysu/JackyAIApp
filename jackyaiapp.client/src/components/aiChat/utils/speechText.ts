@@ -20,14 +20,15 @@ export function plainTextOf(markdown: string): string {
     markdown
       // Fenced code and HTML blocks are not read.
       .replace(/```[\s\S]*?(```|$)/g, ' ')
-      .replace(/<[^>]+>/g, ' ')
+      .replace(/<\/?[A-Za-z][^>]*>/g, ' ')
       // Images go, links keep their words.
       .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
       .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
       .replace(/https?:\/\/\S+/g, ' ')
       // Inline code keeps its words; emphasis, headings, quotes, list marks and table rules go.
       .replace(/`([^`]*)`/g, '$1')
-      .replace(/(\*\*|__|\*|~~)(?=\S)([\s\S]*?\S)\1/g, '$2')
+      .replace(/(\*\*|__|~~)(?=\S)([\s\S]*?\S)\1/g, '$2')
+      .replace(/(^|[^\w*])\*(?=\S)([^*\n]*?\S)\*(?![\w*])/g, '$1$2')
       .replace(/^\s{0,3}(#{1,6}|>+|[-*+]|\d+[.)])\s+/gm, '')
       .replace(/^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/gm, ' ')
       .replace(/\|/g, '，')
@@ -64,7 +65,58 @@ export function speechSegmentsOf(markdown: string, max = MAX_SPOKEN_CHARS): Spee
     current += ch;
   }
   if (lang) segments.push({ text: current, lang });
-  return segments
+  const kept = segments
     .map((s) => ({ ...s, text: s.text.trim() }))
     .filter((s) => /[A-Za-z\p{Script=Han}]/u.test(s.text));
+  return chunked(withShortLatinInChinese(kept));
+}
+
+/** The longest Latin run read in the Chinese voice when it sits in Chinese text (ETF, EPS, AI). */
+const SHORT_LATIN = 3;
+
+/**
+ * An abbreviation in a Chinese sentence stays in the Chinese voice, which reads it letter by letter anyway:
+ * switching voices for 「ETF」 would break the sentence into pieces. Runs of one language are then joined.
+ */
+function withShortLatinInChinese(segments: SpeechSegment[]): SpeechSegment[] {
+  const relabelled = segments.map((s, i): SpeechSegment => {
+    const short = s.lang === 'en-US' && (s.text.match(/[A-Za-z]/g)?.length ?? 0) <= SHORT_LATIN;
+    const nearChinese = segments[i - 1]?.lang === 'zh-TW' || segments[i + 1]?.lang === 'zh-TW';
+    return short && nearChinese ? { ...s, lang: 'zh-TW' } : s;
+  });
+  const joined: SpeechSegment[] = [];
+  for (const s of relabelled) {
+    const last = joined[joined.length - 1];
+    if (last?.lang === s.lang) last.text += ` ${s.text}`;
+    else joined.push({ ...s });
+  }
+  return joined;
+}
+
+/** The most characters one utterance holds: some browsers' voices stop a long one partway, without a word. */
+export const MAX_UTTERANCE_CHARS = 200;
+
+/** Each run cut at its sentence ends into pieces no longer than `MAX_UTTERANCE_CHARS` (a hard cut if need be). */
+function chunked(segments: SpeechSegment[]): SpeechSegment[] {
+  return segments.flatMap((s) => {
+    const sentences = s.text.match(/[^.!?。！？；;]+[.!?。！？；;]*\s*/g) ?? [s.text];
+    const pieces: string[] = [];
+    let current = '';
+    for (const sentence of sentences) {
+      if (current && current.length + sentence.length > MAX_UTTERANCE_CHARS) {
+        pieces.push(current);
+        current = '';
+      }
+      current += sentence;
+      while (current.length > MAX_UTTERANCE_CHARS) {
+        pieces.push(current.slice(0, MAX_UTTERANCE_CHARS));
+        current = current.slice(MAX_UTTERANCE_CHARS);
+      }
+    }
+    if (current) pieces.push(current);
+    return pieces
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .map((text) => ({ text, lang: s.lang }));
+  });
 }

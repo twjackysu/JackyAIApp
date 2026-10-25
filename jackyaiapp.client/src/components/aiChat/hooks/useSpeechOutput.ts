@@ -30,16 +30,28 @@ export function synthesisOf(
     : null;
 }
 
+/**
+ * The one reading under way, across every answer on the page: only its owner may cancel the browser's speech,
+ * so an answer whose own reading was already cut off (some browsers send no event for a cancelled utterance)
+ * never stops another's, and a late event of an old reading never resets a new one.
+ */
+let current: { token: symbol; reset: () => void } | null = null;
+
 export function useSpeechOutput(text: string) {
   const [speaking, setSpeaking] = useState(false);
-  const speakingRef = useRef(false);
+  const token = useRef<symbol | null>(null);
+  // The utterances being read: kept referenced, since a browser may drop an unreferenced one's end event.
+  const utterances = useRef<SpeechSynthesisUtterance[]>([]);
   const browser = synthesisOf();
 
   const stop = useCallback(() => {
-    if (!speakingRef.current) return;
-    speakingRef.current = false;
     setSpeaking(false);
-    synthesisOf()?.synthesis.cancel();
+    utterances.current = [];
+    if (token.current && current?.token === token.current) {
+      current = null;
+      synthesisOf()?.synthesis.cancel();
+    }
+    token.current = null;
   }, []);
 
   const start = useCallback(() => {
@@ -47,23 +59,33 @@ export function useSpeechOutput(text: string) {
     if (!found) return;
     const segments = speechSegmentsOf(text);
     if (segments.length === 0) return;
-    // Whatever is being read (another answer) stops; its last utterance's end or error resets its button.
+    // Whatever is being read (another answer) stops, and its button goes back to 朗讀.
+    current?.reset();
     found.synthesis.cancel();
-    speakingRef.current = true;
+    const mine = Symbol('reading');
+    const reset = () => {
+      if (token.current !== mine) return;
+      token.current = null;
+      utterances.current = [];
+      setSpeaking(false);
+    };
+    token.current = mine;
+    current = { token: mine, reset };
     setSpeaking(true);
-    segments.forEach((segment, i) => {
+    utterances.current = segments.map((segment, i) => {
       const utterance = new found.Utterance(segment.text);
       utterance.lang = segment.lang;
       if (i === segments.length - 1) {
         const ended = () => {
-          speakingRef.current = false;
-          setSpeaking(false);
+          if (current?.token === mine) current = null;
+          reset();
         };
         utterance.onend = ended;
         utterance.onerror = ended;
       }
-      found.synthesis.speak(utterance);
+      return utterance;
     });
+    utterances.current.forEach((u) => found.synthesis.speak(u));
   }, [text]);
 
   // An answer that leaves the screen (another conversation, a closed drawer) stops being read.
