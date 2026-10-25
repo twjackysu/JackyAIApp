@@ -186,6 +186,8 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
             var prompt = StudioChatProfile.SystemPromptFor(new DateOnly(2026, 10, 25), null, hasConnectors: false);
 
             Assert.Contains("設 go 與 ask", prompt);
+            // The market side of the reader's own holdings: read them, then hand the codes to /finance (D-097).
+            Assert.Contains("先用 portfolio_summary 讀他的持股，再用 open_page（page=finance、go、ask）", prompt);
         }
 
         [Theory]

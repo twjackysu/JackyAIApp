@@ -70,6 +70,9 @@
    ![貼成交回報截圖記帳](screenshots/studio-trade-image-desktop.png)
    接著問「我今天有什麼行程？」（需先在 /connectors 的帳號連線連上 Google）→ Google 日曆表格卡片與空檔。
    ![Studio 讀 Google 日曆](screenshots/studio-calendar-desktop.png)
+   **持股的市場面交給 Stock Intelligence**：回到 /portfolio → ⌘K → 建議「我的持股最近外資在買還是賣？」→ Studio AI 讀完持股（表格卡片）說「我把這三檔交給 Stock Intelligence 的 AI 助理了」→ 頁面切到 /finance，那裡的助理收到「我持有 2330 台積電、0050、2454 聯發科，這幾檔最近外資在買還是賣？」並用 tw-stock 工具回答——兩個 AI 各用自己的工具接力，使用者一個字都沒重打。
+   ![Studio 讀持股後交棒](screenshots/studio-holdings-handoff-desktop.png)
+   ![Stock Intelligence 接手回答](screenshots/studio-holdings-finance-desktop.png)
 5. **資料 → 圖表 → dashboard（2 分鐘）**：/data-analysis → 最上方對話框「畫出各地區每月營收，存到『業績追蹤』dashboard，存完打開」→ 圖表卡片 → 確認卡用一句話說明「把『各地區每月營收』存到 dashboard『業績追蹤』，存好後打開它」（chartId 這類原始參數收在「顯示送出的參數」）→ 允許 → 回答結束後頁面自己切到那個 dashboard，看到同一張圖（之後會用最新資料重畫）。沒說「打開」就只留連結卡。
    ![Data Analysis 對話](screenshots/data-analysis-chat-desktop.png)
    ![存到 dashboard 的確認卡](screenshots/data-analysis-save-desktop.png)
@@ -162,7 +165,7 @@ flowchart LR
 - MCP client 只支援 Streamable HTTP（不支援舊 SSE transport，D-029）；每次請求一個 session。
 - 本站 MCP server 的 OAuth 沒有 refresh token（90 天後重新授權），授權碼存在記憶體（重啟時正在登入的人要重來）；只用假的 client 測過，Claude.ai／ChatGPT 的實際流程要合併後實測（FOR_JACKY 9）。Claude Desktop 的設定檔方式要經 `mcp-remote`（需要 Node.js）。
 - 讀過外部內容（外部 connector、Google 日曆）的對話，之後每一輪的寫入都會先問（D-055），連「以後直接執行」的工具也一樣——今日簡報讀了日曆，所以同一個對話接著「加入單字庫」會出確認卡；開新對話就不會。
-- /finance 的助理還不會讀使用者自己的投資組合（D-073：Finance 會改走 agent loop 並同時用 hosted MCP 與本站工具，這個組合沒辦法在開發環境對真的 API 驗證）。上線後確認 Studio 的 agent loop 穩定，就能讓 Stock Intelligence 回答「我的持股裡哪幾檔被外資賣超？」——這是最值得做的下一步。
+- /finance 的助理本身仍不會讀投資組合（D-073：Finance 改走 agent loop 並同時用 hosted MCP 與本站工具的組合，沒辦法在開發環境對真的 API 驗證）。「我的持股最近外資在買還是賣？」改由交棒做到（D-097）：Studio AI 讀持股、把代號交給 /finance 的助理；在 /finance 裡直接問自己的持股，它仍不知道你持有什麼。
 - 本站的 MCP App 只用 playwright 自己扮的 host 驗證過（照規格的 `ui/initialize`、`tool-result`、`size-changed`、`open-link`）；Claude.ai／ChatGPT 實際怎麼畫要合併後實測（FOR_JACKY 9）。站內 Studio AI 的卡片仍是宣告式 JSON（D-019），沒有改用 iframe。
 
 ## 開發日誌與統計

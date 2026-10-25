@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { READ_DASHBOARD_PROMPT } from './askStudio';
 import {
+  MY_HOLDINGS_MARKET,
   studioChatConfig,
   studioFollowUpsFor as followUpsOn,
   studioShownOn,
@@ -126,6 +127,12 @@ describe('studioFollowUpsFor', () => {
   it('after writing with the reader’s words, offers another passage or a quiz', () => {
     const rule = followUpsOn('/english/repository').find((r) => r.tools?.includes('saved_words'))!;
     expect(rule.texts).toEqual(['換個主題再寫一段', '考我幾題']);
+  });
+
+  it('on the portfolio page, offers the market side of the holdings, which /finance answers', () => {
+    expect(studioSuggestionsFor('/portfolio').map((s) => s.text)).toContain(MY_HOLDINGS_MARKET);
+    const rule = followUpsOn('/portfolio').find((r) => r.tools?.includes('portfolio_summary'))!;
+    expect(rule.texts).toContain(MY_HOLDINGS_MARKET);
   });
 
   it('on the portfolio page, offers to record a trade', () => {

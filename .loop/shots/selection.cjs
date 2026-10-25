@@ -372,6 +372,31 @@ const studioHandoff = [
   delta('做 dashboard 要用資料分析的資料工具，我把這件事**交給資料分析的 AI 助理**了——它會先看欄位、畫三四張互補的圖，再請你確認存檔。'),
   done,
 ];
+// 持股的市場面：Studio 先讀投資組合，再把代號交給 /finance 的助理（D-097）。
+const holdingsHandoff = [
+  start,
+  { type: 'tool_use', id: 't1', name: 'portfolio_summary', displayName: '投資組合摘要' },
+  {
+    type: 'tool_result', id: 't1', name: 'portfolio_summary', ok: true, durationMs: 900,
+    card: { kind: 'table', title: '我的持股', columns: [{ key: 'name', label: '名稱' }, { key: 'weight', label: '占比', numeric: true }],
+      rows: [{ name: '2330 台積電', weight: '41%' }, { name: '0050 元大台灣50', weight: '27%' }, { name: '2454 聯發科', weight: '12%' }] },
+  },
+  { type: 'tool_use', id: 't2', name: 'open_page', displayName: '開啟頁面' },
+  {
+    type: 'tool_result', id: 't2', name: 'open_page', ok: true, durationMs: 3, navigate: '/finance',
+    handoff: '我持有 2330 台積電、0050 元大台灣50、2454 聯發科，這幾檔最近外資在買還是賣？',
+    card: { kind: 'link', title: 'Stock Intelligence 台股分析', href: '/finance', description: '會查即時台股資料的 AI 助理', actionLabel: '前往' },
+  },
+  delta('你的台股持股是台積電、元大台灣50 與聯發科。外資買賣超要查即時的市場資料，我把這三檔**交給 Stock Intelligence 的 AI 助理**了。'),
+  done,
+];
+const financeFlows = [
+  start,
+  { type: 'tool_use', id: 't1', name: 'get_twse_institutional_investors_by_stock', displayName: '個股三大法人買賣超' },
+  { type: 'tool_result', id: 't1', name: 'get_twse_institutional_investors_by_stock', ok: true, durationMs: 1500 },
+  delta('**最近 5 個交易日外資動向**\n\n| 股票 | 外資買賣超（張） | 方向 |\n|---|---|---|\n| 2330 台積電 | −18,420 | 連 3 日賣超 |\n| 0050 元大台灣50 | +2,310 | 小幅買超 |\n| 2454 聯發科 | −3,050 | 賣超 |\n\n外資這週對**台積電與聯發科偏賣**，0050 則小幅回補。台積電佔你持股 41%，若外資續賣，短線波動會最直接反映在你的淨值上。'),
+  done,
+];
 const only = (k) => !process.env.ONLY || process.env.ONLY === k;
 (async () => {
   const out = process.argv[2];
@@ -468,6 +493,24 @@ const only = (k) => !process.env.ONLY || process.env.ONLY === k;
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({ path: `${out}/studio-handoff-data-${name}.png` });
       console.log('F', name, page.url());
+      await page.close();
+    }
+    if (only('G')) {
+      // G：/portfolio 的 Studio 建議「我的持股最近外資在買還是賣？」→ 讀持股 → 交給 /finance 的助理 → 那裡回答
+      const page = await open(browser, viewport, [holdingsHandoff, financeFlows]);
+      await page.goto('http://localhost:5173/portfolio');
+      await page.waitForTimeout(1500);
+      await page.keyboard.press('Control+k');
+      await page.waitForTimeout(800);
+      await page.screenshot({ path: `${out}/studio-holdings-welcome-${name}.png` });
+      await page.getByText('我的持股最近外資在買還是賣？').first().click();
+      await page.getByRole('textbox').last().press('Enter'); // 建議只放進輸入框
+      await page.waitForTimeout(750);
+      await page.screenshot({ path: `${out}/studio-holdings-handoff-${name}.png` });
+      await page.waitForTimeout(6000);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: `${out}/studio-holdings-finance-${name}.png` });
+      console.log('G', name, page.url());
       await page.close();
     }
   }

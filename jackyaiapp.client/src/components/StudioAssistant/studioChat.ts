@@ -7,6 +7,7 @@ import ExploreIcon from '@mui/icons-material/ExploreOutlined';
 import ExtensionIcon from '@mui/icons-material/ExtensionOutlined';
 import PieChartIcon from '@mui/icons-material/PieChartOutlined';
 import QuizIcon from '@mui/icons-material/QuizOutlined';
+import ShowChartIcon from '@mui/icons-material/ShowChartOutlined';
 
 import { BRIEFING_PROMPT, READ_DASHBOARD_PROMPT } from './askStudio';
 import QuizCardView from './QuizCardView';
@@ -41,8 +42,12 @@ const REPOSITORY: AiChatSuggestion[] = [
   { text: WRITE_WITH_MY_WORDS, icon: EditNoteIcon },
   { text: '考我今天該複習的單字', icon: QuizIcon },
 ];
+/** The market side of the reader's own holdings: answered by /finance's assistant, handed the holdings (D-097). */
+export const MY_HOLDINGS_MARKET = '我的持股最近外資在買還是賣？';
 const PORTFOLIO: AiChatSuggestion[] = [
   { text: '幫我看看我的持股，哪幾檔虧最多？', icon: PieChartIcon },
+  // Studio AI reads the holdings, then hands the question to /finance's assistant, which has the market data (D-097).
+  { text: MY_HOLDINGS_MARKET, icon: ShowChartIcon },
   // The model asks which holding, how many and at what price, or for the trade confirmation's screenshot.
   { text: '幫我記一筆今天的交易', icon: EditNoteIcon },
 ];
@@ -136,7 +141,7 @@ const STUDIO_FOLLOW_UPS: NonNullable<AiChatConfig['followUps']> = [
   { tools: ['saved_words'], texts: ['換個主題再寫一段', '考我幾題'] },
   {
     tools: ['portfolio_summary'],
-    texts: ['哪一檔佔比最高？風險集中嗎？', '我的資產配置偏重哪裡？'],
+    texts: ['哪一檔佔比最高？風險集中嗎？', MY_HOLDINGS_MARKET, '我的資產配置偏重哪裡？'],
   },
   { tools: ['update_holding'], texts: ['我的投資組合現在怎麼樣？'] },
   { tools: ['google_calendar_events'], texts: ['明天呢？', '這週哪天比較空？'] },
