@@ -13,7 +13,7 @@
 
 ## 2. 範圍（少而精）
 
-- 只有 Studio AI 讀寫記憶。/finance、/data-analysis 的助理先不讀（交棒時 Studio 會把需要的話寫進 ask）。
+- 只有 Studio AI 寫記憶。/data-analysis 的助理從第 22 輪起**只讀**（§8）；/finance 的助理不讀（交棒時 Studio 會把需要的話寫進 ask）。
 - 記憶是**使用者自己確認過的短句**：每則最多 200 字、每人最多 30 則；不做自動摘要、不做向量搜尋——30 則短句整段放進 system prompt 就夠，也最好懂。
 - 不自動記：只有使用者要求（「記住」「以後都…」）或模型提議而使用者在確認卡上允許時才存。
 
@@ -47,3 +47,11 @@
 1. 第 21 輪：設計、資料表與 migration、服務與測試。
 2. 第 22 輪：`remember`／`forget` 工具、Studio prompt、API、測試。
 3. 第 23 輪：/connectors 的區塊、歡迎訊息與接著問、截圖、SHOWCASE。
+
+## 8. 其他助理只讀（第 22 輪，D-102）
+
+- **/data-analysis 的助理讀筆記、不能寫**：`MemoryNotesPrompt.ReadOnlyFor`（`Services/Assistant/Memory`）把同一個 `<user_memories>` 區塊（`MemoryNotesPrompt.Block`，Studio 也用它）放在 prompt 結尾那句之前，加一句「你只能讀這些筆記；要記住或忘掉請到 Studio AI 或 Connectors」。它沒有 `remember`／`forget`，所以持久化 injection 的入口仍然只有 Studio 的確認卡。沒有筆記時 prompt 與之前一字不差。
+- 用途：「我負責北區業績」「我看營收都看毛利」——問題沒說範圍時先照筆記的範圍查，並在回答裡說明。
+- **/finance 不讀**：它的 system prompt 被 `FinanceChatRequestTests` 逐字鎖住，且有每位讀者共用的快取背景；加入個人筆記的收益（投資偏好）不值得冒行為變差的風險。Studio 交棒時本來就會把需要的話寫進 ask。
+- 今日簡報的最後一句建議會用上跟今天有關的筆記（目標、考試日期）。
+- 「你記得我什麼？」維持照 prompt 裡的清單回答，不加唯讀的 `recall` 工具與表格卡片：30 則短句用文字列出就夠清楚，多一個工具只多一次往返與一張卡片，管理請到 /connectors。

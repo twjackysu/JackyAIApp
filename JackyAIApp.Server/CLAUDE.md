@@ -305,7 +305,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   note (`IDescribesCall`; `<`/`>` are kept full-width, as the prompt shows them), and `forget` names a note by its words as kept (so its card
   shows exactly what goes) and is `Destructive` (always asked; never offered by the site's MCP server). The connectors page
   lists and forgets them (`GET`/`DELETE api/assistant/memories`, `AssistantMemoriesController` → `AssistantMemoryPage`,
-  someone else's NotFound). Only Studio AI reads them
+  someone else's NotFound). Only Studio AI keeps them; the /data-analysis assistant reads them too, with no `remember` or `forget`
+  (`MemoryNotesPrompt.ReadOnlyFor`: the same block, `MemoryNotesPrompt.Block`, and a line sending the reader to Studio AI or the
+  connectors page to change one; without notes its prompt is as before), and /finance's does not (its prompt is pinned word for
+  word, design/08 §8). The morning briefing's last suggestion uses a note that bears on today
 - `AnthropicChatService.StreamChatAsync` only orchestrates a turn. Its requests and the reading of the
   stream (the deltas to the reader, the pause_turn retries, uploading the files again when the Files API
   no longer has one) are `ModelTurn`, which ends in a `TurnOutcome`; what an outcome comes to (answered,

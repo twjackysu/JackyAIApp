@@ -62,6 +62,19 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
         }
 
         [Fact]
+        public void TheMorningBriefing_UsesTheReadersNotes_InItsLastSuggestion()
+        {
+            var prompt = StudioChatProfile.SystemPromptFor(Today, null, false, notes: ["下個月要考多益，目標 850"]);
+
+            // The briefing's last line (what to do first) uses a note that bears on today, and says nothing of notes otherwise.
+            var briefing = prompt[prompt.IndexOf("給我今天的簡報", StringComparison.Ordinal)..];
+            briefing = briefing[..briefing.IndexOf('\n')];
+            Assert.Contains("你記得的筆記裡有跟今天有關的", briefing);
+            Assert.Contains("沒有就不要提筆記", briefing);
+            Assert.Contains("- 下個月要考多益，目標 850\n", prompt);
+        }
+
+        [Fact]
         public async Task WritingWithTheReadersOwnWords_NamesTheSavedWordsTool()
         {
             var setup = await SetupAsync();
