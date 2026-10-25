@@ -189,6 +189,10 @@ describe('ApprovalCard', () => {
     expect(buttons().some((b) => b.textContent?.startsWith('全部允許'))).toBe(false);
     expect(button('送出')).toBeDefined();
 
+    // A note Studio AI would remember lasts into every later prompt: always its own yes (D-101).
+    render({ pendingId: 's', calls: [call('g'), call('h', { alwaysAsks: true })] });
+    expect(buttons().some((b) => b.textContent?.startsWith('全部允許'))).toBe(false);
+
     // An outside connector's tool says its own effect (a hint it may leave out): decided one by one.
     render({ pendingId: 'r', calls: [call('e'), call('f', { connector: 'inst-1' })] });
     expect(buttons().some((b) => b.textContent?.startsWith('全部允許'))).toBe(false);

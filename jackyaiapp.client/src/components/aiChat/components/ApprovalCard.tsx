@@ -86,7 +86,9 @@ export default function ApprovalCard({
   // Only the site's own tools, whose effect is our own code's word (an outside server's is a hint it may leave out).
   const canAllowAll =
     !approval.tainted &&
-    approval.calls.every((c) => c.connector === SITE_CONNECTOR && c.effect !== 'destructive');
+    approval.calls.every(
+      (c) => c.connector === SITE_CONNECTOR && c.effect !== 'destructive' && !c.alwaysAsks,
+    );
   const allAs = (approve: boolean) =>
     submit(approval.calls.map((c) => ({ toolUseId: c.toolUseId, approve })));
   const open = state === 'pending' || state === 'failed';

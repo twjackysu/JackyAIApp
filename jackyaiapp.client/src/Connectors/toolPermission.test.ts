@@ -7,6 +7,10 @@ describe('allowedPermissions', () => {
     expect(allowedPermissions('destructive')).toEqual(['confirm', 'disabled']);
   });
 
+  it('a tool the server says always asks (remember) never runs unasked either', () => {
+    expect(allowedPermissions('write', true)).toEqual(['confirm', 'disabled']);
+  });
+
   it('reading and writing can take any of the three', () => {
     expect(allowedPermissions('read')).toEqual(['auto', 'confirm', 'disabled']);
     expect(allowedPermissions('write')).toEqual(['auto', 'confirm', 'disabled']);

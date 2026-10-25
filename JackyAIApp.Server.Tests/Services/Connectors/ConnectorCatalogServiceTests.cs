@@ -33,6 +33,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             {
                 new SiteToolSet("資料分析", [Tool("ask_data", ToolEffect.Read), Tool("save_widget", ToolEffect.Write)]),
                 new SiteToolSet("單字", [Tool("clear_words", ToolEffect.Destructive)]),
+                new SiteToolSet("記憶", [Tool("remember", ToolEffect.Write) with { AlwaysAsks = true }]),
             };
             return new ConnectorCatalogService(_db, user.Object, sets, _clock);
         }
@@ -63,7 +64,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Null(site.Id);
             Assert.True(site.AlwaysOn);
             Assert.Equal("ok", site.Health);
-            Assert.Equal(new[] { ("ask_data", "read", "auto"), ("save_widget", "write", "confirm"), ("clear_words", "destructive", "confirm") },
+            Assert.Equal(new[] { ("ask_data", "read", "auto"), ("save_widget", "write", "confirm"), ("clear_words", "destructive", "confirm"), ("remember", "write", "confirm") },
                 site.Tools.Select(t => (t.Name, t.Effect, t.Permission)));
             // The catalog lists what can be added: the built-in MCP servers, not the site's own tools.
             Assert.Equal(BuiltInMcpConnectors.All.Select(d => d.Key), catalog.Entries.Select(e => e.Key));
@@ -98,6 +99,18 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
             Assert.Equal(ErrorCodes.BadRequest, result.Error);
             Assert.Empty(_db.ConnectorInstallations.AsNoTracking());
+        }
+
+        [Fact]
+        public async Task AToolThatAlwaysAsks_CannotRunOnItsOwn_AndSaysSo()
+        {
+            var refused = await Service().SetToolPermissionAsync(Request("remember", "auto"), default);
+            var off = await Service().SetToolPermissionAsync(Request("remember", "disabled"), default);
+
+            Assert.Equal(ErrorCodes.BadRequest, refused.Error);
+            var tool = Assert.Single(off.Data!.Tools, t => t.Name == "remember");
+            Assert.True(tool.AlwaysAsks);
+            Assert.Equal("disabled", tool.Permission);
         }
 
         [Theory]

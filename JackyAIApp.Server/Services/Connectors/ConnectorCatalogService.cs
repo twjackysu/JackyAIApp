@@ -165,7 +165,7 @@ namespace JackyAIApp.Server.Services.Connectors
             var chosen = ToolPermissions.Parse(row?.ToolSettingsJson);
             var tools = _siteTools
                 .Select(t => new ConnectorToolDto(t.Name, t.DisplayName, t.Description, t.Effect.WireName(),
-                    ToolPermissions.For(t, chosen).WireName()))
+                    ToolPermissions.For(t, chosen).WireName(), t.AlwaysAsks))
                 .ToList();
             return new InstalledConnectorDto(row?.Id, SiteConnector.Key, SiteConnector.DisplayName, SiteConnector.Description,
                 "site", null, "none", "ok", AlwaysOn: true, null, null, [], tools);

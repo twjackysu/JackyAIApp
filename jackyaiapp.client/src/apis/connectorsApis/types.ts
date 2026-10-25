@@ -57,6 +57,8 @@ export interface ConnectorTool {
   description: string;
   effect: ToolEffect;
   permission: ToolPermission;
+  /** Never runs on its own, though it can be undone (Studio AI's `remember`): no 「自動」. */
+  alwaysAsks?: boolean;
 }
 
 /** A connector the reader has (or, for the site's own tools, always has). */

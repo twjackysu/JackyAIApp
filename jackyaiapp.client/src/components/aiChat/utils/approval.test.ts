@@ -68,6 +68,7 @@ describe('canAlwaysAllow', () => {
 
   it('is not for what can never run on its own, an outside connector, or after outside content', () => {
     expect(canAlwaysAllow(siteWrite({ effect: 'destructive' }))).toBe(false);
+    expect(canAlwaysAllow(siteWrite({ alwaysAsks: true }))).toBe(false);
     expect(canAlwaysAllow(siteWrite({ connector: 'inst-1', tool: 'm1__create' }))).toBe(false);
     expect(canAlwaysAllow(siteWrite({}), true)).toBe(false);
   });

@@ -53,6 +53,8 @@ export interface ApprovalCallEvent {
   tool: string;
   displayName: string;
   effect: ToolEffect;
+  /** Never to be let run on its own (Studio AI's `remember`, D-101): no 「以後直接執行」, no 全部允許. */
+  alwaysAsks?: boolean;
   input: Record<string, unknown>;
   /** What the call would do, in words, from the site's own tool (never a connector's); null when it has none. */
   summary?: string | null;

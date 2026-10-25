@@ -11,6 +11,8 @@ interface ToolPermissionToggleProps {
   /** The tool's name, for the group's label. */
   toolName: string;
   effect: ToolEffect;
+  /** The server says it never runs on its own (`ConnectorTool.alwaysAsks`). */
+  alwaysAsks?: boolean;
   value: ToolPermission;
   onChange: (permission: ToolPermission) => void;
   disabled?: boolean;
@@ -20,6 +22,7 @@ interface ToolPermissionToggleProps {
 export default function ToolPermissionToggle({
   toolName,
   effect,
+  alwaysAsks,
   value,
   onChange,
   disabled,
@@ -34,7 +37,7 @@ export default function ToolPermissionToggle({
       aria-label={`${toolName} 的權限`}
       sx={{ '& .MuiToggleButton-root': { minHeight: 36, px: 1.5, whiteSpace: 'nowrap' } }}
     >
-      {allowedPermissions(effect).map((p) => (
+      {allowedPermissions(effect, alwaysAsks).map((p) => (
         <ToggleButton key={p} value={p}>
           {PERMISSION_LABELS[p]}
         </ToggleButton>

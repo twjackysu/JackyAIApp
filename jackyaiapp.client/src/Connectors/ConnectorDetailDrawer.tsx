@@ -234,6 +234,7 @@ function DetailBody({
               <ToolPermissionToggle
                 toolName={t.title ?? t.name}
                 effect={t.effect}
+                alwaysAsks={t.alwaysAsks}
                 value={t.permission}
                 disabled={busy}
                 onChange={(p) => onPermission(t.name, p)}

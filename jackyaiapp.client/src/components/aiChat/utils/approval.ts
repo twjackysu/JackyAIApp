@@ -56,7 +56,7 @@ export const decisionsFor = (
  * conversation that has not read outside content, where the server would ask anyway.
  */
 export const canAlwaysAllow = (call: ApprovalCall, tainted?: boolean): boolean =>
-  call.connector === SITE_CONNECTOR && call.effect === 'write' && !tainted;
+  call.connector === SITE_CONNECTOR && call.effect === 'write' && !call.alwaysAsks && !tainted;
 
 /** The connectors page's request that lets the call's tool run without asking (`PUT tool-permissions`). */
 export const alwaysAllowRequest = (call: ApprovalCall): ToolPermissionRequest => ({

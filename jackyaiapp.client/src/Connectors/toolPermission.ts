@@ -20,9 +20,14 @@ export const EFFECT_LABELS: Record<ToolEffect, string> = {
   destructive: '無法復原',
 };
 
-/** The choices a tool's permission can take: one that cannot be undone never runs unasked. */
-export const allowedPermissions = (effect: ToolEffect): ToolPermission[] =>
-  effect === 'destructive' ? ['confirm', 'disabled'] : ['auto', 'confirm', 'disabled'];
+/**
+ * The choices a tool's permission can take: one that cannot be undone never runs unasked, nor one the server says
+ * always asks (`alwaysAsks`: what it writes steers every later conversation, D-101).
+ */
+export const allowedPermissions = (effect: ToolEffect, alwaysAsks = false): ToolPermission[] =>
+  effect === 'destructive' || alwaysAsks
+    ? ['confirm', 'disabled']
+    : ['auto', 'confirm', 'disabled'];
 
 /**
  * A tool's permission before the reader changes it: reading runs on its own (for an outside MCP

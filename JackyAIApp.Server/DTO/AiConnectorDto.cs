@@ -6,7 +6,9 @@ namespace JackyAIApp.Server.DTO
     /// <summary>One tool of a connector, with what the AI may do with it.</summary>
     /// <param name="Effect">read, write or destructive.</param>
     /// <param name="Permission">auto, confirm or disabled.</param>
-    public sealed record ConnectorToolDto(string Name, string? Title, string Description, string Effect, string Permission);
+    /// <param name="AlwaysAsks">Never runs on its own, though it can be undone (Studio AI's <c>remember</c>): "auto" is not offered.</param>
+    public sealed record ConnectorToolDto(string Name, string? Title, string Description, string Effect, string Permission,
+        bool AlwaysAsks = false);
 
     /// <summary>A connector the reader has (or, for the site's own tools, always has).</summary>
     /// <param name="Id">Null for an always-on connector whose settings were never changed (it has no row).</param>

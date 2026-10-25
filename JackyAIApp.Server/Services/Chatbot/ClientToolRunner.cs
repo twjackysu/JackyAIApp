@@ -246,6 +246,8 @@ namespace JackyAIApp.Server.Services.Chatbot
                     tool = c.Call.Name,
                     displayName = c.Tool.Descriptor.DisplayName,
                     effect = c.Tool.Descriptor.Effect.WireName(),
+                    // Never to be let run on its own (the card offers no 「以後直接執行」 or 全部允許).
+                    alwaysAsks = c.Tool.Descriptor.AlwaysAsks,
                     input = JsonSerializer.SerializeToElement(c.Call.Input),
                     summary = Summary(c.Call, c.Tool),
                 }).ToList(),
