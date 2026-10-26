@@ -9,8 +9,8 @@ interface ConversationTitleEditorProps {
   title: string;
   /** The title to save, already one line and changed (`renamedTitle`); not called when there is nothing to save. */
   onSave: (title: string) => void;
-  /** Editing is over, saved or not. */
-  onClose: () => void;
+  /** Editing is over, saved or not; `byKey` when Enter or Escape ended it (the focus goes back to the pencil then). */
+  onClose: (byKey: boolean) => void;
 }
 
 /**
@@ -26,12 +26,12 @@ const ConversationTitleEditor = ({ title, onSave, onClose }: ConversationTitleEd
   // Enter saves and closes; the blur that may follow must not save again.
   const done = useRef(false);
 
-  const finish = (save: boolean) => {
+  const finish = (save: boolean, byKey: boolean) => {
     if (done.current) return;
     done.current = true;
     const next = save ? renamedTitle(draft, opened.current) : null;
     if (next) onSave(next);
-    onClose();
+    onClose(byKey);
   };
 
   return (
@@ -41,7 +41,7 @@ const ConversationTitleEditor = ({ title, onSave, onClose }: ConversationTitleEd
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onFocus={(e) => e.target.select()}
-      onBlur={() => finish(true)}
+      onBlur={() => finish(true, false)}
       onKeyDown={(e) => {
         // A key that ends a Chinese input method's composition is the input method's (Safari says 229 for it).
         if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) {
@@ -51,10 +51,10 @@ const ConversationTitleEditor = ({ title, onSave, onClose }: ConversationTitleEd
         }
         if (e.key === 'Enter') {
           e.preventDefault();
-          finish(true);
+          finish(true, true);
         } else if (e.key === 'Escape') {
           e.stopPropagation();
-          finish(false);
+          finish(false, true);
         }
       }}
       inputProps={{ 'aria-label': '對話標題', maxLength: MAX_TITLE_LENGTH }}

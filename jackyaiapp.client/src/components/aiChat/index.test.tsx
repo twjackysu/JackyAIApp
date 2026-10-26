@@ -14,6 +14,7 @@ import type {
 
 import { chatbotApis } from '@/apis/chatbotApis';
 import { AiChatConfigContext } from '@/components/aiChat/config';
+import { RENAME_FAILED_TEXT } from '@/components/aiChat/utils/conversationTitle';
 import { FINANCE_AI_CHAT } from '@/Finance/aiChatConfig';
 
 // The HTML viewer is lazy-loaded and sandboxes the page in an iframe; here it just shows what it
@@ -2422,6 +2423,22 @@ describe('AiAssistantPanel — conversation history column', () => {
     await waitFor(() => expect(renamed).toHaveLength(1));
     await waitFor(() => expect(row('ETF 比較')).toBeTruthy());
     expect(row('新名字')).toBeUndefined();
+    // The column says the title did not change (D-146), until the next rename starts.
+    await waitForText(RENAME_FAILED_TEXT);
+    await act(async () => buttonByLabel('重新命名對話', row('ETF 比較'))!.click());
+    expect(container.textContent).not.toContain(RENAME_FAILED_TEXT);
+  });
+
+  it('a rename ended from the keyboard gives the focus back to its pencil (D-146)', async () => {
+    await mount();
+    await waitFor(() => expect(row('ETF 比較')).toBeDefined());
+    await act(async () => buttonByLabel('重新命名對話', row('ETF 比較'))!.click());
+    const box = container.querySelector<HTMLInputElement>('input[aria-label="對話標題"]')!;
+    act(() => {
+      box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    expect(document.activeElement).toBe(buttonByLabel('重新命名對話', row('ETF 比較')));
+    expect(container.textContent).not.toContain(RENAME_FAILED_TEXT);
   });
 
   it('opens a conversation from the column and carries on in it', async () => {

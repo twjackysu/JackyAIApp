@@ -7,14 +7,14 @@ import ConversationTitleEditor from './ConversationTitleEditor';
 let container: HTMLDivElement;
 let root: Root;
 let onSave: ReturnType<typeof vi.fn<(title: string) => void>>;
-let onClose: ReturnType<typeof vi.fn<() => void>>;
+let onClose: ReturnType<typeof vi.fn<(byKey: boolean) => void>>;
 
 beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
   onSave = vi.fn<(title: string) => void>();
-  onClose = vi.fn<() => void>();
+  onClose = vi.fn<(byKey: boolean) => void>();
 });
 
 afterEach(() => {
@@ -48,6 +48,8 @@ describe('ConversationTitleEditor (D-144)', () => {
     blur();
     expect(onSave).toHaveBeenCalledWith('新標題');
     expect(onClose).toHaveBeenCalledTimes(1);
+    // Left with the mouse: the focus stays where the reader put it (D-146).
+    expect(onClose).toHaveBeenCalledWith(false);
   });
 
   it('Enter then the blur that follows saves once', () => {
@@ -57,6 +59,8 @@ describe('ConversationTitleEditor (D-144)', () => {
     blur();
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
+    // Ended from the keyboard: the focus goes back to the pencil (D-146).
+    expect(onClose).toHaveBeenCalledWith(true);
   });
 
   it('a title that changed while the box was open (the AI named it) is not put back over by an untouched box', () => {
@@ -84,6 +88,7 @@ describe('ConversationTitleEditor (D-144)', () => {
     key({ key: 'Escape' });
     expect(onSave).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledWith(true);
     expect(outside).not.toHaveBeenCalled();
     document.body.removeEventListener('keydown', outside);
   });

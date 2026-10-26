@@ -14,12 +14,13 @@ import {
   Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useAiChatConfig } from '../config';
 import { noSelectionAsk } from '../selection/readSelection';
 import { ACCENT, accentWash, hairline } from '../style';
 import { matchConversations, SEARCH_FROM } from '../utils/conversationSearch';
+import { RENAME_FAILED_TEXT } from '../utils/conversationTitle';
 import { periodOf } from '../utils/period';
 
 import ConversationTitleEditor from './ConversationTitleEditor';
@@ -41,6 +42,9 @@ interface ConversationListProps {
   /** Called after a pick or a new chat, for a list shown in a drawer that should close then. */
   onDone?: () => void;
 }
+
+/** How long the column says a rename was refused. */
+const RENAME_FAILED_MS = 5000;
 
 /** Conversations (newest first) under their period's heading, the order kept. */
 const byPeriod = (conversations: ChatConversation[]) => {
@@ -72,6 +76,21 @@ const ConversationList = ({
   const [renameConversation] = useRenameConversationMutation();
   // The conversation whose title is a box in its row (D-144).
   const [editingId, setEditingId] = useState<string | null>(null);
+  // A box closed from the keyboard gives the focus back to its row's pencil, which mounts again then (D-146).
+  const refocusPencil = useRef<string | null>(null);
+  // A rename the server refused: its title is back as it was, and the column says why for a moment (D-146).
+  const [renameFailed, setRenameFailed] = useState(false);
+  useEffect(() => {
+    if (!renameFailed) return;
+    const timer = setTimeout(() => setRenameFailed(false), RENAME_FAILED_MS);
+    return () => clearTimeout(timer);
+  }, [renameFailed]);
+
+  const handleRename = async (id: string, title: string) => {
+    setRenameFailed(false);
+    const result = await renameConversation({ conversationId: id, title, profile });
+    if ('error' in result) setRenameFailed(true);
+  };
 
   const conversations = data?.data ?? [];
   // Finding one by its title (D-143), once there are enough to look for.
@@ -81,6 +100,7 @@ const ConversationList = ({
 
   const handleEdit = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
+    setRenameFailed(false);
     setEditingId(id);
   };
 
@@ -150,6 +170,16 @@ const ConversationList = ({
             }}
           />
         )}
+        {renameFailed && (
+          <Typography
+            role="status"
+            variant="caption"
+            color="error"
+            sx={{ display: 'block', mt: 0.75, px: 0.5 }}
+          >
+            {RENAME_FAILED_TEXT}
+          </Typography>
+        )}
       </Box>
 
       {isFetching && conversations.length === 0 ? (
@@ -196,10 +226,11 @@ const ConversationList = ({
                       <ListItem key={c.id} disablePadding sx={{ mb: 0.25, minHeight: 38, px: 0.5 }}>
                         <ConversationTitleEditor
                           title={c.title}
-                          onSave={(title) =>
-                            renameConversation({ conversationId: c.id, title, profile })
-                          }
-                          onClose={() => setEditingId(null)}
+                          onSave={(title) => void handleRename(c.id, title)}
+                          onClose={(byKey) => {
+                            refocusPencil.current = byKey ? c.id : null;
+                            setEditingId(null);
+                          }}
                         />
                       </ListItem>
                     );
@@ -253,6 +284,12 @@ const ConversationList = ({
                         className="conversation-action"
                         size="small"
                         onClick={(e) => handleEdit(e, c.id)}
+                        ref={(el: HTMLButtonElement | null) => {
+                          if (el && refocusPencil.current === c.id) {
+                            refocusPencil.current = null;
+                            el.focus();
+                          }
+                        }}
                         aria-label="重新命名對話"
                         sx={{ color: 'text.secondary', '&:hover': { color: ACCENT } }}
                       >

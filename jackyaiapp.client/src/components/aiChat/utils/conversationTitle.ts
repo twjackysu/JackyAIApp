@@ -18,3 +18,6 @@ export const renamedTitle = (draft: string, current: string): string | null => {
   // By code points, so an emoji is one as on the server (which counts a flag or a family as one too; never more).
   return [...title].length > MAX_TITLE_LENGTH ? null : title;
 };
+
+/** Said under the history column's buttons when the server refused a rename (D-146). */
+export const RENAME_FAILED_TEXT = '改名沒有存好，標題維持原樣';
