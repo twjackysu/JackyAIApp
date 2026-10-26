@@ -294,7 +294,7 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   cost needs its `price`, or the total `cost` paid, which is the only one taken when the cost is kept in another currency than
   the price, and is refused without one; a second change on a day replaces that day's snapshot, and the reply says so); the prompt has a trade confirmation the reader attached
   (a broker's screenshot) read out trade by trade and each one put to them as its own `update_holding` call; a new holding, or a name that matches two, is refused with a link to
-  /portfolio, never guessed: `Services/Portfolio/Assistant`; Data Analysis's `read_dashboard`, below; Connectors' `google_calendar_events` and `jira_issues`)
+  /portfolio, never guessed: `Services/Portfolio/Assistant`; Data Analysis's `read_dashboard`, below; Connectors' `google_calendar_events`, `jira_issues` and `jira_add_comment`)
   and the reader's connectors' tools. No tw-stock: /finance has its own assistant for the market. Its prompt also says
   what the morning briefing is (the home page's 「給我今天的簡報」: the calendar, `learning_progress` and
   `portfolio_summary` in one reply, three short parts, and with words due, an offer of a `review_quiz`; `StudioChatProfileTests` pins the tool names it uses). On a
@@ -401,7 +401,15 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   address), searched with the enhanced JQL search (`/rest/api/3/search/jql`, 20 issues) — the model's JQL, on one line and cut
   to 500 characters, or by default the reader's own issues not done; a table card, and one line an issue with its
   `/browse/{key}` link for the model (keys checked to look like Jira's). A JQL Jira refuses (400) is a failed call carrying
-  Jira's `errorMessages` (cut), so the model can fix it; any other refusal or failure is said as for the calendar. `OutsideText`
+  Jira's `errorMessages` (cut), so the model can fix it; any other refusal or failure is said as for the calendar. `OutsideText`.
+  `JiraAddCommentTool` (`jira_add_comment`, D-132) is the first native connector that writes: a comment on one issue in the
+  reader's name (scope `write:jira-work`, which the connection already asks for, so the first site granted it), a `Write`, so
+  asked first, its card saying the issue and the whole comment (`IDescribesCall`). The comment is posted exactly as confirmed:
+  at most 2000 characters and refused beyond, never cut; one Atlassian document paragraph a line, text only. It is posted with
+  the app's default client (timeout, no retries: `ExternalReadOnly`'s retries could post it twice), and an answer that is
+  neither a success nor a refusal (5xx, a timeout) is reported as possibly posted, with the issue's link, so it is not simply
+  tried again. Its result is a link card to the comment (`/browse/{key}?focusedCommentId={id}`, the id digits only). A
+  conversation that read Jira is tainted, so the call always asks there
 - Tests of the connectors' outbound requests use the fakes in `TestHelpers` (each an `IMcpHttpHandlerSource`):
   `FakeMcpServer` (a Streamable HTTP MCP server for the real SDK), `FakeAuthorizationServer` (a whole MCP sign-in:
   401 with `resource_metadata`, PRM, AS metadata, registration, a token endpoint checking PKCE and rotating refresh

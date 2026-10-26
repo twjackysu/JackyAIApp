@@ -105,7 +105,7 @@ function Consent({ request }: { request: ReturnType<typeof authorizeRequestOf> }
         label={
           consent.wantsWrites
             ? '也允許寫入（它要求了，例如把單字加入單字庫）'
-            : '也允許寫入（例如把單字加入單字庫）'
+            : '也允許寫入（例如把單字加入單字庫、在 Jira 留言）'
         }
       />
       <Typography variant="caption" color="text.secondary" component="p" sx={{ pl: 4, mb: 3 }}>

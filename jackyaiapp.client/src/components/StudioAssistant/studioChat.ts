@@ -157,6 +157,12 @@ const GO_TO: Readonly<Record<string, string>> = {
   帶我去每日挑戰: '/english/daily',
 };
 
+/**
+ * After the reader's Jira issues: a comment on the latest one (`jira_add_comment`, a write, so the reader confirms the
+ * whole comment on the card first; D-132).
+ */
+export const JIRA_COMMENT_FOLLOW_UP = '在最新那張留言：我今天會處理';
+
 /** What to ask next, by the site tool the answer used (the server's names, `SiteToolSet`). */
 const STUDIO_FOLLOW_UPS: NonNullable<AiChatConfig['followUps']> = [
   { tools: ['look_up_word'], texts: ['把這個字加入我的單字庫', '用這個字造三個例句'] },
@@ -172,7 +178,11 @@ const STUDIO_FOLLOW_UPS: NonNullable<AiChatConfig['followUps']> = [
   { tools: ['update_holding'], texts: ['我的投資組合現在怎麼樣？'] },
   { tools: ['remember', 'forget'], texts: [WHAT_DO_YOU_REMEMBER] },
   { tools: ['google_calendar_events'], texts: ['明天呢？', '這週哪天比較空？'] },
-  { tools: ['jira_issues'], texts: ['只看優先度高的', '哪幾張最久沒更新？'] },
+  {
+    tools: ['jira_issues'],
+    texts: ['只看優先度高的', '哪幾張最久沒更新？', JIRA_COMMENT_FOLLOW_UP],
+  },
+  { tools: ['jira_add_comment'], texts: ['我手上還有哪些票？'] },
   {
     tools: ['read_dashboard'],
     texts: ['哪張圖的變化最大？為什麼？', '有沒有看起來不正常的數字？'],

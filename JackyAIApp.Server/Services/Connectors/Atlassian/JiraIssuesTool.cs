@@ -41,7 +41,7 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
         internal const int MaxError = 300;
 
         /// <summary>The scope that lets a site's issues be read.</summary>
-        private const string ReadScope = "read:jira-work";
+        internal const string ReadScope = "read:jira-work";
 
         public static readonly AiToolDescriptor Definition = new(
             Name,
@@ -106,7 +106,7 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
             }
         }
 
-        private static async Task<HttpResponseMessage> GetAsync(HttpClient http, string url, string token, CancellationToken ct)
+        internal static async Task<HttpResponseMessage> GetAsync(HttpClient http, string url, string token, CancellationToken ct)
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -114,7 +114,7 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
             return await http.SendAsync(request, ct);
         }
 
-        private static bool Refused(HttpResponseMessage response) =>
+        internal static bool Refused(HttpResponseMessage response) =>
             response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
 
         // A property, not a field: a field's initializer would run before ConnectCard's, declared below it.
@@ -124,7 +124,7 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
 
         private static AiToolResult Unreadable => AiToolResult.Error("Jira 暫時讀不到，請告訴使用者稍後再試。");
 
-        private static readonly object ConnectCard = new
+        internal static readonly object ConnectCard = new
         {
             kind = "link",
             title = "連線 Atlassian 帳號",
@@ -210,8 +210,8 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
         /// <summary>A Jira site the token may read: its cloud id (only letters, digits and dashes, so it stays one path segment), name and address.</summary>
         public sealed record JiraSite(string Id, string Name, string Url)
         {
-            /// <summary>The first site of an accessible-resources answer granted <c>read:jira-work</c>; null when none.</summary>
-            public static JiraSite? FirstOf(JsonElement answer)
+            /// <summary>The first site of an accessible-resources answer granted <paramref name="scope"/> (by default <c>read:jira-work</c>); null when none.</summary>
+            public static JiraSite? FirstOf(JsonElement answer, string scope = ReadScope)
             {
                 if (answer.ValueKind != JsonValueKind.Array) return null;
                 foreach (var r in answer.EnumerateArray())
@@ -222,7 +222,7 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
                     if (id == null || !CloudId().IsMatch(id)) continue;
                     if (url == null || !Uri.TryCreate(url, UriKind.Absolute, out var site) || site.Scheme != Uri.UriSchemeHttps) continue;
                     if (!r.TryGetProperty("scopes", out var scopes) || scopes.ValueKind != JsonValueKind.Array ||
-                        !scopes.EnumerateArray().Any(s => s.ValueKind == JsonValueKind.String && s.GetString() == ReadScope))
+                        !scopes.EnumerateArray().Any(s => s.ValueKind == JsonValueKind.String && s.GetString() == scope))
                         continue;
                     return new JiraSite(id, Cut(Text(r, "name"), 100) ?? site.Host, site.GetLeftPart(UriPartial.Authority));
                 }
@@ -236,6 +236,13 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
 
             /// <summary>Where the reader opens an issue (its key is checked to be a Jira key).</summary>
             public string BrowseUrl(string key) => $"{Url}/browse/{key}";
+
+            /// <summary>Where a comment on the issue is posted (<see cref="JiraAddCommentTool"/>; the key is checked to be a Jira key).</summary>
+            public string CommentUrl(string key) => $"{ApiBase}{Id}/rest/api/3/issue/{key}/comment";
+
+            /// <summary>The issue opened at one of its comments (its id digits only), or just the issue when there is none.</summary>
+            public string CommentLink(string key, string? commentId) =>
+                commentId == null ? BrowseUrl(key) : $"{BrowseUrl(key)}?focusedCommentId={commentId}";
         }
 
         /// <summary>One issue as read from a search answer: its text kept to one line and cut (other people's words).</summary>
@@ -280,7 +287,7 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
                 e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Object ? Text(v, inner) : null;
         }
 
-        private static string? Text(JsonElement e, string name) =>
+        internal static string? Text(JsonElement e, string name) =>
             e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
         private static string? Cut(string? text, int max)
@@ -299,6 +306,9 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
 
         [GeneratedRegex("^[A-Za-z0-9-]{1,64}$")]
         private static partial Regex CloudId();
+
+        /// <summary>Whether the text looks like a Jira issue key (WEB-12): it then stays one path segment of a URL.</summary>
+        internal static bool IsIssueKey(string key) => IssueKey().IsMatch(key);
 
         [GeneratedRegex("^[A-Z][A-Z0-9_]{0,49}-[0-9]{1,10}$")]
         private static partial Regex IssueKey();

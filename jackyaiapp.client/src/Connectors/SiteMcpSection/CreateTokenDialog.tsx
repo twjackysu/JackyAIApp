@@ -157,7 +157,7 @@ export default function CreateTokenDialog({ open, serverUrl, onClose }: CreateTo
                     onChange={(e) => setAllowWrites(e.target.checked)}
                   />
                 }
-                label="也允許寫入（例如把單字加入單字庫）"
+                label="也允許寫入（例如把單字加入單字庫、在 Jira 留言）"
               />
               <Typography variant="caption" color="text.secondary" component="p" sx={{ pl: 4 }}>
                 {allowWrites

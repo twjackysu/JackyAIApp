@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { FIND_MY_WEAK_SPOTS, READ_DASHBOARD_PROMPT } from './askStudio';
 import {
   FIND_MCP_SERVER,
+  JIRA_COMMENT_FOLLOW_UP,
   MAKE_DASHBOARD,
   MY_HOLDINGS_MARKET,
   studioChatConfig,
@@ -139,6 +140,13 @@ describe('studioFollowUpsFor', () => {
     expect(rule.texts).toEqual(['考我最常錯的這幾個字', '解釋我最常錯的那個字', '帶我去複習']);
     const onReview = followUpsOn('/english/review').find((r) => r.tools?.includes('weak_spots'))!;
     expect(onReview.texts).not.toContain('帶我去複習');
+  });
+
+  it('after reading Jira, offers a comment on the latest issue; after a comment, the rest of the issues', () => {
+    const read = followUpsOn('/').find((r) => r.tools?.includes('jira_issues'))!;
+    expect(read.texts).toContain(JIRA_COMMENT_FOLLOW_UP);
+    const commented = followUpsOn('/').find((r) => r.tools?.includes('jira_add_comment'))!;
+    expect(commented.texts).toEqual(['我手上還有哪些票？']);
   });
 
   it('after writing with the reader’s words, offers another passage or a quiz', () => {

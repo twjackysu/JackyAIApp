@@ -79,6 +79,12 @@ services.AddSingleton(new SiteToolSet("功能名稱", [MyTool.Definition]));   /
 - 打固定網址的 GET 用具名 client `ExternalReadOnly`（有重試）；**使用者給的網址**才一定要 `SafeHttp`。
 - 結果裡有**別人能寫的字**（行事曆邀請的標題、email 主旨、Jira 留言）就在 descriptor 設 `OutsideText: true`：這輪之後的寫入一律先問使用者，跟外部 MCP connector 一樣（`AiToolDescriptor.ReadsOutsideText`）。外部文字也要壓成一行、截長度。
 - 時間一律台北時間（`time.GetTaipeiToday()`），測試用 `TestClock` 跨台北午夜。
+- **寫入型的原生工具**（範例 `Services/Connectors/Atlassian/JiraAddCommentTool.cs`，在 Jira 留言，D-132）：
+  - `ToolEffect.Write`，並實作 `IDescribesCall`，確認卡用一句話寫出**完整**的內容（哪張票、留言全文）。
+  - 送出的內容就是使用者確認的內容：太長就回錯誤請模型縮短，**不要自己截斷**。
+  - POST 用預設 client（`Options.DefaultName`，有逾時、沒有重試），**不要用 `ExternalReadOnly`**——重試可能寫兩次。
+  - 對方回 5xx 或逾時時，不要說「沒寫入」（對方可能已經寫了）：說「可能沒有成功」並附連結讓使用者自己去看。
+  - 測試要斷言用的是哪個 client、送出的 body，以及 401／403／404／5xx 的說法（`JiraAddCommentToolTests`）。
 
 ## 3. 測試樣板
 
