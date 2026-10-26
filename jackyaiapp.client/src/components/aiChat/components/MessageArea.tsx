@@ -1,48 +1,17 @@
-import OpenInFullIcon from '@mui/icons-material/OpenInFull';
-import ShortcutIcon from '@mui/icons-material/Shortcut';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import { Box, Button, ButtonBase, Paper, Typography } from '@mui/material';
+import { Box, ButtonBase, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import ToolCards from '../cards/ToolCards';
 import { useAiChatConfig } from '../config';
-import { ACCENT, accentWash, hairline, revealActionsOnHover } from '../style';
+import { ACCENT, accentWash, hairline } from '../style';
 import { Message } from '../types';
 import { ApprovalCall, ApprovalDecision } from '../utils/approval';
 import { followUpsFor } from '../utils/followUps';
-import { isThinking } from '../utils/thinking';
 
-import ApprovalCard from './ApprovalCard';
 import AssistantMark from './AssistantMark';
-import AttachmentChip from './AttachmentChip';
-import FollowUps from './FollowUps';
-import MessageActions from './MessageActions';
-import MessageEditor from './MessageEditor';
-import ThinkingTraceView from './ThinkingTraceView';
-import ToolActivity from './ToolActivity';
+import MessageItem, { MessageHandlers } from './MessageItem';
 
-import { TRUNCATED_NOTE } from '@/apis/chatbotApis/chatErrors';
-import { attachmentContentUrl } from '@/apis/chatbotApis/types';
-import MarkdownMessage from '@/components/MarkdownMessage';
 import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
-
-/**
- * Over a message another assistant handed over (D-099): the task came from Studio AI on another page, so the reader
- * sees why this conversation started by itself.
- */
-function HandedOver({ by }: { by: string }) {
-  return (
-    <Typography
-      variant="caption"
-      color="text.secondary"
-      data-testid="handed-over"
-      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}
-    >
-      <ShortcutIcon sx={{ fontSize: 14, color: ACCENT }} aria-hidden />由 {by} 轉來
-    </Typography>
-  );
-}
 
 /** Within this many pixels of the end, the reader counts as "following" the conversation. */
 const FOLLOW_THRESHOLD_PX = 80;
@@ -68,37 +37,6 @@ interface MessageAreaProps {
   /** A question offered under the last answer was picked: send it. */
   onFollowUp?: (question: string) => void;
 }
-
-// 單個區塊渲染組件
-const BlockRenderer = ({
-  block,
-  onPreview,
-}: {
-  block: ParsedBlock;
-  onPreview: (block: ParsedBlock) => void;
-}) => {
-  const theme = useTheme();
-
-  if (block.contentType === 'markdown') {
-    return <MarkdownMessage content={block.content} isOwnMessage={false} theme={theme} />;
-  }
-
-  // HTML 區塊：顯示為「預覽」按鈕，點擊後另開寬闊的預覽視窗
-  const streaming = !block.isComplete;
-  return (
-    <Box sx={{ my: 1 }}>
-      <Button
-        variant="outlined"
-        size="small"
-        startIcon={streaming ? <VisibilityIcon /> : <OpenInFullIcon />}
-        onClick={() => onPreview(block)}
-        sx={{ borderRadius: 2, borderColor: hairline(theme), color: 'text.primary' }}
-      >
-        {streaming ? 'HTML 產生中…點擊預覽' : '開啟 HTML 預覽'}
-      </Button>
-    </Box>
-  );
-};
 
 /** An empty conversation: what the assistant does, and a few questions to start from. */
 const Welcome = ({ onSuggest }: { onSuggest?: (question: string) => void }) => {
@@ -184,12 +122,36 @@ function MessageArea({
   const { followUps: followUpRules } = useAiChatConfig();
   // Only under the last answer, once nothing is being written.
   const last = messages[messages.length - 1];
-  const followUps =
-    onFollowUp && last && !busy
-      ? followUpsFor(last, messages[messages.length - 2]?.content, followUpRules)
-      : [];
+  const previousContent = messages[messages.length - 2]?.content;
+  // Kept while the last answer and its question stay the same, so typing in the box draws no message again.
+  const followUps = useMemo(
+    () => (last && !busy ? followUpsFor(last, previousContent, followUpRules) : []),
+    [last, previousContent, busy, followUpRules],
+  );
   // The reader's message being edited in place, by its id.
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // The page's callbacks are new functions on most renders (inline arrows); the messages get one object that
+  // calls the latest of them, so a message that did not change keeps its props and is not drawn again.
+  const latest = useRef({ onPreview, onEdit, onDecide, onAlwaysAllow, onFollowUp });
+  useLayoutEffect(() => {
+    latest.current = { onPreview, onEdit, onDecide, onAlwaysAllow, onFollowUp };
+  });
+  const handlers = useMemo<MessageHandlers>(
+    () => ({
+      onPreview: (block) => latest.current.onPreview(block),
+      onStartEdit: (id) => setEditingId(id),
+      onCancelEdit: () => setEditingId(null),
+      onSubmitEdit: (message, text) => {
+        setEditingId(null);
+        latest.current.onEdit?.(message, text);
+      },
+      onDecide: (pendingId, decisions) => latest.current.onDecide?.(pendingId, decisions),
+      onAlwaysAllow: (calls) => latest.current.onAlwaysAllow?.(calls),
+      onFollowUp: (question) => latest.current.onFollowUp?.(question),
+    }),
+    [],
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const followingRef = useRef(true);
   const messageCountRef = useRef(messages.length);
@@ -241,192 +203,20 @@ function MessageArea({
       >
         {messages.length === 0 && <Welcome onSuggest={onSuggest} />}
 
-        {messages.map((message, index) => {
-          const attachments = message.attachments && message.attachments.length > 0 && (
-            <Box
-              sx={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 0.5,
-                justifyContent: message.isUser ? 'flex-end' : 'flex-start',
-                mb: 0.75,
-              }}
-            >
-              {message.attachments.map((a) => {
-                const isFile = a.kind === 'image' || a.kind === 'pdf';
-                return (
-                  <AttachmentChip
-                    key={a.id}
-                    fileName={a.fileName}
-                    kind={a.kind}
-                    truncated={a.truncated}
-                    pageCount={a.pageCount}
-                    thumbnailUrl={a.kind === 'image' ? attachmentContentUrl(a.id) : undefined}
-                    href={isFile ? attachmentContentUrl(a.id) : undefined}
-                  />
-                );
-              })}
-            </Box>
-          );
-
-          // The reader's own message: a soft bubble on the right — or, being edited, a box in its place.
-          if (message.isUser) {
-            const editing = editingId === message.id;
-            // Only a stored message (the server knows its id), and not while an answer is written.
-            const canEdit = Boolean(onEdit && message.serverId && !busy);
-            return (
-              <Box
-                key={message.id}
-                data-testid="user-message"
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-end',
-                  ...revealActionsOnHover,
-                }}
-              >
-                {message.handedOverBy && <HandedOver by={message.handedOverBy} />}
-                {attachments}
-                {editing ? (
-                  <MessageEditor
-                    initial={message.content}
-                    attachmentCount={message.attachments?.length ?? 0}
-                    onCancel={() => setEditingId(null)}
-                    onSubmit={(text) => {
-                      setEditingId(null);
-                      onEdit?.(message, text);
-                    }}
-                  />
-                ) : (
-                  <>
-                    <Paper
-                      elevation={0}
-                      sx={{
-                        px: 2,
-                        py: 1.25,
-                        maxWidth: '85%',
-                        borderRadius: '18px 18px 6px 18px',
-                        bgcolor: accentWash(theme, 0.13),
-                        border: `1px solid ${accentWash(theme, 0.22)}`,
-                        color: 'text.primary',
-                      }}
-                    >
-                      <MarkdownMessage content={message.content} isOwnMessage theme={theme} />
-                    </Paper>
-                    <MessageActions
-                      text={message.content}
-                      align="right"
-                      onEdit={canEdit ? () => setEditingId(message.id) : undefined}
-                    />
-                  </>
-                )}
-              </Box>
-            );
-          }
-
-          // An answer still being written has nothing final to copy yet.
-          const answering = busy && index === messages.length - 1;
-          // A question still waiting for the reader comes after the text that leads up to it, where they are
-          // reading, and no "thinking" dots go with it (the turn waits on them); once answered it is a record
-          // of what ran, above the text with the tools' cards.
-          const awaitingReader = message.approval != null && message.approval.state !== 'resolved';
-          const approvalCard = message.approval && (
-            // A new question in the same answer (a later round of the turn) is a new card, its choices its own.
-            <ApprovalCard
-              key={message.approval.request.pendingId}
-              approval={message.approval.request}
-              state={message.approval.state}
-              decisions={message.approval.decisions}
-              expired={message.approval.expired}
-              onSubmit={(decisions) => onDecide?.(message.approval!.request.pendingId, decisions)}
-              onAlwaysAllow={onAlwaysAllow}
-            />
-          );
-
-          // The assistant's answer: no bubble, the full column, its mark beside it.
-          return (
-            <Box
-              key={message.id}
-              data-testid="assistant-message"
-              sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', ...revealActionsOnHover }}
-            >
-              <Box sx={{ pt: 0.25 }}>
-                <AssistantMark size={26} />
-              </Box>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                {attachments}
-                {message.thinking && <ThinkingTraceView thinking={message.thinking} />}
-                {message.toolSteps && <ToolActivity steps={message.toolSteps} />}
-                {message.toolSteps && <ToolCards steps={message.toolSteps} />}
-                {!message.toolSteps && message.cards && <ToolCards cards={message.cards} />}
-                {!awaitingReader && approvalCard}
-                {!message.parsedBlocks?.length && message.content ? (
-                  <MarkdownMessage content={message.content} isOwnMessage={false} theme={theme} />
-                ) : !message.parsedBlocks?.length ? (
-                  // Thinking shows itself (its line counts the seconds); the dots would say it twice.
-                  awaitingReader || isThinking(message.thinking) ? null : (
-                    // The answer has not started: three dots in place of text.
-                    <Box
-                      aria-label="AI 助手思考中"
-                      sx={{
-                        display: 'flex',
-                        gap: 0.6,
-                        py: 1,
-                        '& span': {
-                          width: 6,
-                          height: 6,
-                          borderRadius: '50%',
-                          bgcolor: 'text.secondary',
-                          animation: 'assistantDot 1.2s infinite ease-in-out',
-                        },
-                        '& span:nth-of-type(2)': { animationDelay: '0.15s' },
-                        '& span:nth-of-type(3)': { animationDelay: '0.3s' },
-                        '@keyframes assistantDot': {
-                          '0%, 80%, 100%': { opacity: 0.25, transform: 'translateY(0)' },
-                          '40%': { opacity: 1, transform: 'translateY(-3px)' },
-                        },
-                      }}
-                    >
-                      <span />
-                      <span />
-                      <span />
-                    </Box>
-                  )
-                ) : (
-                  <Box>
-                    {message.parsedBlocks!.map((block) => (
-                      <BlockRenderer key={block.id} block={block} onPreview={onPreview} />
-                    ))}
-                  </Box>
-                )}
-                {awaitingReader && approvalCard}
-                {message.truncated && (
-                  <Typography
-                    variant="caption"
-                    sx={{ display: 'block', mt: 0.5, color: 'warning.main' }}
-                  >
-                    {TRUNCATED_NOTE}
-                  </Typography>
-                )}
-                {!answering && message.content && (
-                  <MessageActions
-                    text={message.content}
-                    align="left"
-                    readAloud
-                    // Only on screen: an answer done while the drawer is closed or the panel folded is not
-                    // read out of sight, with no stop button to press (D-120).
-                    autoReadKey={
-                      active && message.readAloud && message.answered ? message.id : undefined
-                    }
-                  />
-                )}
-                {message === last && onFollowUp && (
-                  <FollowUps texts={followUps} onPick={onFollowUp} />
-                )}
-              </Box>
-            </Box>
-          );
-        })}
+        {messages.map((message, index) => (
+          <MessageItem
+            key={message.id}
+            message={message}
+            handlers={handlers}
+            busy={busy}
+            answering={busy && index === messages.length - 1}
+            editing={editingId === message.id}
+            canEditMessages={Boolean(onEdit)}
+            canAlwaysAllow={Boolean(onAlwaysAllow)}
+            active={active}
+            followUps={message === last && onFollowUp ? followUps : undefined}
+          />
+        ))}
       </Box>
     </Box>
   );

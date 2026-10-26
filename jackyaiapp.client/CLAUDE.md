@@ -94,7 +94,11 @@ jackyaiapp.client/src/
   result shows in the answer is a card (`tool_result.card`, `cards/`): it comes from a tool, so it is
   untrusted, and `parseToolCard` keeps only plain text and numbers within limits and links to this site
   or https. The chat draws `table` and `link`; another kind is drawn by the app's renderer for it
-  (`AiChatConfig.cardRenderers`), or not at all
+  (`AiChatConfig.cardRenderers`), or not at all. Each message is `memo(MessageItem)` (D-138): while an answer streams (every piece of text or thinking a new
+  `messages` array, the other messages kept as the same objects by `useChatConversation`) and while the reader types,
+  only the message that changed is drawn again; the page's callbacks reach the messages through one `handlers` object
+  `MessageArea` keeps for the conversation's life (calling the latest ones). A new `MessageItem` prop must not be an
+  object or function made anew each render, or every earlier answer's Markdown and charts are drawn again with it
 - Studio AI (`components/StudioAssistant`, mounted once in `App.tsx`) is the same chat as a sheet: a button
   in the lower right, or ⌘K / Ctrl+K, opens `AiAssistantPanel` with `variant="sheet"` (fills a right-hand
   drawer, the history behind its button, the header's last action closes) under the `studio` profile, with
