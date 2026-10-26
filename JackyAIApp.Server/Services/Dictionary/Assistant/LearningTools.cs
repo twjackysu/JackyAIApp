@@ -61,8 +61,9 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
     /// <summary>
     /// Where the reader went wrong lately, for Studio AI (「找出我的弱點」): how each exam type went over the last days and
     /// the words they answered wrong most (<see cref="IStatsService.GetWeakSpotsAsync"/>, their own exam attempts), as a
-    /// table card, so the model can coach them and offer a <see cref="ReviewQuizTool"/> on what is due. A read: nothing
-    /// is changed or charged. The words are the dictionary's, the counts the site's own, so nothing here is outside text.
+    /// table card, so the model can coach them and offer a <see cref="ReviewQuizTool"/> on those words. A read: nothing
+    /// is changed or charged. The words are the dictionary's and the exam types what the reader's own client recorded
+    /// (an unknown one cut short), so nothing here is someone else's words.
     /// </summary>
     public sealed class WeakSpotsTool(IStatsService stats) : ISiteTool
     {
@@ -104,7 +105,7 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
             "ListeningResponse" => "聽力（選回應）",
             "Reading" => "閱讀測驗",
             "Writing" => "寫作",
-            _ => examType,
+            _ => examType.Length > 20 ? examType[..20] : examType,
         };
 
         public async Task<AiToolResult> RunAsync(JsonElement input, AiToolContext context, CancellationToken ct)
@@ -138,6 +139,7 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
                     text.AppendLine($"- {w.Word}：{w.Wrong}/{w.Attempts}；最近一次{(w.LatestCorrect ? "答對了" : "還是錯")}");
             }
             text.AppendLine("請先用一兩句話點出最需要加強的地方（答對率最低的測驗、還是錯的字），數字照上面，不要自己估算；" +
+                            (spots.Words.Count > 0 ? "回答裡要寫出最常錯的前三個字（之後只看得到你的回答文字，使用者說「考我這幾個字」時要靠它）；" : "") +
                             "再給一個具體的下一步，例如用 review_quiz 考最常錯的幾個字（words 傳那幾個字）、用 look_up_word 解釋最常錯的字，或去做答對率最低的那種測驗。");
 
             return new AiToolResult(text.ToString().TrimEnd(), Card: spots.Words.Count > 0 ? WordsCard(spots) : TypesCard(spots));
@@ -255,7 +257,9 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
             var text = new StringBuilder();
             text.AppendLine($"已出 {quiz.Questions.Count} 題小測驗，考的字：{string.Join("、", quiz.Questions.Select(q => q.Word))}" + WhichWords(quiz));
             text.AppendLine("題目已經顯示在使用者畫面上的卡片裡，他會直接在卡片上作答" +
-                            (quiz.FromDue ? "，答案會記進複習排程。" : $"；{(quiz.Asked == null ? "這些" : "有的")}字還沒到期，這次是練習，不會記進複習排程。") +
+                            (quiz.FromDue ? "，答案會記進複習排程。"
+                                : quiz.Questions.Any(q => q.Due) ? "；到期的字的答案會記進複習排程，還沒到期的字是練習。"
+                                : "；這些字還沒到期，這次是練習，不會記進複習排程。") +
                             "請用一兩句話請他作答；不要在回答中重複題目，也不要說出答案。");
             text.AppendLine();
             text.AppendLine("以下只供看不到卡片的情況使用（例如在其他 AI 裡）：一次問一題，等使用者作答後再公布那一題的答案。");
@@ -282,6 +286,7 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
                         options = q.Options,
                         correctIndex = q.CorrectIndex,
                         explanation = q.Explanation,
+                        due = q.Due,
                     }),
                 },
             });
@@ -290,7 +295,10 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
         /// <summary>The words the quiz was asked about, as given (strings only), else none.</summary>
         private static List<string> WordsOf(JsonElement input) =>
             input.ValueKind == JsonValueKind.Object && input.TryGetProperty("words", out var words) && words.ValueKind == JsonValueKind.Array
-                ? [.. words.EnumerateArray().Where(w => w.ValueKind == JsonValueKind.String).Select(w => w.GetString()!)]
+                ? [.. words.EnumerateArray()
+                    .Where(w => w.ValueKind == JsonValueKind.String)
+                    .Select(w => w.GetString()!)
+                    .Where(w => !string.IsNullOrWhiteSpace(w))]
                 : [];
 
         /// <summary>Which words these are, for the model: the ones asked for (and those left out), the due ones, or the soonest.</summary>
@@ -299,7 +307,7 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
             if (quiz.Asked == null)
                 return quiz.FromDue ? $"（到期該複習的共 {quiz.TotalDueCount} 個）。" : "（今天沒有到期的字，挑的是最快要複習的）。";
             var left = quiz.Asked.Where(a => !quiz.Questions.Any(q => string.Equals(q.Word, a, StringComparison.OrdinalIgnoreCase))).ToList();
-            return "（使用者指定的字）。" + (left.Count > 0 ? $"不在他單字庫裡、沒有出題的字：{string.Join("、", left)}。" : "");
+            return "（使用者指定的字）。" + (left.Count > 0 ? $"沒有出題的字（不在他的單字庫裡，或字典裡沒有可出題的釋義）：{string.Join("、", left)}。" : "");
         }
     }
 }

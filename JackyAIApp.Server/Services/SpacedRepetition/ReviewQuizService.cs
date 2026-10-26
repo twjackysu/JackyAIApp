@@ -6,20 +6,25 @@ using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Services.SpacedRepetition
 {
-    /// <summary>One question of a review quiz, about one of the reader's saved words (<see cref="UserWordId"/>).</summary>
+    /// <summary>
+    /// One question of a review quiz, about one of the reader's saved words (<see cref="UserWordId"/>). <see cref="Due"/>:
+    /// whether that word is due for review, so its answer may go to the schedule (an early answer would push it out).
+    /// </summary>
     public sealed record ReviewQuizQuestion(
         int UserWordId,
         string Word,
         string Prompt,
         IReadOnlyList<string> Options,
         int CorrectIndex,
-        string Explanation);
+        string Explanation,
+        bool Due = false);
 
     /// <summary>
     /// A few multiple-choice questions on the reader's own words: those due for review (<see cref="FromDue"/>), or,
     /// with none due, the saved words whose review comes soonest. <see cref="TotalDueCount"/> is how many are due in all.
     /// For a quiz on words the reader named (<see cref="IReviewQuizService.CreateForAsync"/>), <see cref="Asked"/> is those
-    /// words as looked up and <see cref="FromDue"/> whether every word asked is due; otherwise <see cref="Asked"/> is null.
+    /// words as looked up and <see cref="FromDue"/> whether every word asked is due (each question says its own); otherwise
+    /// <see cref="Asked"/> is null.
     /// </summary>
     public sealed record ReviewQuiz(
         IReadOnlyList<ReviewQuizQuestion> Questions, bool FromDue, int TotalDueCount, IReadOnlyList<string>? Asked = null);
@@ -37,8 +42,8 @@ namespace JackyAIApp.Server.Services.SpacedRepetition
         /// <summary>
         /// Questions on the words named (Studio AI's 「考我這幾個字」 after <c>weak_spots</c>), in their order, at most
         /// <see cref="ReviewQuizService.MaxQuestions"/>: only those among the reader's saved words that a question can be
-        /// made of; none when none is. The answers go to the review schedule only when every word asked is due
-        /// (<see cref="ReviewQuiz.FromDue"/>), since an early answer would push a word out.
+        /// made of; none when none is. Each question says whether its word is due (<see cref="ReviewQuizQuestion.Due"/>):
+        /// only those answers go to the review schedule, since an early answer would push a word out.
         /// </summary>
         Task<ServiceResult<ReviewQuiz>> CreateForAsync(IReadOnlyList<string> words, CancellationToken ct);
     }
@@ -72,7 +77,7 @@ namespace JackyAIApp.Server.Services.SpacedRepetition
                 .OrderBy(uw => uw.NextReviewDate ?? DateTime.MinValue) // never reviewed first, as the review page
                 .ThenBy(uw => uw.Id)
                 .Take(count)
-                .Select(uw => new Pick(uw.Id, uw.WordId))
+                .Select(uw => new Pick(uw.Id, uw.WordId, totalDue > 0))
                 .ToListAsync(ct);
             if (picked.Count == 0) return ServiceResult.Ok(new ReviewQuiz([], FromDue: false, TotalDueCount: 0));
 
@@ -97,29 +102,33 @@ namespace JackyAIApp.Server.Services.SpacedRepetition
 
             var mine = Mine(userId);
             var totalDue = await mine.CountAsync(uw => uw.NextReviewDate == null || uw.NextReviewDate <= today, ct);
+            // The database compares text as its collation does (SQL Server: case-insensitive), so the match below does too.
             List<Found> found = wanted.Count == 0
                 ? []
                 : await mine
                     .Where(uw => wanted.Contains(uw.Word.WordText))
                     .Select(uw => new Found(
-                        uw.Id, uw.WordId, uw.Word.WordText, uw.NextReviewDate == null || uw.NextReviewDate <= today))
+                        new Pick(uw.Id, uw.WordId, uw.NextReviewDate == null || uw.NextReviewDate <= today), uw.Word.WordText))
                     .ToListAsync(ct);
             // In the order named; a word saved twice is asked once.
             var picked = wanted
-                .Select(w => found.FirstOrDefault(f => f.WordText == w))
-                .OfType<Found>()
+                .Select(w => found.FirstOrDefault(f => string.Equals(f.WordText, w, StringComparison.OrdinalIgnoreCase))?.Pick)
+                .OfType<Pick>()
                 .ToList();
             if (picked.Count == 0) return ServiceResult.Ok(new ReviewQuiz([], FromDue: false, totalDue, wanted));
 
-            var questions = await QuestionsAsync(userId, [.. picked.Select(p => new Pick(p.Id, p.WordId))], ct);
-            return ServiceResult.Ok(new ReviewQuiz(questions, FromDue: picked.All(p => p.Due), totalDue, wanted));
+            var questions = await QuestionsAsync(userId, picked, ct);
+            return ServiceResult.Ok(new ReviewQuiz(questions, FromDue: questions.Count > 0 && questions.All(q => q.Due), totalDue, wanted));
         }
 
-        /// <summary>A saved word found by its text, and whether it is due.</summary>
-        private sealed record Found(int Id, string WordId, string WordText, bool Due);
+        /// <summary>A saved word found by its text.</summary>
+        private sealed record Found(Pick Pick, string WordText);
 
-        /// <summary>One of the reader's saved words to ask: the saved row (the answer is recorded against it) and its word.</summary>
-        private sealed record Pick(int Id, string WordId);
+        /// <summary>
+        /// One of the reader's saved words to ask: the saved row (the answer is recorded against it), its word, and whether
+        /// it is due.
+        /// </summary>
+        private sealed record Pick(int Id, string WordId, bool Due);
 
         /// <summary>The reader's saved words a question can be made of: valid, with a definition.</summary>
         private IQueryable<SQL.UserWord> Mine(string userId) =>
@@ -160,7 +169,7 @@ namespace JackyAIApp.Server.Services.SpacedRepetition
 
             return generated
                 .Select((q, i) => new ReviewQuizQuestion(
-                    asked[i].Id, q.Word ?? words[i].WordText, q.Prompt, q.Options, q.CorrectIndex, q.Explanation))
+                    asked[i].Id, q.Word ?? words[i].WordText, q.Prompt, q.Options, q.CorrectIndex, q.Explanation, asked[i].Due))
                 .ToList();
         }
 

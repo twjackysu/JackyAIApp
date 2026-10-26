@@ -163,6 +163,23 @@ describe('QuizCardView', () => {
     expect(mocks.submit).not.toHaveBeenCalled();
   });
 
+  it('records only the answers on words that are due (a quiz on words the reader named)', () => {
+    mocks.sent = { isSuccess: true, data: { data: { xpEarned: 3 } } };
+    const base = card(0, false);
+    const mixed = {
+      ...base,
+      data: {
+        ...base.data,
+        questions: base.data.questions.map((q, n) => ({ ...q, due: n === 0 })),
+      },
+    };
+    render(mixed);
+    expect(container.textContent).not.toContain('練習・');
+    answerAll();
+    expect(mocks.submit).toHaveBeenCalledWith({ reviews: [{ userWordId: 11, quality: 4 }] });
+    expect(container.textContent).toContain('已記進複習排程（到期的 1 個字，其餘是練習）・+3 XP');
+  });
+
   it('draws nothing for a quiz card that holds no question', () => {
     render({ kind: 'quiz', title: null, data: { questions: [] } });
     expect(container.innerHTML).toBe('');

@@ -41,14 +41,17 @@ function Quiz({ quiz, saved }: { quiz: QuizCardData; saved: boolean }) {
   const [picked, setPicked] = useState<(number | null)[]>(() => quiz.questions.map(() => null));
   const [finished, setFinished] = useState(false);
   const [submit, sent] = useSubmitReviewsMutation();
-  const recorded = quiz.fromDue && !saved;
+  // Only the answers on words that are due go to the review schedule; the rest are practice.
+  const dueCount = saved ? 0 : quiz.questions.filter((q) => q.due).length;
+  const recorded = dueCount > 0;
 
   const send = () =>
     void submit({
-      reviews: quiz.questions.map((q, i) => ({
-        userWordId: q.userWordId,
-        quality: qualityOf(picked[i] === q.correctIndex),
-      })),
+      reviews: quiz.questions.flatMap((q, i) =>
+        q.due
+          ? [{ userWordId: q.userWordId, quality: qualityOf(picked[i] === q.correctIndex) }]
+          : [],
+      ),
     });
 
   const header = (
@@ -106,7 +109,7 @@ function Quiz({ quiz, saved }: { quiz: QuizCardData; saved: boolean }) {
               : sent.isLoading
                 ? '記進複習排程中…'
                 : sent.isSuccess
-                  ? `已記進複習排程${sent.data?.data?.xpEarned ? `・+${sent.data.data.xpEarned} XP` : ''}`
+                  ? `已記進複習排程${dueCount < total ? `（到期的 ${dueCount} 個字，其餘是練習）` : ''}${sent.data?.data?.xpEarned ? `・+${sent.data.data.xpEarned} XP` : ''}`
                   : sent.isError
                     ? '沒有記進複習排程。'
                     : ''}

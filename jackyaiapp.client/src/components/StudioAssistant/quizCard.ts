@@ -14,6 +14,8 @@ export interface QuizQuestion {
   options: string[];
   correctIndex: number;
   explanation: string | null;
+  /** Whether the word is due for review, so its answer goes to the schedule (an early one would push it out). */
+  due: boolean;
 }
 
 export interface QuizCardData {
@@ -37,7 +39,8 @@ const text = (v: unknown, max = MAX_TEXT): string | null =>
 const count = (v: unknown): number | null =>
   typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : null;
 
-function parseQuestion(raw: unknown): QuizQuestion | null {
+/** A question's `due`, or for a card saved before questions said it, the whole quiz's `fromDue`. */
+function parseQuestion(raw: unknown, fromDue: boolean): QuizQuestion | null {
   if (!isRecord(raw)) return null;
   const userWordId = count(raw.userWordId);
   const word = text(raw.word, 60);
@@ -55,6 +58,7 @@ function parseQuestion(raw: unknown): QuizQuestion | null {
     options: options as string[],
     correctIndex,
     explanation: text(raw.explanation),
+    due: raw.due === undefined ? fromDue : raw.due === true,
   };
 }
 
@@ -62,15 +66,16 @@ function parseQuestion(raw: unknown): QuizQuestion | null {
 export function parseQuizCard(card: CustomCard): QuizCardData | null {
   const raw = card.data;
   if (!Array.isArray(raw.questions)) return null;
+  const fromDue = raw.fromDue === true;
   const questions = raw.questions
     .slice(0, MAX_QUESTIONS)
-    .map(parseQuestion)
+    .map((q) => parseQuestion(q, fromDue))
     .filter((q): q is QuizQuestion => q !== null);
   if (questions.length === 0) return null;
   return {
     title: card.title ?? '複習小測驗',
     questions,
-    fromDue: raw.fromDue === true,
+    fromDue,
     totalDue: count(raw.totalDue) ?? 0,
   };
 }

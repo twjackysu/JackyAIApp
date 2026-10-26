@@ -102,7 +102,7 @@ jackyaiapp.client/src/
   pages, finding where they went wrong lately (`weak_spots`, `FIND_MY_WEAK_SPOTS`, also the `/` command 找出我的弱點, the server's MCP prompt `my_weak_spots`). A review quiz (`review_quiz`) comes as a `quiz` card, Studio AI's own renderer
   (`QuizCardView`, `quizCard.parseQuizCard`): one question at a time, right or wrong shown at once, and after the last the
   answers go to the review schedule as the review page sends them (`review/submit`, right 4, wrong 1), no AI involved —
-  only for words that are due, and only the first time: a card drawn again from a reopened conversation (a renderer's
+  only for words that are due (each question's `due`; a quiz on words the reader named may mix them, D-119), and only the first time: a card drawn again from a reopened conversation (a renderer's
   `saved`, which `ToolCards` passes for stored cards) and a quiz on words not yet due are practice, recording nothing. A page opens it with a message sent through `askStudio(text, { fresh? })` (`StudioAssistant/askStudio`, a window
   event; the panel's `ask` prop sends each id once, and its owner holds the asks in order until each is sent,
   `aiChat/hooks/useAskQueue`, so two asked before the lazy panel has loaded both go; `fresh` sends it as the first message of a new conversation,

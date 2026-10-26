@@ -99,19 +99,29 @@ namespace JackyAIApp.Server.Tests.Services.Dictionary
         [Fact]
         public async Task WordsNamed_AreAskedAbout_AndThoseLeftOutAreSaid()
         {
+            var mixed = TwoQuestions with
+            {
+                FromDue = false,
+                Asked = ["serendipity", "ephemeral", "candid"],
+                Questions = [TwoQuestions.Questions[0] with { Due = true }, TwoQuestions.Questions[1]],
+            };
             _quizzes.Setup(q => q.CreateForAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(ServiceResult.Ok(TwoQuestions with { FromDue = false, Asked = ["serendipity", "ephemeral", "candid"] }));
+                .ReturnsAsync(ServiceResult.Ok(mixed));
 
-            var result = await RunAsync(new { words = new object[] { "serendipity", "ephemeral", 3, "candid" }, count = 2 });
+            var result = await RunAsync(new { words = new object[] { "serendipity", "ephemeral", 3, " ", "candid" }, count = 2 });
 
             _quizzes.Verify(q => q.CreateForAsync(
                 It.Is<IReadOnlyList<string>>(w => w.SequenceEqual(new[] { "serendipity", "ephemeral", "candid" })),
                 It.IsAny<CancellationToken>()), Times.Once);
             _quizzes.Verify(q => q.CreateAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
             Assert.Contains("使用者指定的字", result.Content);
-            Assert.Contains("沒有出題的字：candid", result.Content);
-            Assert.Contains("有的字還沒到期，這次是練習", result.Content);
+            Assert.Contains("沒有出題的字（不在他的單字庫裡，或字典裡沒有可出題的釋義）：candid", result.Content);
+            Assert.Contains("到期的字的答案會記進複習排程，還沒到期的字是練習", result.Content);
             Assert.Equal("quiz", Card(result).GetProperty("kind").GetString());
+            // Each question says whether its answer may go to the review schedule.
+            var questions = Card(result).GetProperty("data").GetProperty("questions");
+            Assert.True(questions[0].GetProperty("due").GetBoolean());
+            Assert.False(questions[1].GetProperty("due").GetBoolean());
         }
 
         [Fact]
@@ -134,6 +144,7 @@ namespace JackyAIApp.Server.Tests.Services.Dictionary
             _quizzes.Setup(q => q.CreateAsync(ReviewQuizTool.DefaultCount, It.IsAny<CancellationToken>())).ReturnsAsync(ServiceResult.Ok(TwoQuestions));
 
             Assert.False((await RunAsync(new { words = Array.Empty<string>() })).IsError);
+            Assert.False((await RunAsync(new { words = new[] { "", "  " } })).IsError);
             _quizzes.Verify(q => q.CreateForAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 

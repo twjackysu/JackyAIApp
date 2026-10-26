@@ -22,10 +22,21 @@ describe('parseQuizCard', () => {
   it('keeps a quiz that adds up', () => {
     expect(parseQuizCard(card({ questions: [question()], fromDue: true, totalDue: 7 }))).toEqual({
       title: '複習小測驗',
-      questions: [question()],
+      questions: [{ ...question(), due: true }],
       fromDue: true,
       totalDue: 7,
     });
+  });
+
+  it('takes each question’s own due, and for a card saved before questions said it, the quiz’s', () => {
+    const mixed = parseQuizCard(
+      card({
+        questions: [question({ due: true }), question({ due: false }), question({ due: 'yes' })],
+      }),
+    );
+    expect(mixed?.questions.map((q) => q.due)).toEqual([true, false, false]);
+    const old = parseQuizCard(card({ questions: [question()], fromDue: true }));
+    expect(old?.questions[0].due).toBe(true);
   });
 
   it('drops a question that does not add up, and a quiz with none left', () => {

@@ -110,12 +110,14 @@ namespace JackyAIApp.Server.Tests.Services
 
             Assert.Equal(new[] { later, due }, quiz.Questions.Select(q => q.UserWordId));
             Assert.Equal(new[] { "vocab0002", "vocab0003", "vocab0001", "nosuchword" }, quiz.Asked);
-            Assert.False(quiz.FromDue); // vocab0002 is not due yet: practice
+            Assert.False(quiz.FromDue); // vocab0002 is not due yet
+            Assert.Equal(new[] { false, true }, quiz.Questions.Select(q => q.Due)); // only vocab0001's answer is recorded
             Assert.Equal(1, quiz.TotalDueCount);
             Assert.All(quiz.Questions, q => Assert.Equal(4, q.Options.Distinct().Count()));
 
             var allDue = await CreateForAsync("vocab0001");
             Assert.True(allDue.FromDue);
+            Assert.True(allDue.Questions.Single().Due);
             Assert.Equal(new[] { due }, allDue.Questions.Select(q => q.UserWordId));
         }
 
@@ -142,6 +144,7 @@ namespace JackyAIApp.Server.Tests.Services
             var quiz = await CreateAsync(5);
 
             Assert.True(quiz.FromDue);
+            Assert.All(quiz.Questions, q => Assert.True(q.Due));
             Assert.Equal(2, quiz.TotalDueCount);
             Assert.Equal(new[] { never, later }, quiz.Questions.Select(q => q.UserWordId));
             Assert.Equal(new[] { "vocab0002", "vocab0001" }, quiz.Questions.Select(q => q.Word));
@@ -163,6 +166,7 @@ namespace JackyAIApp.Server.Tests.Services
             var quiz = await CreateAsync(2);
 
             Assert.False(quiz.FromDue);
+            Assert.All(quiz.Questions, q => Assert.False(q.Due));
             Assert.Equal(0, quiz.TotalDueCount);
             Assert.Equal(new[] { soonest, next }, quiz.Questions.Select(q => q.UserWordId));
         }

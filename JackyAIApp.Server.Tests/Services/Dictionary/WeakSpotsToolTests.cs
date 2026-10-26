@@ -45,6 +45,7 @@ namespace JackyAIApp.Server.Tests.Services.Dictionary
             Assert.Contains("- ephemeral：3/3；最近一次還是錯", result.Content);
             Assert.Contains("- candid：1/2；最近一次答對了", result.Content);
             Assert.Contains(ReviewQuizTool.Name, result.Content);
+            Assert.Contains("前三個字", result.Content); // the answer must name them: later turns see only its text
 
             var card = Card(result);
             Assert.Equal("table", card.GetProperty("kind").GetString());
@@ -69,6 +70,7 @@ namespace JackyAIApp.Server.Tests.Services.Dictionary
             Assert.Equal("閱讀測驗", rows[0].GetProperty("type").GetString());
             Assert.Equal(67, rows[0].GetProperty("rate").GetDouble());
             Assert.Equal("Mystery", rows[1].GetProperty("type").GetString()); // an unknown type as recorded
+            Assert.Equal(20, WeakSpotsTool.LabelOf(new string('x', 500)).Length);
         }
 
         [Fact]

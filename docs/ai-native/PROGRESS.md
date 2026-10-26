@@ -4,7 +4,9 @@
 
 - 開工：master 沒有新 commit（5dc1160 已合過）；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。clone 是 shallow，先 `git fetch --unshallow`。
 - **Studio AI 能讀「最近的弱點」**（D-116）：`IStatsService.GetWeakSpotsAsync`（自己最近 7–90 天的 `ExamAttempts`，各測驗類型答對數、最常錯的 10 個字，最近一次還是錯的排前面）→ 工具 `weak_spots`（唯讀、不計費、表格卡片；沒做過測驗回連結卡片到 /english/exam）。入口：/english/stats、/english/exam 的 Studio 建議「找出我最近英文最弱的地方」、Studio「/」的「找出我的弱點」、本站 MCP prompt `my_weak_spots`、接著問。沒有新資料表或 migration。
-- **`review_quiz` 可以指定字**（D-117）：拍截圖時發現 AI 說「先考這幾個還是錯的字」但按下去考的是別的到期字 → `IReviewQuizService.CreateForAsync(words)`：依指定順序、只考自己單字庫的字、全部到期才記進複習排程；都不在單字庫回連結卡片。接著問改「考我最常錯的這幾個字」。
+- **`review_quiz` 可以指定字**（D-117）：拍截圖時發現 AI 說「先考這幾個還是錯的字」但按下去考的是別的到期字 → `IReviewQuizService.CreateForAsync(words)`：依指定順序、只考自己單字庫的字；都不在單字庫回連結卡片。接著問改「考我最常錯的這幾個字」。
+- **學習統計頁的「AI 弱點分析」卡片**（D-118）：今日簡報的卡片抽成共用的 `AskStudioCard`，統計頁最上方一張，按下開新對話問弱點。截圖 `stats-weak-card-*`。
+- **審查**（subagent，D-119）：無高風險；中風險「混了沒到期的字就整份不記」→ 測驗卡逐題 `due`，只記到期的；低風險（大小寫、空白 words、沒出題的說法、未知類型名稱、模型要寫出前三個字）都已修。
 - 截圖：`studio-weak-suggest-*`、`studio-weak-spots-*`（新腳本 `.loop/shots/weak-spots.cjs`）；SHOWCASE 加亮點一列、demo 第 3 步一段、日誌一列。
 - 驗證：cscheck 新診斷只有已知的 EF 擴充方法雜訊；前端 lint、test（144 檔 1553 個）、build 全過；CI 40246857688（weak_spots，第一次就綠）、**CI_LAST（本輪最後一次含程式碼的 push 40788c91：指定字）**。
 - 問題：無阻礙。
