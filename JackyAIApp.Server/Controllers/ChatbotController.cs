@@ -21,6 +21,7 @@ namespace JackyAIApp.Server.Controllers
         UsageLedger usageLedger,
         IChatAttachmentService attachments,
         IChatConversationService conversations,
+        IConversationTitler titler,
         IChatProfiles profiles,
         ChatTurnRegistry turns,
         ChatApprovalRegistry approvals) : ControllerBase
@@ -30,6 +31,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly ChatTurnRegistry _turns = turns;
         private readonly IChatAttachmentService _attachments = attachments;
         private readonly IChatConversationService _conversations = conversations;
+        private readonly IConversationTitler _titler = titler;
         private readonly ILogger<ChatbotController> _logger = logger;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly ICurrentUser _currentUser = currentUser;
@@ -186,6 +188,15 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("conversations/{conversationId}/messages")]
         public async Task<IActionResult> GetConversationMessages(string conversationId, CancellationToken ct = default) =>
             _responseFactory.ToActionResult(await _conversations.GetMessagesAsync(conversationId, ct));
+
+        /// <summary>
+        /// Names one of the current user's conversations from its first question and answer (D-141): asked
+        /// by the client once, after the first answer. Its title as it is when already named, or when
+        /// naming fails. Not charged: part of the first message's cost.
+        /// </summary>
+        [HttpPost("conversations/{conversationId}/title")]
+        public async Task<IActionResult> NameConversation(string conversationId, CancellationToken ct = default) =>
+            _responseFactory.ToActionResult(await _titler.NameAsync(conversationId, ct));
 
         /// <summary>
         /// Stops the answer being written in one of the current user's conversations. What was said

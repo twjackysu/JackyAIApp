@@ -386,7 +386,8 @@ namespace JackyAIApp.Server.Services.Chatbot
             return conversation;
         }
 
-        private static string TitleFrom(string message) =>
+        /// <summary>A new conversation's title until it is named (<see cref="ConversationTitler"/>): the first question's start.</summary>
+        internal static string TitleFrom(string message) =>
             message.Length > 30 ? string.Concat(message.AsSpan(0, 30), "…") : message;
     }
 }

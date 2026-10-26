@@ -87,6 +87,9 @@ namespace JackyAIApp.Server.DTO
     /// <summary>Whether an answer was still being written when the stop came.</summary>
     public sealed record ChatStopResponse(bool Stopped);
 
+    /// <summary>A conversation's title after it was named (or as it was, when it is not named again).</summary>
+    public sealed record ChatTitleResponse(string Title);
+
     /// <summary>The reader's decisions on the writes an answer is waiting for (one per call; one left out is a no).</summary>
     public sealed class ChatApprovalRequest
     {

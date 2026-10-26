@@ -57,6 +57,7 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<IAnthropicFileStore, AnthropicFileStore>();
             services.AddScoped<IChatAttachmentService, ChatAttachmentService>();
             services.AddScoped<IChatConversationService, ChatConversationService>();
+            services.AddScoped<IConversationTitler, ConversationTitler>();
             services.AddSingleton<ChatTurnRegistry>();
             services.AddSingleton<ChatApprovalRegistry>();
             services.AddScoped<IChatProfiles, ChatProfiles>();
