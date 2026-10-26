@@ -102,6 +102,9 @@ let deletedAttachments: string[];
 /** The conversations the client asked the server to name (D-141), and the title the server gives them. */
 let named: string[];
 let aiTitle: string;
+/** The titles the reader gave conversations by hand (D-144), and whether the server refuses them. */
+let renamed: Array<{ id: string; title: string }>;
+let refuseRename: boolean;
 /** Called while a chat turn is being answered, to let a test change the server's state first. */
 let whileAnswering: (() => void) | undefined;
 
@@ -118,6 +121,8 @@ beforeEach(() => {
   named = [];
   // None: the server keeps the title (its question's start), as when naming fails.
   aiTitle = '';
+  renamed = [];
+  refuseRename = false;
   stops = [];
   approvals = [];
   whileAnswering = undefined;
@@ -158,6 +163,19 @@ beforeEach(() => {
           );
         const kept = conversations.find((c) => c.id === title[1])?.title ?? '新對話';
         return json({ data: { title: kept } });
+      }
+      if (title && method === 'PUT') {
+        // RTK Query sends a Request, its body inside.
+        const body = typeof input === 'string' ? (init!.body as string) : await input.text();
+        const { title: typed } = JSON.parse(body) as { title: string };
+        renamed.push({ id: title[1], title: typed });
+        if (refuseRename)
+          return new Response(JSON.stringify({ error: { code: 1040000, message: '不行' } }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        conversations = conversations.map((c) => (c.id === title[1] ? { ...c, title: typed } : c));
+        return json({ data: { title: typed } });
       }
       const approval = url.match(/(conversations\/[^/]+\/approvals\/[^/]+)$/);
       if (approval && method === 'POST') {
@@ -2336,6 +2354,74 @@ describe('AiAssistantPanel — conversation history column', () => {
     });
     expect(searchBox()!.value).toBe('');
     expect(row('外資買賣超')).toBeTruthy();
+  });
+
+  it('renames a conversation in its row: Enter saves, Escape keeps it as it was (D-144)', async () => {
+    const titleBox = () =>
+      container.querySelector<HTMLInputElement>('input[aria-label="對話標題"]');
+    const type = (text: string) =>
+      act(() => {
+        const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+        setValue.call(titleBox(), text);
+        titleBox()!.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    const press = (key: string) =>
+      act(() => {
+        titleBox()!.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+      });
+    await mount();
+    await waitFor(() => expect(row('台積電財報')).toBeDefined());
+
+    // The pencil opens a box holding the title; it does not open the conversation.
+    await act(async () => buttonByLabel('重新命名對話', row('台積電財報'))!.click());
+    expect(titleBox()!.value).toBe('台積電財報');
+    expect(container.textContent).not.toContain('毛利率 59%');
+
+    // Escape: nothing is sent, the title stays.
+    type('不要這個');
+    press('Escape');
+    expect(titleBox()).toBeNull();
+    expect(row('台積電財報')).toBeTruthy();
+    expect(renamed).toEqual([]);
+
+    // Enter: saved as one line, shown at once.
+    await act(async () => buttonByLabel('重新命名對話', row('台積電財報'))!.click());
+    type('  2330\t財報   重點 ');
+    press('Enter');
+    expect(titleBox()).toBeNull();
+    await waitFor(() => expect(row('2330 財報 重點')).toBeTruthy());
+    // Shown before the server answers; then saved.
+    await waitFor(() => expect(renamed).toEqual([{ id: 'c1', title: '2330 財報 重點' }]));
+
+    // An empty title, or the same one, sends nothing.
+    await act(async () => buttonByLabel('重新命名對話', row('ETF 比較'))!.click());
+    type('   ');
+    press('Enter');
+    expect(renamed).toHaveLength(1);
+    expect(row('ETF 比較')).toBeTruthy();
+  });
+
+  it('a title the server refuses goes back to the one it had (D-144)', async () => {
+    refuseRename = true;
+    await mount();
+    await waitFor(() => expect(row('ETF 比較')).toBeDefined());
+
+    await act(async () => buttonByLabel('重新命名對話', row('ETF 比較'))!.click());
+    const box = container.querySelector<HTMLInputElement>('input[aria-label="對話標題"]')!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
+        box,
+        '新名字',
+      );
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    act(() => {
+      box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+
+    await waitFor(() => expect(renamed).toHaveLength(1));
+    await waitFor(() => expect(row('ETF 比較')).toBeTruthy());
+    expect(row('新名字')).toBeUndefined();
   });
 
   it('opens a conversation from the column and carries on in it', async () => {

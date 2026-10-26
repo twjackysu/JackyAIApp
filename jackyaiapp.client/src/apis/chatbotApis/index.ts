@@ -39,6 +39,34 @@ export const chatbotApis = createApi({
       invalidatesTags: (result) => (result ? ['Conversations'] : []),
     }),
 
+    /**
+     * Give one of the reader's conversations a title of their own (D-144). The row shows it at once (the list of
+     * `profile`'s conversations is patched) and goes back to the old one if the server refuses.
+     */
+    renameConversation: builder.mutation<
+      ApiOkResponse<{ title: string }>,
+      { conversationId: string; title: string; profile: string }
+    >({
+      query: ({ conversationId, title }) => ({
+        url: `conversations/${encodeURIComponent(conversationId)}/title`,
+        method: 'PUT',
+        body: { title },
+      }),
+      async onQueryStarted({ conversationId, title, profile }, { dispatch, queryFulfilled }) {
+        const patch = dispatch(
+          chatbotApis.util.updateQueryData('getConversations', profile, (list) => {
+            const row = list.data.find((c) => c.id === conversationId);
+            if (row) row.title = title;
+          }),
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patch.undo();
+        }
+      },
+    }),
+
     /** Upload a file to send with the next message; the server reads it into text. */
     uploadChatAttachment: builder.mutation<ApiOkResponse<ChatAttachment>, File>({
       query: (file) => {
@@ -60,6 +88,7 @@ export const {
   useLazyGetConversationMessagesQuery,
   useDeleteConversationMutation,
   useNameConversationMutation,
+  useRenameConversationMutation,
   useUploadChatAttachmentMutation,
   useDeleteChatAttachmentMutation,
 } = chatbotApis;

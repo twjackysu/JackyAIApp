@@ -115,7 +115,10 @@ jackyaiapp.client/src/
   first words to a short title (「持股的外資買賣超」) a moment later. Every assistant, no settings
   With six or more conversations the history column has a search box (D-143): titles holding every word typed
   (`utils/conversationSearch`' `matchConversations`, case and full-width forms ignored), on the client only; Escape
-  empties it before it closes anything
+  empties it before it closes anything. Each row's pencil (shown as its delete button is) turns its title into a box,
+  `ConversationTitleEditor` (D-144): Enter or leaving the box saves, Escape keeps the title and goes no further;
+  `utils/conversationTitle`' `renamedTitle` sends one line, nothing when empty, unchanged or past `MAX_TITLE_LENGTH`
+  (held to the server's by its test). `renameConversation` patches the list at once and puts it back if the server refuses
 - Studio AI (`components/StudioAssistant`, mounted once in `App.tsx`) is the same chat as a sheet: a button
   in the lower right, or ⌘K / Ctrl+K, opens `AiAssistantPanel` with `variant="sheet"` (fills a right-hand
   drawer, the history behind its button, the header's last action closes) under the `studio` profile, with

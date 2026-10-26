@@ -1,5 +1,6 @@
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditNoteIcon from '@mui/icons-material/EditNote';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
@@ -7,6 +8,7 @@ import {
   IconButton,
   InputAdornment,
   List,
+  ListItem,
   ListItemButton,
   TextField,
   Typography,
@@ -20,7 +22,13 @@ import { ACCENT, accentWash, hairline } from '../style';
 import { matchConversations, SEARCH_FROM } from '../utils/conversationSearch';
 import { periodOf } from '../utils/period';
 
-import { useDeleteConversationMutation, useGetConversationsQuery } from '@/apis/chatbotApis';
+import ConversationTitleEditor from './ConversationTitleEditor';
+
+import {
+  useDeleteConversationMutation,
+  useGetConversationsQuery,
+  useRenameConversationMutation,
+} from '@/apis/chatbotApis';
 import { ChatConversation } from '@/apis/chatbotApis/types';
 import CenteredSpinner from '@/components/CenteredSpinner';
 
@@ -61,12 +69,20 @@ const ConversationList = ({
     refetchOnMountOrArgChange: true,
   });
   const [deleteConversation, { isLoading: isDeleting }] = useDeleteConversationMutation();
+  const [renameConversation] = useRenameConversationMutation();
+  // The conversation whose title is a box in its row (D-144).
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const conversations = data?.data ?? [];
   // Finding one by its title (D-143), once there are enough to look for.
   const [query, setQuery] = useState('');
   const searchable = conversations.length >= SEARCH_FROM;
   const shown = searchable ? matchConversations(conversations, query) : conversations;
+
+  const handleEdit = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setEditingId(id);
+  };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -175,6 +191,18 @@ const ConversationList = ({
               <List disablePadding>
                 {group.items.map((c) => {
                   const active = c.id === activeConversationId;
+                  if (c.id === editingId)
+                    return (
+                      <ListItem key={c.id} disablePadding sx={{ mb: 0.25, minHeight: 38, px: 0.5 }}>
+                        <ConversationTitleEditor
+                          title={c.title}
+                          onSave={(title) =>
+                            renameConversation({ conversationId: c.id, title, profile })
+                          }
+                          onClose={() => setEditingId(null)}
+                        />
+                      </ListItem>
+                    );
                   return (
                     <ListItemButton
                       key={c.id}
@@ -192,12 +220,12 @@ const ConversationList = ({
                         pl: 1.25,
                         pr: 0.5,
                         minHeight: 38,
-                        // The delete button shows on hover, on keyboard focus, on the open
+                        // The rename and delete buttons show on hover, on keyboard focus, on the open
                         // conversation, and always where there is no hover (touch screens).
-                        '& .conversation-delete': { opacity: 0, transition: 'opacity 120ms' },
-                        '&:hover .conversation-delete, &:focus-within .conversation-delete, &.Mui-selected .conversation-delete':
+                        '& .conversation-action': { opacity: 0, transition: 'opacity 120ms' },
+                        '&:hover .conversation-action, &:focus-within .conversation-action, &.Mui-selected .conversation-action':
                           { opacity: 1 },
-                        '@media (hover: none)': { '& .conversation-delete': { opacity: 1 } },
+                        '@media (hover: none)': { '& .conversation-action': { opacity: 1 } },
                         '&.Mui-selected, &.Mui-selected:hover': {
                           bgcolor: accentWash(theme, 0.14),
                         },
@@ -222,7 +250,16 @@ const ConversationList = ({
                         {c.title}
                       </Typography>
                       <IconButton
-                        className="conversation-delete"
+                        className="conversation-action"
+                        size="small"
+                        onClick={(e) => handleEdit(e, c.id)}
+                        aria-label="重新命名對話"
+                        sx={{ color: 'text.secondary', '&:hover': { color: ACCENT } }}
+                      >
+                        <EditOutlinedIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                      <IconButton
+                        className="conversation-action"
                         size="small"
                         disabled={isDeleting || busy}
                         onClick={(e) => handleDelete(e, c.id)}
