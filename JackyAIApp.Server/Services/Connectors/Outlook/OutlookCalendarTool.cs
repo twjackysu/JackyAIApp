@@ -41,6 +41,7 @@ namespace JackyAIApp.Server.Services.Connectors.Outlook
                 properties = new
                 {
                     range = new { type = "string", @enum = CalendarRange.Names, description = "today、tomorrow 或 week；沒給就是 today" },
+                    ifConnected = new { type = "boolean", description = CalendarRange.IfConnectedDescription },
                 },
             }),
             ToolEffect.Read,
@@ -53,7 +54,9 @@ namespace JackyAIApp.Server.Services.Connectors.Outlook
             var range = CalendarRange.Of(input, time.GetTaipeiToday());
             var token = await connections.GetAccessTokenAsync(context.UserId, ConnectorProviders.Microsoft);
             if (string.IsNullOrEmpty(token))
-                return new AiToolResult(
+                return CalendarRange.IfConnected(input)
+                    ? new AiToolResult(CalendarRange.NotConnectedQuietly("Outlook 行事曆（Microsoft 帳號）"))
+                    : new AiToolResult(
                     "使用者還沒有連線 Microsoft 帳號（或連線已失效），所以讀不到 Outlook 行事曆。請告訴使用者到 Connectors 頁面的「帳號連線」連線 Microsoft，再問一次。",
                     Card: ConnectCard);
 
@@ -125,7 +128,7 @@ namespace JackyAIApp.Server.Services.Connectors.Outlook
                     : null;
                 events.Add(Flag(item, "isAllDay")
                     // An all-day event runs midnight to midnight; its end day is exclusive, as Google's is.
-                    ? new CalendarEvent(null, null, DateOnly.FromDateTime(start.Value), end is { } e ? DateOnly.FromDateTime(e) : null, title, location)
+                    ? new CalendarEvent(null, null, DayOf(start.Value), end is { } e ? DayOf(e) : null, title, location)
                     : new CalendarEvent(start, end, null, null, title, location));
             }
             return events;
@@ -145,6 +148,12 @@ namespace JackyAIApp.Server.Services.Connectors.Outlook
                 ? TaipeiTime.ToTaipei(new DateTimeOffset(DateTime.SpecifyKind(at, DateTimeKind.Unspecified), TimeSpan.Zero))
                 : DateTime.SpecifyKind(at, DateTimeKind.Unspecified);
         }
+
+        /// <summary>
+        /// The day an all-day event's midnight falls on: Graph gives it in Taipei time, so one made in another zone (Tokyo's
+        /// midnight is 23:00 the day before in Taipei) is off by hours, never by half a day — the nearest midnight is its day.
+        /// </summary>
+        internal static DateOnly DayOf(DateTime midnight) => DateOnly.FromDateTime(midnight.AddHours(12));
 
         private static bool Flag(JsonElement e, string name) =>
             e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;

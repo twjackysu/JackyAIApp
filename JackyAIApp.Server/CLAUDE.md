@@ -400,7 +400,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   connection (scope `Calendars.Read`): Graph's `me/calendarView` for the range's whole Taipei days, with
   `Prefer: outlook.timezone="Taipei Standard Time"` (a time Graph still gives in UTC is converted); `CalendarRange`,
   `CalendarEvent` and the text and card (`GoogleCalendarTool.TextOf`/`CardOf` with the calendar's name) are shared. The
-  briefing calls both calendars and speaks only of those connected. `JiraIssuesTool`
+  briefing calls both calendars with `ifConnected` (`CalendarRange.IfConnected`): a calendar not connected then answers a quiet
+  line and no card, so a reader who connected one is not asked every morning to connect the other. An all-day event's day is
+  its nearest midnight (`OutlookCalendarTool.DayOf`: Graph gives another zone's midnight in Taipei time, hours off).
+  `JiraIssuesTool`
   (`jira_issues`, `Services/Connectors/Atlassian`, D-130) reads Jira through the Atlassian connection (scope `read:jira-work`):
   the token's accessible resources give the first site granted Jira (a cloud id of letters, digits and dashes only, an https
   address), searched with the enhanced JQL search (`/rest/api/3/search/jql`, 20 issues) — the model's JQL, on one line and cut

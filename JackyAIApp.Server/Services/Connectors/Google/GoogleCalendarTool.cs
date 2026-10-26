@@ -38,6 +38,7 @@ namespace JackyAIApp.Server.Services.Connectors.Google
                 properties = new
                 {
                     range = new { type = "string", @enum = CalendarRange.Names, description = "today、tomorrow 或 week；沒給就是 today" },
+                    ifConnected = new { type = "boolean", description = CalendarRange.IfConnectedDescription },
                 },
             }),
             ToolEffect.Read,
@@ -50,7 +51,9 @@ namespace JackyAIApp.Server.Services.Connectors.Google
             var range = CalendarRange.Of(input, time.GetTaipeiToday());
             var token = await connections.GetAccessTokenAsync(context.UserId, ConnectorProviders.Google);
             if (string.IsNullOrEmpty(token))
-                return new AiToolResult(
+                return CalendarRange.IfConnected(input)
+                    ? new AiToolResult(CalendarRange.NotConnectedQuietly("Google 日曆（Google 帳號）"))
+                    : new AiToolResult(
                     "使用者還沒有連線 Google 帳號（或連線已失效），所以讀不到日曆。請告訴使用者到 Connectors 頁面的「帳號連線」連線 Google，再問一次。",
                     Card: ConnectCard);
 
@@ -129,6 +132,20 @@ namespace JackyAIApp.Server.Services.Connectors.Google
     public sealed record CalendarRange(string Name, DateOnly From, int Days)
     {
         public static readonly string[] Names = ["today", "tomorrow", "week"];
+
+        /// <summary>
+        /// The <c>ifConnected</c> input of both calendars: the morning briefing reads both, and a reader who connected one
+        /// should not be asked to connect the other every morning (a link card is drawn whatever the model says).
+        /// </summary>
+        public const string IfConnectedDescription = "今日簡報用：true 時沒連線就只回「沒有連線」，不顯示連線卡片，也不要請使用者去連線";
+
+        /// <summary>Whether the call asked to be quiet about a calendar not connected.</summary>
+        public static bool IfConnected(JsonElement input) =>
+            input.ValueKind == JsonValueKind.Object && input.TryGetProperty("ifConnected", out var v) && v.ValueKind == JsonValueKind.True;
+
+        /// <summary>What the model is told of a calendar not connected when asked to be quiet: no card, nothing to tell the reader.</summary>
+        public static string NotConnectedQuietly(string calendar) =>
+            $"使用者沒有連線{calendar}，沒有可讀的行程。這不是錯誤，也不用請使用者連線；另一個行事曆有行程就只講那一個。";
 
         public string Label => Name switch { "tomorrow" => "明天", "week" => "這 7 天", _ => "今天" };
 

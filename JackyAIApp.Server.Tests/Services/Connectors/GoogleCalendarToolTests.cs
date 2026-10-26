@@ -55,6 +55,17 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             """;
 
         [Fact]
+        public async Task InTheBriefing_ACalendarNotConnected_IsQuiet_WithoutACard()
+        {
+            var result = await Run(new { ifConnected = true });
+
+            Assert.False(result.IsError);
+            Assert.Null(result.Card);
+            Assert.Contains("不用請使用者連線", result.Content);
+            Assert.Empty(_asked);
+        }
+
+        [Fact]
         public void ItIsARead_WhoseResultsAreOutsideText()
         {
             Assert.Equal(ToolEffect.Read, GoogleCalendarTool.Definition.Effect);

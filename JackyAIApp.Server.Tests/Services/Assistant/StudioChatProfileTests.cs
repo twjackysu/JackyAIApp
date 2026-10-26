@@ -56,6 +56,8 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
             Assert.Contains("給我今天的簡報", setup.SystemPrompt);
             Assert.Contains(GoogleCalendarTool.Name, setup.SystemPrompt);
             Assert.Contains(OutlookCalendarTool.Name, setup.SystemPrompt);
+            // Both calendars, quiet about the one not connected (no card to connect it every morning).
+            Assert.Contains("兩個都設 ifConnected", setup.SystemPrompt);
             Assert.Contains(LearningProgressTool.Name, setup.SystemPrompt);
             Assert.Contains(PortfolioSummaryTool.Name, setup.SystemPrompt);
             // …and offers a quiz when words are due.

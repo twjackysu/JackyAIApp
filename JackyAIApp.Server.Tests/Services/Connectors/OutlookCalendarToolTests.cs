@@ -17,8 +17,8 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
     {
         private const string User = "u1";
 
-        // 2026-10-24 23:30 in Taipei: the Taipei day is the 24th while UTC is still the 24th 15:30.
-        private readonly TestClock _clock = new(TestClock.Taipei(new DateOnly(2026, 10, 24), 23, 30));
+        // 2026-10-25 00:30 in Taipei: the Taipei day is the 25th while UTC is still the 24th 16:30.
+        private readonly TestClock _clock = new(TestClock.Taipei(new DateOnly(2026, 10, 25), 0, 30));
         private readonly Mock<IConnectorService> _connections = new();
         private readonly List<HttpRequestMessage> _asked = [];
         private Func<HttpResponseMessage> _graph = () => Json("""{ "value": [] }""");
@@ -91,9 +91,9 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Equal("outlook.timezone=\"Taipei Standard Time\"", string.Join(",", request.Headers.GetValues("Prefer")));
             Assert.StartsWith(OutlookCalendarTool.CalendarViewUrl + "?", request.RequestUri!.AbsoluteUri);
             var query = HttpUtility.ParseQueryString(request.RequestUri.Query);
-            // The Taipei day is the 24th although UTC's is too, at 15:30: midnight to midnight, +08:00.
-            Assert.Equal("2026-10-24T00:00:00+08:00", query["startDateTime"]);
-            Assert.Equal("2026-10-31T00:00:00+08:00", query["endDateTime"]);
+            // The Taipei day (the 25th), not UTC's (still the 24th): midnight to midnight, +08:00.
+            Assert.Equal("2026-10-25T00:00:00+08:00", query["startDateTime"]);
+            Assert.Equal("2026-11-01T00:00:00+08:00", query["endDateTime"]);
             Assert.Equal("50", query["$top"]);
         }
 
@@ -119,6 +119,27 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Equal("20:00–21:00", rows[2].GetProperty("when").GetString());
             Assert.DoesNotContain("取消的", result.Content);
             Assert.StartsWith("Outlook 行事曆，今天", result.Content);
+        }
+
+        [Fact]
+        public async Task InTheBriefing_ACalendarNotConnected_IsQuiet_WithoutACard()
+        {
+            var result = await Run(new { ifConnected = true });
+
+            Assert.False(result.IsError);
+            Assert.Null(result.Card);
+            Assert.Contains("不用請使用者連線", result.Content);
+            Assert.Empty(_asked);
+        }
+
+        [Fact]
+        public void AnAllDayEventsDay_IsItsNearestMidnight_SoAnotherZonesMidnightKeepsItsDay()
+        {
+            // Tokyo's midnight of the 25th is 23:00 on the 24th in Taipei.
+            Assert.Equal(new DateOnly(2026, 10, 25), OutlookCalendarTool.DayOf(new DateTime(2026, 10, 24, 23, 0, 0)));
+            Assert.Equal(new DateOnly(2026, 10, 25), OutlookCalendarTool.DayOf(new DateTime(2026, 10, 25, 0, 0, 0)));
+            // …and a zone west of Taipei, 03:00 the same day.
+            Assert.Equal(new DateOnly(2026, 10, 25), OutlookCalendarTool.DayOf(new DateTime(2026, 10, 25, 3, 0, 0)));
         }
 
         [Theory]
