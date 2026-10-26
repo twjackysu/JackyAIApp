@@ -171,6 +171,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
       timestamp: new Date(),
       attachments: attachments.length > 0 ? attachments : undefined,
       ...(handedOverBy && { handedOverBy }),
+      ...(quotesPageText && { quotesPageText }),
     };
     // 創建初始的 bot 訊息
     const botMessage: Message = {
@@ -232,7 +233,8 @@ export function useChatConversation(options?: ChatConversationOptions) {
     await sendStreamingMessage({
       message: text,
       conversationId: fresh ? '' : conversationId,
-      attachmentIds: edited ? [] : attachments.map((a) => a.id),
+      // A stored message's files are re-attached by the server; one it never stored (asked again, D-139) sends them.
+      attachmentIds: edited?.serverId ? [] : attachments.map((a) => a.id),
       editMessageId: edited?.serverId,
       quotesPageText,
       onStart: (id, userMessageId) => {
@@ -304,8 +306,13 @@ export function useChatConversation(options?: ChatConversationOptions) {
       // `parsedBlocks` is cleared so the bubble falls back to rendering `content`: an empty
       // block list is what a reply that never started looks like, and it draws nothing.
       // A failed turn shows only its error, as the server keeps nothing of it: its thinking goes too.
-      onError: (error) => {
-        updateBot({ content: `錯誤: ${error}`, parsedBlocks: undefined, thinking: undefined });
+      onError: (error, retryable) => {
+        updateBot({
+          content: `錯誤: ${error}`,
+          parsedBlocks: undefined,
+          thinking: undefined,
+          ...(retryable && { retryable }),
+        });
         settleSteps(false);
         closeApproval();
       },
@@ -365,6 +372,23 @@ export function useChatConversation(options?: ChatConversationOptions) {
   };
 
   /**
+   * Asks again the question a failed answer was for (D-139), in its place: a question the server stored goes as an
+   * edit of itself (it re-attaches the files), one it never got (the request failed before the turn started) is sent
+   * anew, its files and its quoting of page text with it. Only the last answer, and not while one is written.
+   */
+  const retry = (answer: Message) => {
+    if (busy) return;
+    const index = messages.findIndex((m) => m.id === answer.id);
+    const question = messages[index - 1];
+    if (index !== messages.length - 1 || !question?.isUser) return;
+    void sendTurn(question.content, question.attachments ?? [], question, {
+      quotesPageText: question.quotesPageText === true,
+      handedOverBy: question.handedOverBy,
+      readAloud: answer.readAloud === true,
+    });
+  };
+
+  /**
    * Sends the reader's decisions on a write the answer is waiting for. The answer carries on in its
    * own stream once the server has them (`approval_resolved` marks the card answered); one that did
    * not arrive can be sent again.
@@ -414,6 +438,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
     queued,
     send,
     edit,
+    retry,
     removeQueued,
     decide,
     allowAlways,

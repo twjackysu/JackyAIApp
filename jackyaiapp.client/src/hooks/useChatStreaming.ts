@@ -5,7 +5,11 @@ import { finishSseLines, splitSseLines } from './sseLines';
 
 import type { ToolEffect } from '@/apis/connectorsApis/types';
 
-import { ChatErrorCode, chatErrorMessage } from '@/apis/chatbotApis/chatErrors';
+import {
+  ChatErrorCode,
+  chatErrorMessage,
+  isRetryableChatError,
+} from '@/apis/chatbotApis/chatErrors';
 import { getApiErrorMessage } from '@/apis/utils/errorMessage';
 import { useAppDispatch } from '@/redux/hooks';
 import { openUsageLimitModal } from '@/redux/uiSlice';
@@ -99,7 +103,8 @@ export interface ChatTurn {
   onComplete: (conversationId?: string, truncated?: boolean, assistantMessageId?: number) => void;
   /** The reader stopped the turn; `partial` is what had been written by then (the server keeps it). */
   onStopped: (partial: string, assistantMessageId?: number) => void;
-  onError: (error: string) => void;
+  /** The turn failed: the words to show, and whether asking again may work (`isRetryableChatError`, D-139). */
+  onError: (error: string, retryable: boolean) => void;
   /** A tool call started or finished. */
   onToolEvent?: (event: ToolEvent) => void;
   /** A write needs the reader's decision, or the decisions arrived. */
@@ -112,6 +117,16 @@ export const STOPPED_NOTE = '（已中斷）';
 /** A stopped answer as the server stores it, so the bubble reads the same before and after a reload. */
 export const stoppedContent = (partial: string) =>
   partial.trim() ? `${partial.trimEnd()}\n\n${STOPPED_NOTE}` : STOPPED_NOTE;
+
+/** A request the server answered with an error status, and whether asking again may work. */
+class ChatRequestError extends Error {
+  readonly retryable: boolean;
+
+  constructor(message: string, retryable: boolean) {
+    super(message);
+    this.retryable = retryable;
+  }
+}
 
 const stopOnServer = (conversationId: string) =>
   fetch(`/api/chatbot/conversations/${encodeURIComponent(conversationId)}/stop`, {
@@ -225,7 +240,11 @@ export const useChatStreaming = ({
           if (response.status === 429) {
             dispatch(openUsageLimitModal());
           }
-          throw new Error(getApiErrorMessage({ status: response.status, data: parsedBody }));
+          // A server error or a timeout may pass; a refusal (signed out, the daily limit, a bad request) will not.
+          throw new ChatRequestError(
+            getApiErrorMessage({ status: response.status, data: parsedBody }),
+            response.status >= 500 || response.status === 408,
+          );
         }
 
         if (!response.body) throw new Error('No response body');
@@ -295,6 +314,7 @@ export const useChatStreaming = ({
                 onError(
                   (event.code && errorMessages?.[event.code as ChatErrorCode]) ||
                     chatErrorMessage(event.code),
+                  isRetryableChatError(event.code),
                 );
                 return true;
             }
@@ -319,7 +339,7 @@ export const useChatStreaming = ({
         // Every turn the server finishes ends with `done` or `error`: a stream that just stops was cut
         // (a proxy, the network), so it is not an answer, however much of one arrived.
         if (turn.stopRequested) onStopped(accumulatedContent);
-        else onError(chatErrorMessage('failed'));
+        else onError(chatErrorMessage('failed'), true);
       } catch (error) {
         if (turn.stopRequested) {
           onStopped(accumulatedContent);
@@ -334,6 +354,7 @@ export const useChatStreaming = ({
             : error instanceof Error
               ? error.message
               : chatErrorMessage('failed'),
+          !(error instanceof ChatRequestError) || error.retryable,
         );
       } finally {
         if (turnRef.current === turn) turnRef.current = null;

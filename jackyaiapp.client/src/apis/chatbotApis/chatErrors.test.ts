@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { ATTACHMENT_ERROR_MESSAGES, attachmentErrorMessage } from './chatErrors';
+import {
+  ATTACHMENT_ERROR_MESSAGES,
+  attachmentErrorMessage,
+  isRetryableChatError,
+} from './chatErrors';
 
 const envelope = (status: number, code: string) => ({
   status,
@@ -37,5 +41,17 @@ describe('attachmentErrorMessage', () => {
       ATTACHMENT_ERROR_MESSAGES.failed,
     );
     expect(attachmentErrorMessage(undefined)).toBe(ATTACHMENT_ERROR_MESSAGES.failed);
+  });
+});
+
+describe('isRetryableChatError (D-139)', () => {
+  it('offers asking again when it may work', () => {
+    for (const code of ['busy', 'no_answer', 'failed', 'something_new', undefined])
+      expect(isRetryableChatError(code)).toBe(true);
+  });
+
+  it('not when the same question would fail the same way', () => {
+    for (const code of ['context_too_long', 'request_too_large', 'refused', 'unavailable'])
+      expect(isRetryableChatError(code)).toBe(false);
   });
 });

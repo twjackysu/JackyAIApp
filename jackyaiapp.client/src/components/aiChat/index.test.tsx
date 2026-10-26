@@ -1155,6 +1155,107 @@ describe('AiAssistantPanel', () => {
     await waitForText('錯誤: AI 服務目前忙碌中，請稍後再試。');
   });
 
+  describe('重試 a failed answer (D-139)', () => {
+    const retryButton = () =>
+      [...container.querySelectorAll<HTMLButtonElement>('button')].find(
+        (b) => b.textContent === '重試',
+      );
+    const userBubbles = () => container.querySelectorAll('[data-testid="user-message"]').length;
+
+    it("asks a question the server stored again as an edit of itself, in the failed answer's place", async () => {
+      await mount();
+      chatReplies.push(() =>
+        sseReply(
+          { type: 'start', conversationId: 'conv-1', userMessageId: 7 },
+          { type: 'error', code: 'busy' },
+        ),
+      );
+      await send('2330 今天如何？');
+      await waitFor(() => expect(retryButton()).toBeDefined());
+
+      chatReplies.push(() =>
+        sseReply(
+          { type: 'delta', text: '台積電今天收 1000 元' },
+          { type: 'done', conversationId: 'conv-1' },
+        ),
+      );
+      await act(async () => retryButton()!.click());
+
+      await waitForText('台積電今天收 1000 元');
+      expect(chatBodies[1]).toMatchObject({
+        message: '2330 今天如何？',
+        conversationId: 'conv-1',
+        attachmentIds: [],
+        editMessageId: 7,
+      });
+      expect(container.textContent).not.toContain('錯誤:');
+      expect(userBubbles()).toBe(1);
+      expect(retryButton()).toBeUndefined();
+    });
+
+    it('sends anew a question the server never got, quoting page text as it did', async () => {
+      await mount();
+      chatReplies.push(() => Promise.reject(new TypeError('Failed to fetch')));
+      await renderAsk({ id: 1, text: '請解釋：「A」', fresh: true, quotesPageText: true });
+      await waitFor(() => expect(retryButton()).toBeDefined());
+
+      chatReplies.push(() =>
+        sseReply({ type: 'delta', text: '這段是說…' }, { type: 'done', conversationId: 'conv-1' }),
+      );
+      await act(async () => retryButton()!.click());
+
+      await waitForText('這段是說…');
+      expect(chatBodies[1]).toEqual({
+        message: '請解釋：「A」',
+        conversationId: '',
+        attachmentIds: [],
+        profile: 'finance',
+        quotesPageText: true,
+      });
+      expect(userBubbles()).toBe(1);
+    });
+
+    it('offers 重試 for a server error, not for a refusal the same question would meet again', async () => {
+      await mount();
+      chatReplies.push(() => errorEnvelope(503, 'ServiceUnavailable'));
+      await send('hi');
+      await waitFor(() => expect(retryButton()).toBeDefined());
+
+      for (const code of ['context_too_long', 'request_too_large', 'refused', 'unavailable']) {
+        chatReplies.push(() => sseReply({ type: 'error', code }));
+        await send(code);
+        await waitForText(`錯誤:`);
+        await waitFor(() => expect(chatBodies[chatBodies.length - 1]?.message).toBe(code));
+        await waitFor(() =>
+          expect(container.querySelector('[aria-label="AI 助手思考中"]')).toBeNull(),
+        );
+        expect(retryButton()).toBeUndefined();
+      }
+
+      chatReplies.push(() => errorEnvelope(400, 'ValidationError'));
+      await send('bad');
+      await waitFor(() => expect(chatBodies[chatBodies.length - 1]?.message).toBe('bad'));
+      await waitFor(() =>
+        expect(container.querySelector('[aria-label="AI 助手思考中"]')).toBeNull(),
+      );
+      expect(retryButton()).toBeUndefined();
+    });
+
+    it('offers 重試 under the last answer only', async () => {
+      await mount();
+      chatReplies.push(() => sseReply({ type: 'error', code: 'no_answer' }));
+      await send('first');
+      await waitFor(() => expect(retryButton()).toBeDefined());
+
+      chatReplies.push(() =>
+        sseReply({ type: 'delta', text: '好的' }, { type: 'done', conversationId: 'conv-1' }),
+      );
+      await send('second');
+      await waitForText('好的');
+      expect(retryButton()).toBeUndefined();
+    });
+  });
+
   it('a message sent while a reply is being written waits, and goes once the reply is done', async () => {
     await mount();
     let finish!: () => void;

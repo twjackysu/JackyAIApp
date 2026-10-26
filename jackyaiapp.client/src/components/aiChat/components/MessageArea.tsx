@@ -36,6 +36,8 @@ interface MessageAreaProps {
   onAlwaysAllow?: (calls: ApprovalCall[]) => void;
   /** A question offered under the last answer was picked: send it. */
   onFollowUp?: (question: string) => void;
+  /** The last answer failed in a way asking again may fix: ask its question again in its place (D-139). */
+  onRetry?: (answer: Message) => void;
 }
 
 /** An empty conversation: what the assistant does, and a few questions to start from. */
@@ -117,6 +119,7 @@ function MessageArea({
   onDecide,
   onAlwaysAllow,
   onFollowUp,
+  onRetry,
 }: MessageAreaProps) {
   const theme = useTheme();
   const { followUps: followUpRules } = useAiChatConfig();
@@ -133,9 +136,9 @@ function MessageArea({
 
   // The page's callbacks are new functions on most renders (inline arrows); the messages get one object that
   // calls the latest of them, so a message that did not change keeps its props and is not drawn again.
-  const latest = useRef({ onPreview, onEdit, onDecide, onAlwaysAllow, onFollowUp });
+  const latest = useRef({ onPreview, onEdit, onDecide, onAlwaysAllow, onFollowUp, onRetry });
   useLayoutEffect(() => {
-    latest.current = { onPreview, onEdit, onDecide, onAlwaysAllow, onFollowUp };
+    latest.current = { onPreview, onEdit, onDecide, onAlwaysAllow, onFollowUp, onRetry };
   });
   const handlers = useMemo<MessageHandlers>(
     () => ({
@@ -149,6 +152,7 @@ function MessageArea({
       onDecide: (pendingId, decisions) => latest.current.onDecide?.(pendingId, decisions),
       onAlwaysAllow: (calls) => latest.current.onAlwaysAllow?.(calls),
       onFollowUp: (question) => latest.current.onFollowUp?.(question),
+      onRetry: (answer) => latest.current.onRetry?.(answer),
     }),
     [],
   );
@@ -215,6 +219,7 @@ function MessageArea({
             canAlwaysAllow={Boolean(onAlwaysAllow)}
             active={active}
             followUps={message === last && onFollowUp ? followUps : undefined}
+            canRetry={Boolean(onRetry) && message === last && !busy && message.retryable === true}
           />
         ))}
       </Box>

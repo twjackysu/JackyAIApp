@@ -1,4 +1,5 @@
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
+import ReplayIcon from '@mui/icons-material/Replay';
 import ShortcutIcon from '@mui/icons-material/Shortcut';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { Box, Button, Paper, Typography } from '@mui/material';
@@ -37,6 +38,7 @@ export interface MessageHandlers {
   onDecide: (pendingId: string, decisions: ApprovalDecision[]) => void;
   onAlwaysAllow: (calls: ApprovalCall[]) => void;
   onFollowUp: (question: string) => void;
+  onRetry: (answer: Message) => void;
 }
 
 export interface MessageItemProps {
@@ -56,6 +58,8 @@ export interface MessageItemProps {
   active: boolean;
   /** Questions to carry on with, under the last answer only; undefined under every other message. */
   followUps?: string[];
+  /** The last answer failed in a way asking again may fix, and nothing is being written: offer 重試 (D-139). */
+  canRetry?: boolean;
 }
 
 /**
@@ -150,6 +154,7 @@ function MessageItem({
   canAlwaysAllow,
   active,
   followUps,
+  canRetry = false,
 }: MessageItemProps) {
   const theme = useTheme();
 
@@ -282,6 +287,17 @@ function MessageItem({
           <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'warning.main' }}>
             {TRUNCATED_NOTE}
           </Typography>
+        )}
+        {canRetry && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<ReplayIcon />}
+            onClick={() => handlers.onRetry(message)}
+            sx={{ mt: 1, borderRadius: 99, borderColor: hairline(theme), color: 'text.primary' }}
+          >
+            重試
+          </Button>
         )}
         {!answering && message.content && (
           <MessageActions

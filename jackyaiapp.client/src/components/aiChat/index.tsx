@@ -296,6 +296,7 @@ function AiAssistantPanel({
             onDecide={(pendingId, decisions) => void conversation.decide(pendingId, decisions)}
             onAlwaysAllow={conversation.allowAlways}
             onFollowUp={(question) => conversation.send(question, [])}
+            onRetry={conversation.retry}
           />
           {inputAccessory}
           <ChatInput

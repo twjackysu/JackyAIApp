@@ -62,6 +62,10 @@ export interface Message {
   answered?: boolean;
   /** An answer to read aloud once it is `answered` (`SendOptions.readAloud`, D-120): this session only. */
   readAloud?: boolean;
+  /** A user message sent as quoting page text (`SendOptions.quotesPageText`): asked again, it goes so again. */
+  quotesPageText?: boolean;
+  /** A failed answer that may well work asked again (the service busy, the network, a cut stream), D-139. */
+  retryable?: boolean;
 }
 
 export type AgentStatus = 'online' | 'working' | 'offline';

@@ -40,6 +40,7 @@
 | **網站本身就是 MCP server**：在 /connectors 產生 token，一鍵複製 Claude Code／Claude Desktop／Cursor／VS Code 的設定，別家的 AI 就能查字典、看你的學習進度與投資組合 | `POST /api/mcp`（Streamable HTTP、JSON 回應、無 session）、只存雜湊的 PAT、預設唯讀、跟 /connectors 的權限連動；**Claude.ai／ChatGPT 只要貼網址**：本站同時是 OAuth 授權伺服器（PRM、AS metadata、DCR、PKCE、同意頁） | MCP 是雙向的：網站不只是 MCP client，也是 MCP server |
 | **在 Claude.ai／ChatGPT 裡也看得到本站的卡片**：問「我的投資組合」，回答下方直接出現本站的持倉表格（深淺色跟著 host） | MCP Apps（`ui://` 資源、`structuredContent`、postMessage 的 `ui/initialize`／`tool-result`／`size-changed`），一個內嵌的 HTML 畫所有卡片 | MCP Apps（2026 的 generative UI 標準）：工具不只回文字，也回 UI |
 | **別家 AI 裡的斜線指令**：Claude Code 打 `/mcp__jacky-studio__daily_briefing` 就是今日簡報；還有「考我單字」（一次一題）、「解讀 dashboard」、「投資組合健檢」「找出我的弱點」等 7 個現成指令（VS Code、Claude Desktop 的選單也有） | MCP prompts（`prompts/list`／`prompts/get`）：每個 `SitePrompt` 宣告在它用到的工具旁邊，token 用不到的工具就不列出它；參數整理成一行、最多 100 字 | MCP 的三種能力（tools、resources、prompts）本站對外全部提供 |
+| **失敗了按一下「重試」**：AI 服務忙碌、網路斷掉、回覆沒收完時，失敗的回答下方出現「重試」，問題原地重送（附檔、引用的頁面文字都照原樣），不用重打；對話太長、模型拒答這種再問也一樣的不給；長對話串流時只重畫正在寫的那則（每段 329 ms → 3.4 ms） | `useChatConversation.retry`：伺服器存過的問題當成編輯它自己、沒存過的重新送出；`isRetryableChatError`；`memo(MessageItem)`（D-138、D-139） | 2026 的 chat 產品的基本功：失敗可以一鍵重來、長對話不卡 |
 | /finance 的 Stock Intelligence：**行為不變**，工具 chip 與進度改用中文（「個股歷史股價」「技術指標」），回答下方有「接著問」 | 同一套共用 chat（`FinanceChatRequestTests` 逐欄位鎖住請求）；中文名稱是前端的對照表（`FINANCE_TOOL_LABELS`） | — |
 
 ## Demo 腳本（約 10 分鐘）
@@ -146,6 +147,9 @@
 9. **Stock Intelligence（30 秒）**：/finance 問「分析台積電最近的走勢」，跟以前一樣；回答上方的工具 chip 現在是中文（「個股歷史股價」「技術指標」），下方有「接著問」。在輸入框打 **「/」** → 「今日重大消息、外資在買什麼、台指期籌碼…」一排現成指令（/data-analysis 的助理也有自己的一組：有哪些欄位、最值得注意的三件事、做一個業績總覽 dashboard）。
    ![Stock Intelligence](screenshots/finance-answer-desktop.png)
    ![/finance 的斜線指令](screenshots/assistant-slash-finance-desktop.png)
+   **失敗了就重試**：AI 服務忙碌時，回答寫「錯誤: AI 服務目前忙碌中」，下方一顆「重試」，按下問題原地重送、不用重打。
+   ![失敗的回答下方的重試](screenshots/retry-failed-desktop.png)
+   ![重試後的回答](screenshots/retry-done-phone.png)
 10. **收尾**：下面的架構圖，以及「新增一個 connector 要寫多少 code」（[CONTRIBUTING-CONNECTORS.md](CONTRIBUTING-CONNECTORS.md)）。
 
 ## 架構
@@ -254,5 +258,6 @@ flowchart LR
 | 10/26 | 32 | **Jira 原生 connector**（`jira_issues`：既有 Atlassian 連線變成 AI 工具，JQL 搜尋、表格卡片、Studio「/jira」；D-130）；改用打字後不再自動朗讀、Studio 第二次「加入」換新搜尋（D-129） |
 | 10/26 | 33 | **在 Jira 留言**（`jira_add_comment`：第一個寫入外部服務的原生 connector，確認卡寫出整則留言；D-132）；審查修正：確認卡的說明不再截到 200 字、讀與寫用同一個 Jira 網站（D-133）；**Outlook 行事曆原生 connector**（`outlook_calendar_events`，今日簡報兩個行事曆都讀、不再叫人去連另一個；D-134、D-135） |
 | 10/26 | 34 | **看得見 AI 在想什麼**：三個助理都串流思考摘要（「思考中… 3 秒」→「已思考 8 秒」，按下展開；D-136） |
+| 10/27 | 35 | 長對話不卡：每則訊息各自 memo，串流時只重畫正在寫的那則（每段 329 ms → 3.4 ms；D-138）；**失敗的回答下方「重試」**（問題原地重送，附檔與引用的頁面文字照原樣；D-139） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

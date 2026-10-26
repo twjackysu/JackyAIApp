@@ -22,6 +22,18 @@ export const chatErrorMessage = (code: string | undefined): string =>
     ? CHAT_ERROR_MESSAGES[code as ChatErrorCode]
     : CHAT_ERROR_MESSAGES.failed;
 
+/**
+ * Whether asking again may work (D-139): the service was busy, the answer did not arrive, or it failed for a reason
+ * unknown. Not a conversation too long or a request too large (the same again fails the same), a declined question
+ * (it wants other words) nor the assistant switched off.
+ */
+export const isRetryableChatError = (code: string | undefined): boolean =>
+  !code ||
+  code === 'busy' ||
+  code === 'no_answer' ||
+  code === 'failed' ||
+  !(code in CHAT_ERROR_MESSAGES);
+
 /** Shown under an answer that ran into the length limit. */
 export const TRUNCATED_NOTE = '回覆因長度上限被截斷，內容可能不完整。';
 
