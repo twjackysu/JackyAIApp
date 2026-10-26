@@ -8,7 +8,7 @@
 - **審查**（subagent，D-148）：無高風險。中——沒關的 code block 吞掉之後的輪次（補關）、焦點目標殘留會在清搜尋時搶焦點（只活一個 commit）；低——標題降兩級、卡片文字與網址的跳脫、只列成功的工具、沒 renderer 的卡片不提、emoji 檔名、提示框淡出、aria。都已修並補測試。
 - **圖表也匯出**（D-149）：`AiChatConfig.cardTables`，/data-analysis 的 chart 卡片寫成它的資料表（`chartCardTable`）。
 - **截圖巡檢**：`selection.cjs`、`memory.cjs`、`connectors.cjs`、`mcp-app.cjs`、`rename.cjs` 重拍，與 repo 比對沒有退化（差異都是確認卡剩餘時間、registry 卡片與連結、Studio AI 記得的事等刻意改動），已更新 repo 裡既有的。
-- 驗證：前端 lint、test（156 檔）、build 全過；CI 40409716274（D-146＋D-147）綠；D-148 的 CI 見下一則或 NEXT。
+- 驗證：前端 lint、test（156 檔 1679 個）、build 全過；CI 40409716274（D-146＋D-147）、40411291522（D-148）綠；**40412656073（本輪最後一次含程式碼的 push f142a7fd：D-149）綠**。
 - 問題：無阻礙。`[skip ci]` 的 commit 若是一次 push 的最後一個，整個 push 都不跑 CI——含程式碼的 commit 要分開 push 或放在最後。
 
 ## 2026-10-27 03:43 – 第 37 輪（對話手動改名、中途巡檢）
