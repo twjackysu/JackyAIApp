@@ -262,7 +262,9 @@ describe('AiConnectorsSection', () => {
     } finally {
       window.removeEventListener(ASK_STUDIO_EVENT, listen);
     }
-    expect(asked).toEqual([{ text: expect.stringContaining('「DeepWiki」'), fresh: true }]);
+    expect(asked).toEqual([
+      { text: expect.stringContaining('「DeepWiki」'), fresh: true, quotesPageText: true },
+    ]);
   });
 
   it('offers no try for a connector waiting for a sign-in', async () => {

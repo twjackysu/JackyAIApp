@@ -178,9 +178,9 @@ sent or stored, so a reopened conversation shows a plain message. A site tool's 
   already added (its address, `connectorView.serverUrlKey`, among `installedServerUrls`) shows as added there and in the dialog's registry
   search, not offered again (D-127). A connector the reader has added, working and with a tool the AI may see (`connectorView.canTryInStudio`), offers
   「在 Studio AI 試試看」 on the dialog's last step and in its detail drawer (D-126): the dialog or drawer closes, then
-  `askStudio(tryConnectorPrompt(name), { fresh: true })` asks Studio AI, in a conversation of its own (whose tools are read anew,
+  `askStudio(tryConnectorPrompt(name), { fresh: true, quotesPageText: true })` asks Studio AI, in a conversation of its own (whose tools are read anew,
   the new connector's among them), to use one of its reading tools once and say what else it can do; the name, possibly a
-  publisher's, goes as one plain line within quotes. Which entries show, in what order, and what
+  publisher's, goes as one plain line within quotes, and the message counts as quoting outside words (`AskStudioOptions.quotesPageText`, D-128). Which entries show, in what order, and what
   「連線」does for one are `connectorView`; the dialog's checks and the request it sends are
   `AddMcpServerDialog/addMcpServer`. The catalog failing to load leaves the account connections working.
   Below it, `MemorySection` lists what the reader asked Studio AI to remember (`assistantMemoryApis`, in the shared API,

@@ -191,13 +191,13 @@ function RegistryRow({
           </Box>
         )}
       </Stack>
-      {server.catalogKey ? (
-        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-          上方目錄已有，從那裡連線
-        </Typography>
-      ) : added ? (
+      {added ? (
         <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
           已經加入了
+        </Typography>
+      ) : server.catalogKey ? (
+        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+          上方目錄已有，從那裡連線
         </Typography>
       ) : (
         <Button

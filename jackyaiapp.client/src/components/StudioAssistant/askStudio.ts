@@ -12,6 +12,8 @@ export interface AskStudioDetail {
   fresh?: boolean;
   /** Its answer read aloud once done. */
   readAloud?: boolean;
+  /** It quotes words someone else may have written (`SendOptions.quotesPageText`). */
+  quotesPageText?: boolean;
 }
 
 export interface AskStudioOptions {
@@ -26,6 +28,12 @@ export interface AskStudioOptions {
    * more is sent to the server and nothing more is charged.
    */
   readAloud?: boolean;
+  /**
+   * The message quotes words that are not the reader's (a connector's name, which its server or a registry publisher
+   * chose, D-126): the server counts the conversation as having read outside text from the start, so its writes ask
+   * first and it neither moves the page nor hands over (the chat request's `quotesPageText`).
+   */
+  quotesPageText?: boolean;
 }
 
 /** Opens Studio AI and sends `text`. */
@@ -36,6 +44,7 @@ export function askStudio(text: string, options?: AskStudioOptions): void {
     text: message,
     ...(options?.fresh && { fresh: true }),
     ...(options?.readAloud && { readAloud: true }),
+    ...(options?.quotesPageText && { quotesPageText: true }),
   };
   window.dispatchEvent(new CustomEvent<AskStudioDetail>(ASK_STUDIO_EVENT, { detail }));
 }
@@ -44,16 +53,18 @@ export function askStudio(text: string, options?: AskStudioOptions): void {
 export function askedOf(event: Event): AskStudioDetail | null {
   const detail = (event as CustomEvent<unknown>).detail;
   if (typeof detail !== 'object' || detail === null) return null;
-  const { text, fresh, readAloud } = detail as {
+  const { text, fresh, readAloud, quotesPageText } = detail as {
     text?: unknown;
     fresh?: unknown;
     readAloud?: unknown;
+    quotesPageText?: unknown;
   };
   if (typeof text !== 'string' || !text.trim()) return null;
   return {
     text: text.trim().slice(0, 2000),
     ...(fresh === true && { fresh: true }),
     ...(readAloud === true && { readAloud: true }),
+    ...(quotesPageText === true && { quotesPageText: true }),
   };
 }
 
@@ -79,10 +90,10 @@ const MAX_TRIED_NAME = 60;
  * called itself, so it goes as one plain line within quotes, never as more of the request.
  */
 export function tryConnectorPrompt(name: string): string {
-  const plain = name
-    .replace(/[\p{C}\s「」]+/gu, ' ')
-    .trim()
+  // Quote marks of any kind go, so the name cannot seem to close its quotes; cut by characters, not UTF-16 units.
+  const plain = Array.from(name.replace(/[\p{C}\s「」『』“”‘’〈〉《》"'`]+/gu, ' ').trim())
     .slice(0, MAX_TRIED_NAME)
+    .join('')
     .trim();
   const named = plain ? `「${plain}」` : '這個 connector';
   return `示範一下你能用${named}做什麼：挑一個只會讀取的工具實際用一次，再用兩三句話告訴我還能請你用它做哪些事。`;

@@ -160,6 +160,7 @@ describe('AddMcpServerDialog', () => {
     expect(onClose).toHaveBeenCalled();
     expect(asked).toHaveLength(1);
     expect(asked[0].fresh).toBe(true);
+    expect(asked[0].quotesPageText).toBe(true);
     expect(asked[0].text).toContain('「DeepWiki」');
   });
 
@@ -233,7 +234,11 @@ describe('AddMcpServerDialog', () => {
     mocks.registry.mockReturnValue({
       currentData: {
         servers: [
-          registryServer({ title: 'Weather', url: 'https://mcp.weather.example/mcp/' }),
+          registryServer({
+            title: 'Weather',
+            url: 'https://mcp.weather.example/mcp/',
+            catalogKey: 'weather',
+          }),
           registryServer({
             name: 'io.example/news',
             title: 'News',
@@ -245,7 +250,8 @@ describe('AddMcpServerDialog', () => {
       isFetching: false,
     });
     render(null, true, 'w', new Set(['https://mcp.weather.example/mcp']));
-    expect(text()).toContain('已經加入了');
+    expect(text()).toContain('已經加入了'); // added wins over the catalog's note, as on Studio's card
+    expect(text()).not.toContain('上方目錄已有');
     expect(document.body.querySelector('[aria-label="使用 Weather"]')).toBeNull();
     expect(document.body.querySelector('[aria-label="使用 News"]')).not.toBeNull();
   });

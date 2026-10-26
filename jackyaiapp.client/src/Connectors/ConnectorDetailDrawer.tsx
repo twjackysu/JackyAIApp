@@ -174,7 +174,10 @@ function DetailBody({
               onClick={() => {
                 // The drawer steps aside for Studio AI's, which asks in a conversation of its own (D-126).
                 onClose();
-                askStudio(tryConnectorPrompt(connector.displayName), { fresh: true });
+                askStudio(tryConnectorPrompt(connector.displayName), {
+                  fresh: true,
+                  quotesPageText: true,
+                });
               }}
             >
               在 Studio AI 試試看

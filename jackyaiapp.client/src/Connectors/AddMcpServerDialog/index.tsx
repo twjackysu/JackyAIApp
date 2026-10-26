@@ -373,7 +373,10 @@ function AddMcpServerForm({
                 onClick={() => {
                   // The dialog goes first, so Studio AI's drawer opens over the page, not under a modal.
                   onClose();
-                  askStudio(tryConnectorPrompt(added.displayName), { fresh: true });
+                  askStudio(tryConnectorPrompt(added.displayName), {
+                    fresh: true,
+                    quotesPageText: true,
+                  });
                 }}
               >
                 在 Studio AI 試試看
