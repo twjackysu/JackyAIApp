@@ -1,5 +1,15 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-27 05:42 – 第 38 輪（改名收尾、匯出對話、截圖巡檢）
+
+- 開工：master 沒有新 commit（`chore: remove details` 已在 branch 裡）；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`gh` 沒登入，CI 用公開 API 看。
+- **改名收尾**（D-146，只動前端）：伺服器拒絕改名時紀錄欄說「改名沒有存好，標題維持原樣」（5 秒）；Enter／Escape 結束的改名焦點回到鉛筆。
+- **匯出對話**（D-147，只動前端）：三個助理標題列多一顆「匯出對話」→ 複製成 Markdown／下載 .md：標題、台北時間、每輪問答、用了的工具、表格卡片（Markdown 表格，數字照畫面）與連結卡片。純前端、不計費。截圖 `export-*`（新腳本 `.loop/shots/export.cjs`，要 `LANG=C.UTF-8` 才拿得到中文檔名），SHOWCASE 亮點、demo 第 9 步、日誌。
+- **審查**（subagent，D-148）：無高風險。中——沒關的 code block 吞掉之後的輪次（補關）、焦點目標殘留會在清搜尋時搶焦點（只活一個 commit）；低——標題降兩級、卡片文字與網址的跳脫、只列成功的工具、沒 renderer 的卡片不提、emoji 檔名、提示框淡出、aria。都已修並補測試。
+- **截圖巡檢**：`selection.cjs`、`memory.cjs`、`connectors.cjs`、`mcp-app.cjs`、`rename.cjs` 重拍，與 repo 比對沒有退化（差異都是確認卡剩餘時間、registry 卡片與連結、Studio AI 記得的事等刻意改動），已更新 repo 裡既有的。
+- 驗證：前端 lint、test（156 檔）、build 全過；CI 40409716274（D-146＋D-147）綠；D-148 的 CI 見下一則或 NEXT。
+- 問題：無阻礙。`[skip ci]` 的 commit 若是一次 push 的最後一個，整個 push 都不跑 CI——含程式碼的 commit 要分開 push 或放在最後。
+
 ## 2026-10-27 03:43 – 第 37 輪（對話手動改名、中途巡檢）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`gh` 沒登入，CI 用公開 API 看。
