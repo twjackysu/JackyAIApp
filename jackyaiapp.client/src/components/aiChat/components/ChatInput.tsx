@@ -58,8 +58,11 @@ interface ChatInputProps {
   /** Pasted formatted text (tables, lists) is turned into Markdown rather than plain text. */
   keepFormatting: boolean;
   onKeepFormattingChange: (keep: boolean) => void;
-  /** Words were heard into the box (its microphone): the panel reads the answer to that draft aloud (D-120). */
-  onSpoken?: () => void;
+  /**
+   * Words were heard into the box (its microphone), all of this listening's so far: the panel reads the answer to
+   * that draft aloud while it still holds them (D-120).
+   */
+  onSpoken?: (heard: string) => void;
 }
 
 /**
@@ -100,7 +103,7 @@ const ChatInput = ({
   const onHeard = useCallback(
     (heard: string) => {
       onChange(joinSpeech(typedBeforeSpeaking.current, heard));
-      if (heard) onSpoken?.();
+      if (heard) onSpoken?.(heard);
     },
     [onChange, onSpoken],
   );

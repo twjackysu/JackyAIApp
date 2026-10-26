@@ -87,8 +87,9 @@ const presetProbe = (entry: CatalogEntry): McpProbeResult => ({
 export default function AddMcpServerDialog(props: AddMcpServerDialogProps) {
   return (
     <Dialog open={props.open} onClose={props.onClose} fullWidth maxWidth="sm">
-      {/* Mounted only while open, so every opening starts from an empty form. */}
-      {props.open && <AddMcpServerForm {...props} />}
+      {/* Mounted only while open, so every opening starts from an empty form; so does a new search asked
+          for while it is open (a second `?registry=` from Studio AI), which would otherwise keep the first. */}
+      {props.open && <AddMcpServerForm key={props.registrySearch ?? ''} {...props} />}
     </Dialog>
   );
 }

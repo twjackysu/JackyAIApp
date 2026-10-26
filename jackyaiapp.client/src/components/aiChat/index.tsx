@@ -21,6 +21,7 @@ import { useWarnBeforeLeaving } from './hooks/useWarnBeforeLeaving';
 import { ACCENT, ACCENT_GRADIENT, hairline, panelSurface } from './style';
 import { hasOpenApproval } from './utils/approval';
 import { insertPastedText, readPaste } from './utils/paste';
+import { stillSpoken } from './utils/spokenDraft';
 
 import type { ChatAsk } from './hooks/useAskQueue';
 
@@ -119,11 +120,12 @@ function AiAssistantPanel({
     wasActive.current = active;
   }, [active]);
 
-  // Some of the draft was spoken (the box's microphone): its answer is read aloud once done (D-120). Until the box
-  // is emptied — sent, or cleared by the reader.
-  const [draftSpoken, setDraftSpoken] = useState(false);
+  // Some of the draft was spoken (the box's microphone): its answer is read aloud once done (D-120), while the
+  // draft still holds what was heard (`stillSpoken`: a fixed word keeps it, deleting it all and typing does not).
+  // Forgotten once the box is emptied — sent, or cleared by the reader.
+  const [heardWords, setHeardWords] = useState('');
   useEffect(() => {
-    if (!inputValue.trim()) setDraftSpoken(false);
+    if (!inputValue.trim()) setHeardWords('');
   }, [inputValue]);
   const theme = useTheme();
 
@@ -218,7 +220,7 @@ function AiAssistantPanel({
     conversation.send(text, sent, {
       ...(inputQuotesPageText && { quotesPageText: true }),
       // Asked by voice, answered by voice (D-120): the reader is likely not looking at the screen.
-      ...(draftSpoken && { readAloud: true }),
+      ...(stillSpoken(text, heardWords) && { readAloud: true }),
     });
   };
 
@@ -312,7 +314,7 @@ function AiAssistantPanel({
             onPaste={handlePaste}
             keepFormatting={keepFormatting}
             onKeepFormattingChange={setKeepFormatting}
-            onSpoken={() => setDraftSpoken(true)}
+            onSpoken={setHeardWords}
           />
         </Box>
 

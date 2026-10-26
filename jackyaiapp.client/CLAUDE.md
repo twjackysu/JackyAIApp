@@ -52,8 +52,9 @@ jackyaiapp.client/src/
   synthesis, nothing sent to the server and no usage; `utils/speechText` turns the Markdown into words and cuts them into
   runs of English and Chinese, each read in a voice of its language, an abbreviation in a Chinese sentence staying Chinese,
   in pieces of at most 200 characters; one answer reads at a time, and only the one reading may stop the browser's speech).
-  Asked by voice, answered by voice (D-120): a message whose draft has words the microphone heard (`ChatInput`'s `onSpoken`, the
-  panel's `draftSpoken`, reset when the box is emptied), or an ask with `readAloud` (`askStudio`, `ChatAsk`), goes with
+  Asked by voice, answered by voice (D-120): a message whose draft still holds the words the microphone heard (`ChatInput`'s `onSpoken`, the
+  panel's `heardWords`, forgotten when the box is emptied; `utils/spokenDraft`'s `stillSpoken`: half of them still there in order, so a
+  fixed misheard word keeps it spoken and deleting them for typed words does not, D-129), or an ask with `readAloud` (`askStudio`, `ChatAsk`), goes with
   `SendOptions.readAloud`, and its answer (`Message.readAloud`) reads itself aloud once it is `answered` — never a stopped or
   failed one, nor a reopened conversation; once per message id (`useSpeechOutput`'s `autoReadKey`, started a tick later so
   StrictMode's second mount reads it once), its buttons kept shown while it reads so 停止朗讀 is there; only while the panel is
@@ -172,7 +173,7 @@ sent or stored, so a reopened conversation shows a plain message. A site tool's 
   `RegistrySearch`, folded until asked or opened from the catalog's last card 找更多 MCP server, D-122: picking one checks its URL as if
   pasted, named by its title, an API key's header filled in, `registryView`; one the catalog has is connected from the catalog).
   `/connectors?registry=<search>` (`connectorsRegistryPath`, `registrySearchOf`, D-124) opens that dialog with the search filled in,
-  once, and drops the parameter (at the custom-server limit it says so instead): Studio AI's `find_mcp_server` answers with an
+  once (a second one while it is open starts the dialog over with it: the form is keyed by the search), and drops the parameter (at the custom-server limit it says so instead): Studio AI's `find_mcp_server` answers with an
   `mcp-servers` card (`McpServersCardView`, `mcpServersCard.parseMcpServersCard`, Studio's own renderer beside `quiz`) whose rows'
   加入 go there with the server's name, and Studio AI's drawer steps aside on such an address, keeping the conversation. A server the reader has
   already added (its address, `connectorView.serverUrlKey`, among `installedServerUrls`) shows as added there and in the dialog's registry

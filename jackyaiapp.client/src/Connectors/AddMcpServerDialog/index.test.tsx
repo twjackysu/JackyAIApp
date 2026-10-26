@@ -230,6 +230,19 @@ describe('AddMcpServerDialog', () => {
     ).toBe('io.example/weather');
   });
 
+  it('starts over with a new search asked for while the dialog is open', () => {
+    mocks.registry.mockReturnValue({
+      currentData: { servers: [], more: false },
+      isFetching: false,
+    });
+    render(null, true, 'io.example/weather');
+    render(null, true, 'io.example/maps');
+    expect(mocks.registry).toHaveBeenLastCalledWith('io.example/maps');
+    expect(
+      (document.body.querySelector('input[placeholder^="例如"]') as HTMLInputElement).value,
+    ).toBe('io.example/maps');
+  });
+
   it('shows a registry server the reader has already added as added, not offered again (D-127)', () => {
     mocks.registry.mockReturnValue({
       currentData: {

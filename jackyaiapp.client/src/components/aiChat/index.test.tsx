@@ -545,6 +545,38 @@ describe('AiAssistantPanel', () => {
       expect(spoken).toEqual(['It means a happy accident.']);
     });
 
+    it('reads nothing once what was heard is replaced by typing, even if the box was never emptied', async () => {
+      let recognition!: { onresult: (e: unknown) => void; onend: () => void };
+      vi.stubGlobal(
+        'webkitSpeechRecognition',
+        class {
+          onresult = null;
+          onend = null;
+          start() {
+            recognition = this as unknown as typeof recognition;
+          }
+          stop() {}
+          abort() {}
+        },
+      );
+      chatReplies.push(() =>
+        sseReply({ type: 'delta', text: '已記下' }, { type: 'done', conversationId: 'conv-1' }),
+      );
+      await mount();
+      await act(async () => buttonByLabel('語音輸入')!.click());
+      act(() =>
+        recognition.onresult({
+          results: [Object.assign([{ transcript: '今天天氣如何' }], { isFinal: true })],
+        }),
+      );
+      act(() => recognition.onend());
+      expect(textarea().value).toBe('今天天氣如何');
+      await send('幫我記一筆交易');
+      await waitForText('已記下');
+      await settle();
+      expect(spoken).toEqual([]);
+    });
+
     it("reads the answer to a page's ask with readAloud (the briefing to listen to)", async () => {
       chatReplies.push(() =>
         sseReply(
