@@ -1207,6 +1207,8 @@ describe('AiAssistantPanel', () => {
       expect(container.textContent).not.toContain('錯誤:');
       expect(userBubbles()).toBe(1);
       expect(retryButton()).toBeUndefined();
+      // Its first answer after all: the conversation is named (D-141), once.
+      await waitFor(() => expect(named).toEqual(['conv-1']));
     });
 
     it('sends anew a question the server never got, quoting page text as it did', async () => {

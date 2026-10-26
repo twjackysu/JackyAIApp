@@ -109,8 +109,9 @@ jackyaiapp.client/src/
   edit it was when it was one the server never got (`Message.replacesServerId`), otherwise anew with its files, its quoting of page
   text (`Message.quotesPageText`), its handed-over mark and its asking to be read aloud
 - A new conversation is named by the AI once its first answer is in (D-141): `useChatConversation` asks
-  `nameConversation` (`POST conversations/{id}/title`) after the `done` of a turn that started a conversation (not an
-  edit, a stopped or a failed one), and the list is read again, so the history column's row changes from the question's
+  `nameConversation` (`POST conversations/{id}/title`) after the `done` of a turn with no answer before it in the
+  conversation (a stored one has a `serverId`; a failed one has none, so a first question that failed and is asked again
+  is still named; a stopped answer is stored and counts), and the list is read again, so the history column's row changes from the question's
   first words to a short title (「持股的外資買賣超」) a moment later. Every assistant, no settings
 - Studio AI (`components/StudioAssistant`, mounted once in `App.tsx`) is the same chat as a sheet: a button
   in the lower right, or ⌘K / Ctrl+K, opens `AiAssistantPanel` with `variant="sheet"` (fills a right-hand

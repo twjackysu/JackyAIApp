@@ -332,12 +332,16 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 - A conversation's title is its first question's first 30 characters (`AnthropicChatService.TitleFrom`) until the AI names
   it (D-141): after a new conversation's first answer the client asks `POST conversations/{id}/title` once, and
   `ConversationTitler` (`IConversationTitler`) has Haiku 5.5 read the question and the start of the answer (600 and 800
-  characters, as data inside `<question>`/`<answer>`, effort low, no tools, 20s) and keeps its reply cleaned into a title
-  (`ConversationTitler.Clean`: the first line, no markdown, quotes, label or end punctuation, `<`/`>` full-width, at most 24
-  characters). Only the reader's own conversation (else NotFound), only once it has its first answer and still has the title
-  its question gave it (one already named keeps its name), one try a conversation (`IMemoryCache`, a day, so a failed one is
-  not asked again and again); without the API key or on any failure the title stays as it was, still 200. Not charged on its
-  own: a conversation exists only after a charged message, and the call is a few hundred tokens (logged as `chatbot.title`)
+  characters, as data inside `<question>`/`<answer>` with `<`/`>` full-width, `AsData`, since the answer may repeat a tool's
+  result; effort low, no tools, 20s, not on the request's token, so closing the page right after does not lose a paid-for title)
+  and keeps its reply cleaned into a title (`ConversationTitler.Clean`: the first line, no markdown, quotes, label or end
+  punctuation, `<`/`>` full-width, at most 24 characters). Only the reader's own conversation (else NotFound), only once its
+  first two messages are a question and an answer and it still has the title its question gave it (one already named keeps
+  its name). One try a conversation while the process remembers it (`IMemoryCache`, a day; two requests at once ask once,
+  `InFlight`), so a failed one is not asked again and again — after a restart or a day one still under its question's title
+  may be named once more; without the API key or on any failure (deleted meanwhile included) the title stays as it was, still
+  200, a reply with no title logged with its stop reason. Not charged on its own: a conversation exists only after a charged
+  message, and the call is a few hundred tokens (logged as `chatbot.title`)
 - `AnthropicChatService.StreamChatAsync` only orchestrates a turn. Its requests and the reading of the
   stream (the deltas to the reader, the pause_turn retries, uploading the files again when the Files API
   no longer has one) are `ModelTurn`, which ends in a `TurnOutcome`; what an outcome comes to (answered,

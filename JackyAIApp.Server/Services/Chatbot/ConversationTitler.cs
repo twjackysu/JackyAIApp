@@ -8,9 +8,11 @@ using JackyAIApp.Server.Services.Assistant;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
 using AnthropicModel = Anthropic.Models.Messages.Model;
+using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Services.Chatbot
 {
@@ -69,6 +71,7 @@ namespace JackyAIApp.Server.Services.Chatbot
             var firstTwo = await db.ChatMessages
                 .Where(m => m.ConversationId == conversationId)
                 .OrderBy(m => m.CreatedAt)
+                .ThenBy(m => m.Id)
                 .Take(2)
                 .ToListAsync(ct);
             // Only a conversation with its first answer, still under the title its first question gave it:
@@ -77,37 +80,67 @@ namespace JackyAIApp.Server.Services.Chatbot
                 || conversation.Title != AnthropicChatService.TitleFrom(question.Content))
                 return ServiceResult.Ok(current);
 
-            // One try a conversation: a failed one is not asked again and again.
-            var key = $"chat-title:{conversationId}";
-            if (cache.TryGetValue(key, out _)) return ServiceResult.Ok(current);
-            cache.Set(key, true, TimeSpan.FromDays(1));
-
             var apiKey = settings.CurrentValue.AnthropicApiKey;
             if (string.IsNullOrEmpty(apiKey)) return ServiceResult.Ok(current);
+
+            // One try a conversation while this process remembers it (a day): a failed one is not asked again and
+            // again, and two requests at once ask once (the gate is taken before the model is asked).
+            var key = $"chat-title:{conversationId}";
+            if (cache.TryGetValue(key, out _) || !InFlight.TryAdd(conversationId, 0)) return ServiceResult.Ok(current);
+            try
+            {
+                cache.Set(key, true, TimeSpan.FromDays(1));
+                return await NameAsync(conversation, question.Content, answer.Content, apiKey, userId, current);
+            }
+            finally
+            {
+                InFlight.TryRemove(conversationId, out _);
+            }
+        }
+
+        /// <summary>The conversations being named right now, across requests.</summary>
+        private static readonly ConcurrentDictionary<string, byte> InFlight = new();
+
+        /// <summary>
+        /// Asks the model and keeps its title. Not on the request's token: the reader closing the page right after
+        /// the first answer would otherwise lose a title the model may already have been paid for.
+        /// </summary>
+        private async Task<ServiceResult<ChatTitleResponse>> NameAsync(
+            SQL.ChatConversation conversation, string question, string answer, string apiKey, string userId, ChatTitleResponse current)
+        {
 
             string? title;
             try
             {
-                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                timeout.CancelAfter(Timeout);
-                var reply = await clientFactory.Create(apiKey).Beta.Messages.Create(Request(question.Content, answer.Content), timeout.Token);
+                using var timeout = new CancellationTokenSource(Timeout);
+                var reply = await clientFactory.Create(apiKey).Beta.Messages.Create(Request(question, answer), timeout.Token);
                 await usageLogger.LogChatAsync(UsageLogFeature, ChatTurnRequest.ModelId,
                     (int)reply.Usage.InputTokens, (int)reply.Usage.OutputTokens, true, userId);
                 var text = new StringBuilder();
                 foreach (var block in reply.Content)
                     if (block.TryPickText(out var part)) text.Append(part.Text);
                 title = Clean(text.ToString());
+                if (title == null)
+                    logger.LogWarning("No title for conversation {ConversationId}. StopReason={StopReason}",
+                        conversation.Id, reply.StopReason?.Raw() ?? "(none)");
             }
-            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+            catch (Exception ex)
             {
-                logger.LogWarning(ex, "Could not name conversation {ConversationId}", conversationId);
+                logger.LogWarning(ex, "Could not name conversation {ConversationId}", conversation.Id);
                 return ServiceResult.Ok(current);
             }
 
             if (title == null) return ServiceResult.Ok(current);
             conversation.Title = title;
-            // Not the request's token: the model has answered and been paid for.
-            await db.SaveChangesAsync(CancellationToken.None);
+            try
+            {
+                await db.SaveChangesAsync(CancellationToken.None);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Deleted while it was being named.
+                return ServiceResult.Ok(current);
+            }
             return ServiceResult.Ok(new ChatTitleResponse(title));
         }
 
@@ -126,10 +159,16 @@ namespace JackyAIApp.Server.Services.Chatbot
                 new BetaMessageParam
                 {
                     Role = Role.User,
-                    Content = $"<question>\n{Cut(question, MaxQuestionChars)}\n</question>\n<answer>\n{Cut(answer, MaxAnswerChars)}\n</answer>",
+                    Content = $"<question>\n{AsData(Cut(question, MaxQuestionChars))}\n</question>\n<answer>\n{AsData(Cut(answer, MaxAnswerChars))}\n</answer>",
                 },
             ],
         };
+
+        /// <summary>
+        /// Text inside the request's tags with <c>&lt;</c>/<c>&gt;</c> full-width, so nothing in it can close its tag: the
+        /// answer may repeat a tool's result, someone else's words.
+        /// </summary>
+        internal static string AsData(string text) => text.Replace("<", "＜").Replace(">", "＞");
 
         /// <summary>
         /// The model's reply as a title: its first line that has text, without markdown, quotes,

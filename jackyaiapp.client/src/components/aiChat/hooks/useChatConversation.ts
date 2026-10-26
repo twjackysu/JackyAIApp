@@ -231,9 +231,14 @@ export function useChatConversation(options?: ChatConversationOptions) {
         ),
       );
 
-    // A new conversation is named by the AI once its first answer is in (D-141); until then its title is the
-    // question's start. Not an edit (that conversation already had its first answer) nor a stopped one.
-    const startsConversation = (fresh || !conversationId) && !edited;
+    // A conversation is named by the AI once its first answer is in (D-141); until then its title is the question's
+    // start. The first answer is this one when none came before it: a new conversation, or one whose first turn
+    // failed and is asked again (a failed answer is not stored, so it has no `serverId`). Not after a stopped one.
+    const editedAt = edited ? messages.findIndex((m) => m.id === edited.id) : -1;
+    const kept = fresh ? [] : editedAt >= 0 ? messages.slice(0, editedAt) : messages;
+    const startsConversation = !kept.some(
+      (m) => !m.isUser && (m.serverId !== undefined || m.answered),
+    );
     const answered: { conversationId?: string } = {};
 
     await sendStreamingMessage({
