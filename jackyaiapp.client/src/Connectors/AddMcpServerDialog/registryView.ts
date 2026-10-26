@@ -42,3 +42,24 @@ export function registryNotice(result: McpRegistrySearch, search: string): strin
   if (result.more) return `只列出前 ${result.servers.length} 個，輸入更多字可以縮小範圍。`;
   return null;
 }
+
+/** The query parameter /connectors opens its add dialog's registry search with (Studio AI's find_mcp_server card, D-124). */
+export const REGISTRY_PARAM = 'registry';
+
+/** The /connectors page with its add dialog searching the registry for `search`. */
+export const connectorsRegistryPath = (search: string) =>
+  `/connectors?${REGISTRY_PARAM}=${encodeURIComponent(search)}`;
+
+/** The search a /connectors address asks the registry for (`?registry=`), cut as the search box cuts it; null when none. */
+export function registrySearchOf(params: URLSearchParams): string | null {
+  const asked = params.get(REGISTRY_PARAM);
+  if (asked === null) return null;
+  return (
+    asked
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u001f\u007f]/g, '')
+      .trim()
+      .slice(0, 50)
+      .trim()
+  );
+}

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { FIND_MY_WEAK_SPOTS, READ_DASHBOARD_PROMPT } from './askStudio';
 import {
+  FIND_MCP_SERVER,
   MAKE_DASHBOARD,
   MY_HOLDINGS_MARKET,
   studioChatConfig,
@@ -76,7 +77,9 @@ describe('studioSuggestionsFor', () => {
   it('starts with the page’s own suggestions', () => {
     expect(studioSuggestionsFor('/english/review')[0].text).toBe('考我今天該複習的單字');
     expect(studioSuggestionsFor('/portfolio')[0].text).toContain('持股');
-    expect(studioSuggestionsFor('/connectors')[0].text).toContain('Claude');
+    // On the connectors page: finding a server in the official MCP Registry (find_mcp_server), then other AIs.
+    expect(studioSuggestionsFor('/connectors')[0].text).toBe(FIND_MCP_SERVER);
+    expect(studioSuggestionsFor('/connectors')[1].text).toContain('Claude');
     // On one dashboard: read it. Not on the list of them, where "this dashboard" is none.
     expect(studioSuggestionsFor('/dashboards/8f3c2a10-0000-4000-8000-000000000001')[0].text).toBe(
       READ_DASHBOARD_PROMPT,

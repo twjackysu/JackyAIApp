@@ -12,6 +12,7 @@ import ShowChartIcon from '@mui/icons-material/ShowChartOutlined';
 import TrendingDownIcon from '@mui/icons-material/TrendingDownOutlined';
 
 import { BRIEFING_PROMPT, FIND_MY_WEAK_SPOTS, READ_DASHBOARD_PROMPT } from './askStudio';
+import McpServersCardView from './McpServersCardView';
 import QuizCardView from './QuizCardView';
 
 import type { AiChatConfig, AiChatSuggestion } from '@/components/aiChat/config';
@@ -83,7 +84,10 @@ const wordSuggestions = (word: string): AiChatSuggestion[] => [
 const DASHBOARD: AiChatSuggestion[] = [{ text: READ_DASHBOARD_PROMPT, icon: DashboardIcon }];
 /** What Studio AI remembers about the reader (`remember`, docs/ai-native/design/08). */
 const WHAT_DO_YOU_REMEMBER = '你記得我什麼？';
+/** Finding a server in the official MCP Registry (find_mcp_server, D-124): its card points to /connectors to add it. */
+export const FIND_MCP_SERVER = '幫我找一個能查天氣的 MCP server';
 const CONNECTORS: AiChatSuggestion[] = [
+  { text: FIND_MCP_SERVER, icon: ExtensionIcon },
   { text: '怎麼讓 Claude 或 ChatGPT 使用這個網站？', icon: ExtensionIcon },
   { text: WHAT_DO_YOU_REMEMBER, icon: PsychologyIcon },
 ];
@@ -204,8 +208,8 @@ export function studioChatConfig(
     disclaimer: 'AI 回答可能有誤；會改變資料的動作都會先請你確認。',
     pageContext: { path: path.slice(0, 100) },
     followUps: studioFollowUpsFor(path),
-    // The review quiz is answered on its card (review_quiz).
-    cardRenderers: { quiz: QuizCardView },
+    // The review quiz is answered on its card (review_quiz); the registry's finds point to /connectors (find_mcp_server).
+    cardRenderers: { quiz: QuizCardView, 'mcp-servers': McpServersCardView },
   };
 }
 

@@ -53,6 +53,8 @@ interface AddMcpServerDialogProps {
   preset: CatalogEntry | null;
   /** Opened to look for a server in the official MCP Registry (D-122): its search shows at once. */
   browseRegistry?: boolean;
+  /** With `browseRegistry`: what the registry search starts with (`/connectors?registry=`, D-124). */
+  registrySearch?: string;
   onClose: () => void;
   /** An OAuth server was added; the page sends the reader to sign in. */
   onAuthorize: (connector: InstalledConnector) => void;
@@ -90,6 +92,7 @@ export default function AddMcpServerDialog(props: AddMcpServerDialogProps) {
 function AddMcpServerForm({
   preset,
   browseRegistry = false,
+  registrySearch,
   onClose,
   onAuthorize,
 }: AddMcpServerDialogProps) {
@@ -206,7 +209,12 @@ function AddMcpServerForm({
               fullWidth
             />
             {registryOpen ? (
-              <RegistrySearch onPick={pick} busy={probing} autoFocus={browseRegistry} />
+              <RegistrySearch
+                onPick={pick}
+                busy={probing}
+                autoFocus={browseRegistry}
+                initialSearch={registrySearch}
+              />
             ) : (
               <Button
                 startIcon={<TravelExplore />}

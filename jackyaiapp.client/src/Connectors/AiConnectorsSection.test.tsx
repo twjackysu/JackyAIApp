@@ -1,5 +1,6 @@
-import { act } from 'react';
+import { act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import AiConnectorsSection from './AiConnectorsSection';
@@ -39,7 +40,7 @@ vi.mock('@/apis/connectorsApis/connectorsApis', () => ({
 
 // The dialog has its own tests; here only whether it opens, and for which entry.
 vi.mock('./AddMcpServerDialog', () => ({
-  default: (p: { open: boolean; preset: CatalogEntry | null }) => {
+  default: (p: { open: boolean; preset: CatalogEntry | null; registrySearch?: string }) => {
     mocks.dialog(p);
     return p.open ? `[Dialog ${p.preset?.key ?? 'custom'}]` : null;
   },
@@ -63,14 +64,31 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function render(data = catalog(), refreshSignal = 0) {
+/** Where the router is now, so a test sees the address the section left. */
+const where = { path: '' };
+function Where() {
+  const at = useLocation();
+  useEffect(() => {
+    where.path = at.pathname + at.search;
+  });
+  return null;
+}
+
+function render(data = catalog(), refreshSignal = 0, path = '/connectors') {
   mocks.catalog.mockReturnValue({
     data,
     isLoading: false,
     error: undefined,
     refetch: mocks.refetch,
   });
-  act(() => root.render(<AiConnectorsSection notify={notify} refreshSignal={refreshSignal} />));
+  act(() =>
+    root.render(
+      <MemoryRouter initialEntries={[path]}>
+        <AiConnectorsSection notify={notify} refreshSignal={refreshSignal} />
+        <Where />
+      </MemoryRouter>,
+    ),
+  );
 }
 
 const text = () => document.body.textContent ?? '';
@@ -86,7 +104,13 @@ describe('AiConnectorsSection', () => {
       isLoading: false,
       error: { status: 404, data: { error: { code: 1040400, message: 'Not found' } } },
     });
-    act(() => root.render(<AiConnectorsSection notify={notify} />));
+    act(() =>
+      root.render(
+        <MemoryRouter>
+          <AiConnectorsSection notify={notify} />
+        </MemoryRouter>,
+      ),
+    );
     expect(text()).toContain('AI connectors 目前無法載入');
     expect(text()).toContain('帳號連線不受影響');
   });
@@ -96,6 +120,28 @@ describe('AiConnectorsSection', () => {
     expect(mocks.refetch).not.toHaveBeenCalled();
     render(catalog(), 1);
     expect(mocks.refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the registry search a link asks for (?registry=), once, and drops it from the address', () => {
+    render(catalog(), 0, '/connectors?registry=io.example%2Fweather&x=1');
+    expect(text()).toContain('[Dialog custom]');
+    expect(mocks.dialog).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        open: true,
+        browseRegistry: true,
+        registrySearch: 'io.example/weather',
+      }),
+    );
+    expect(where.path).toBe('/connectors?x=1');
+  });
+
+  it('opens nothing for ?registry= when no more servers of their own can be added', () => {
+    const full = Array.from({ length: 2 }, (_, i) =>
+      installed({ id: `c${i}`, definitionKey: 'custom', displayName: `S${i}` }),
+    );
+    render(catalog({ installed: full, customLimit: 2 }), 0, '/connectors?registry=weather');
+    expect(text()).not.toContain('[Dialog');
+    expect(where.path).toBe('/connectors');
   });
 
   it('says what to do when nothing is connected yet', () => {

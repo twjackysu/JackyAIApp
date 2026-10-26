@@ -26,7 +26,7 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
             var page = path == null ? new Dictionary<string, string>() : new Dictionary<string, string> { [StudioChatProfile.PathKey] = path };
             var memories = new Mock<IAssistantMemoryService>();
             memories.Setup(m => m.ListAsync("u1", It.IsAny<CancellationToken>())).ReturnsAsync(() => _memories.ToList());
-            return await new StudioChatProfile(_siteTools, connectors.Object, memories.Object)
+            return await new StudioChatProfile(_siteTools, connectors.Object, memories.Object, Mock.Of<IMcpRegistry>())
                 .SetupAsync(new ChatProfileContext("u1", Today, page), default);
         }
 
@@ -34,15 +34,16 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
             new("u1", Today, new Dictionary<string, string> { [StudioChatProfile.PathKey] = path });
 
         [Fact]
-        public async Task ItKnowsTheSitesPages_AndHasItsLinkTool_AndNoTwStock()
+        public async Task ItKnowsTheSitesPages_AndHasItsLinkAndRegistryTools_AndNoTwStock()
         {
             var setup = await SetupAsync();
 
             Assert.Contains("2026-10-24", setup.SystemPrompt);
             Assert.Contains("/data-analysis", setup.SystemPrompt);
             Assert.Contains("讓其他 AI 使用本站", setup.SystemPrompt);
+            Assert.Contains(FindMcpServerTool.Name, setup.SystemPrompt);
             Assert.False(setup.AttachTwStock);
-            Assert.Equal(OpenPageTool.Name, Assert.Single(setup.Tools!).Descriptor.Name);
+            Assert.Equal(new[] { OpenPageTool.Name, FindMcpServerTool.Name }, setup.Tools!.Select(t => t.Descriptor.Name));
         }
 
         [Fact]
@@ -154,7 +155,7 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
         }
 
         [Fact]
-        public async Task TheFeaturesTools_ComeAfterOpenPage()
+        public async Task TheFeaturesTools_ComeAfterStudiosOwn()
         {
             var lookUp = new Mock<ISiteTool>();
             lookUp.Setup(t => t.Descriptor).Returns(new AiToolDescriptor("look_up_word", "查字典", "說明",
@@ -163,7 +164,7 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
 
             var setup = await SetupAsync();
 
-            Assert.Equal(new[] { OpenPageTool.Name, "look_up_word" }, setup.Tools!.Select(t => t.Descriptor.Name));
+            Assert.Equal(new[] { OpenPageTool.Name, FindMcpServerTool.Name, "look_up_word" }, setup.Tools!.Select(t => t.Descriptor.Name));
         }
 
         [Fact]
@@ -176,7 +177,7 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
 
             var setup = await SetupAsync();
 
-            Assert.Equal(new[] { OpenPageTool.Name, "m1__search" }, setup.Tools!.Select(t => t.Descriptor.Name));
+            Assert.Equal(new[] { OpenPageTool.Name, FindMcpServerTool.Name, "m1__search" }, setup.Tools!.Select(t => t.Descriptor.Name));
             Assert.Contains("外部 connector", setup.SystemPrompt);
         }
 

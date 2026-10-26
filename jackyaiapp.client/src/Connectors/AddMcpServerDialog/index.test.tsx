@@ -55,13 +55,18 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function render(preset = null as ReturnType<typeof entry> | null, browseRegistry = false) {
+function render(
+  preset = null as ReturnType<typeof entry> | null,
+  browseRegistry = false,
+  registrySearch?: string,
+) {
   act(() =>
     root.render(
       <AddMcpServerDialog
         open
         preset={preset}
         browseRegistry={browseRegistry}
+        registrySearch={registrySearch}
         onClose={onClose}
         onAuthorize={onAuthorize}
       />,
@@ -174,6 +179,18 @@ describe('AddMcpServerDialog', () => {
     render();
     expect(mocks.registry).not.toHaveBeenCalled();
     expect(text()).toContain('從 MCP 官方目錄找');
+  });
+
+  it('starts the registry search with what a link asked for (Studio AI, D-124)', () => {
+    mocks.registry.mockReturnValue({
+      currentData: { servers: [], more: false },
+      isFetching: false,
+    });
+    render(null, true, 'io.example/weather');
+    expect(mocks.registry).toHaveBeenCalledWith('io.example/weather');
+    expect(
+      (document.body.querySelector('input[placeholder^="例如"]') as HTMLInputElement).value,
+    ).toBe('io.example/weather');
   });
 
   it('checks a server picked from the registry, named by its title, with its header ready', async () => {

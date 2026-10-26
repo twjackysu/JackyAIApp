@@ -32,6 +32,8 @@ interface RegistrySearchProps {
   busy: boolean;
   /** Opened to search (the catalog's 找更多): the search box takes the focus. */
   autoFocus?: boolean;
+  /** What the search starts with (Studio AI's card sends the reader here with a search, D-124). */
+  initialSearch?: string;
 }
 
 /** Only an https link someone published is followed (the server keeps only those, too). */
@@ -42,9 +44,14 @@ const safeLink = (url: string | null) => (url?.startsWith('https://') ? url : nu
  * only, so the search is a few English letters; each server shows where it lives and what it
  * will ask for, and choosing one checks its address the way a pasted one is checked.
  */
-export default function RegistrySearch({ onPick, busy, autoFocus = false }: RegistrySearchProps) {
-  const [typed, setTyped] = useState('');
-  const [search, setSearch] = useState('');
+export default function RegistrySearch({
+  onPick,
+  busy,
+  autoFocus = false,
+  initialSearch = '',
+}: RegistrySearchProps) {
+  const [typed, setTyped] = useState(initialSearch);
+  const [search, setSearch] = useState(initialSearch.trim());
   useEffect(() => {
     const timer = setTimeout(() => setSearch(typed.trim()), REGISTRY_SEARCH_DELAY_MS);
     return () => clearTimeout(timer);

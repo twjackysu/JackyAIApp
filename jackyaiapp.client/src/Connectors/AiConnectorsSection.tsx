@@ -1,8 +1,10 @@
 import { Add } from '@mui/icons-material';
 import { Alert, Box, Button, Stack, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import AddMcpServerDialog from './AddMcpServerDialog';
+import { REGISTRY_PARAM, registrySearchOf } from './AddMcpServerDialog/registryView';
 import CatalogSection from './CatalogSection';
 import ConnectorDetailDrawer from './ConnectorDetailDrawer';
 import { connectAction } from './connectorView';
@@ -55,11 +57,30 @@ export default function AiConnectorsSection({
     open: boolean;
     preset: CatalogEntry | null;
     browseRegistry?: boolean;
+    registrySearch?: string;
   }>({
     open: false,
     preset: null,
   });
   const [busyKey, setBusyKey] = useState<string | null>(null);
+
+  // Sent here to add a server Studio AI found (`?registry=`, D-124): the registry search opens with it, once,
+  // and the address drops it so a reload does not open it again. At the limit there is nothing to add to.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const askedSearch = registrySearchOf(searchParams);
+  useEffect(() => {
+    if (askedSearch === null || !catalog) return;
+    const custom = catalog.installed.filter((c) => c.definitionKey === 'custom').length;
+    if (custom < catalog.customLimit)
+      setDialog({ open: true, preset: null, browseRegistry: true, registrySearch: askedSearch });
+    setSearchParams(
+      (params) => {
+        params.delete(REGISTRY_PARAM);
+        return params;
+      },
+      { replace: true },
+    );
+  }, [askedSearch, catalog, setSearchParams]);
 
   // The drawer shows the catalog's copy, so a change saved from it shows at once.
   const selected = catalog?.installed.find((c) => keyOf(c) === selectedKey) ?? null;
@@ -194,6 +215,7 @@ export default function AiConnectorsSection({
         open={dialog.open}
         preset={dialog.preset}
         browseRegistry={dialog.browseRegistry}
+        registrySearch={dialog.registrySearch}
         onClose={() => setDialog({ open: false, preset: null })}
         onAuthorize={(c) => {
           setDialog({ open: false, preset: null });
