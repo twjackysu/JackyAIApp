@@ -36,6 +36,7 @@
    - 弱點（D-116）只看測驗（`ExamAttempts`）；每日挑戰沒有逐字紀錄、複習卡片的失誤不在裡面。若要把複習的失誤也算進去，得在 `ReviewService.SubmitAsync` 記錄（新資料表＝migration），凍結前不建議。
    - 頁面上「按一下就問 Studio AI」的卡片用 `StudioAssistant/AskStudioCard`（首頁今日簡報、學習統計的 AI 弱點分析）；要在別頁加，請求字串放 `askStudio.ts`，只給登入的人看。
    - 語音對話（D-120／D-121）：自動朗讀只看 `SendOptions.readAloud`；要讓別的入口也「用聽的」，在 `askStudio` 帶 `readAloud`，按下的 handler 裡先 `unlockSpeech()`（iOS）。未做：用說的「/」指令不念、刪掉聽到的字但框沒清空仍會念。
+   - **候選：Studio AI「幫我找能做 X 的 MCP server」**（評估過、這輪沒做）：一個唯讀的 site tool 呼叫 `IMcpRegistry.SearchAsync`，回表格卡片（名稱、網址主機、需要什麼）＋連結卡片到 /connectors；Registry 的文字是別人寫的 → `OutsideText: true`。要先做：/connectors 讀 `?registry=<字>` 直接打開對話框並填好搜尋（`AiConnectorsSection` 的 `dialog.browseRegistry`＋`RegistrySearch` 的初始字），`OpenPageTool` 也要能帶這個 query。安裝仍只能使用者自己按（D-122）。
    - MCP 官方目錄（D-122／D-123）：只列 Streamable HTTP、固定網址的 remote server；SSE-only 與網址有 `{變數}` 的不列。若要讓 Studio AI 幫忙「找一個能做 X 的 MCP server」，只能回連結卡片到 /connectors（安裝一定要使用者自己按，D-122 的「不做」）。Registry 的圖示刻意不顯示。
    - `approvalTimeLeft` 時間到後按鈕仍可按（D-109 決定不停用）；若實測覺得混淆再改。
 2. **全站截圖巡檢**（11/3 前一輪）：`chat.cjs`、`selection.cjs`、`memory.cjs`、`connectors.cjs`、`mcp-app.cjs` 全部重拍，與 repo 裡的比對，只更新有刻意改動的。

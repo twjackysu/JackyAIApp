@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-26 11:42 – 第 29 輪（/connectors 搜尋 MCP 官方目錄）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。
+- **/connectors 能搜尋 MCP 官方目錄**（D-122）：`IMcpRegistry`（`Services/Connectors/McpRegistry.cs`）＋ `GET api/connectors/registry?search=`；只列 active、Streamable HTTP、固定 https 網址的 remote server，內容當不可信資料（純文字、截斷、只留 https 連結），標出必填 header 與本站目錄已有的。前端：新增對話框的「不知道網址？從 MCP 官方目錄找」（`RegistrySearch`、`registryView`）、目錄最後一張「找更多 MCP server」；選一個就走原本的 probe → 認證 → 工具，名稱用 Registry 標題、API key 的 header 先填好。每日 live contract test `McpRegistryContractTests`。三份 CLAUDE.md、design/03 §6.1、FOR_JACKY 第 12 條、SHOWCASE（亮點、demo 第 6 步、日誌）。
+- **審查**（subagent，D-123）：中——每個搜尋字串各打一次 Registry、各占快取（可被放大）、Registry 的 search 只比對名稱且一頁多半是 stdio 而誤報「找不到」、上一個 server 的 header 帶到下一個 → 改成整份依 cursor 讀完（最多 40 頁）、全站一份清單快取 1 小時、本機比對名稱／標題／說明；每次選擇從空白表單開始。低——載入中沿用舊結果（`currentData`）、`role="status"`。
+- 截圖：`connectors-registry-*`（新腳本 `.loop/shots/registry.cjs`）。
+- 驗證：cscheck 新診斷只有已知的 `[GeneratedRegex]` 雜訊；前端 lint、test（146 檔 1579 個）、build 全過，審查修正後 Connectors 測試 13 檔 102 個、tsc、eslint 過；CI 40266175355 紅（測試用 `Uri.ToString()` 比對跳脫）→ 40266576062 綠；40267339578 紅（測試的 `Page` 多載把單一參數當成 cursor）→ **40267670752（本輪最後一次含程式碼的 push b85b8033）綠**。
+- 問題：兩次 CI 紅都在測試本身，見 NEXT 的 CI 狀態。
+
 ## 2026-10-26 09:42 – 第 28 輪（語音對話：用說的問、用聽的答）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。
