@@ -20,13 +20,16 @@ interface ConversationTitleEditorProps {
 const ConversationTitleEditor = ({ title, onSave, onClose }: ConversationTitleEditorProps) => {
   const theme = useTheme();
   const [draft, setDraft] = useState(title);
+  // Compared with the title the box opened with: the list may be read again meanwhile (the AI naming a new
+  // conversation), and leaving the box untouched must not put the old title back over the new one.
+  const opened = useRef(title);
   // Enter saves and closes; the blur that may follow must not save again.
   const done = useRef(false);
 
   const finish = (save: boolean) => {
     if (done.current) return;
     done.current = true;
-    const next = save ? renamedTitle(draft, title) : null;
+    const next = save ? renamedTitle(draft, opened.current) : null;
     if (next) onSave(next);
     onClose();
   };
@@ -40,7 +43,13 @@ const ConversationTitleEditor = ({ title, onSave, onClose }: ConversationTitleEd
       onFocus={(e) => e.target.select()}
       onBlur={() => finish(true)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+        // A key that ends a Chinese input method's composition is the input method's (Safari says 229 for it).
+        if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) {
+          // Its Escape cancels the composition; it is not for the drawer around the list either.
+          if (e.key === 'Escape') e.stopPropagation();
+          return;
+        }
+        if (e.key === 'Enter') {
           e.preventDefault();
           finish(true);
         } else if (e.key === 'Escape') {

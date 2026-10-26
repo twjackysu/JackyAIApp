@@ -41,7 +41,7 @@ export const chatbotApis = createApi({
 
     /**
      * Give one of the reader's conversations a title of their own (D-144). The row shows it at once (the list of
-     * `profile`'s conversations is patched) and goes back to the old one if the server refuses.
+     * `profile`'s conversations is patched), goes back to the old one if the server refuses, and is read again once saved.
      */
     renameConversation: builder.mutation<
       ApiOkResponse<{ title: string }>,
@@ -52,6 +52,8 @@ export const chatbotApis = createApi({
         method: 'PUT',
         body: { title },
       }),
+      // Read again too: a list already being read when the rename went out would bring the old title back.
+      invalidatesTags: (result) => (result ? ['Conversations'] : []),
       async onQueryStarted({ conversationId, title, profile }, { dispatch, queryFulfilled }) {
         const patch = dispatch(
           chatbotApis.util.updateQueryData('getConversations', profile, (list) => {

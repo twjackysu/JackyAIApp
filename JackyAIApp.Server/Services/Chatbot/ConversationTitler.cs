@@ -131,6 +131,12 @@ namespace JackyAIApp.Server.Services.Chatbot
             }
 
             if (title == null) return ServiceResult.Ok(current);
+            // The reader may have renamed it (D-144), or deleted it, while the model was asked: their title stands.
+            var entry = db.Entry(conversation);
+            await entry.ReloadAsync(CancellationToken.None);
+            if (entry.State == EntityState.Detached) return ServiceResult.Ok(current);
+            if (conversation.Title != AnthropicChatService.TitleFrom(question))
+                return ServiceResult.Ok(new ChatTitleResponse(string.IsNullOrWhiteSpace(conversation.Title) ? "新對話" : conversation.Title!));
             conversation.Title = title;
             try
             {

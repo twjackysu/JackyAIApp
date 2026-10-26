@@ -9,6 +9,7 @@ using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.Chatbot;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -26,8 +27,12 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         private const string User = "title-user";
         private const string Question = "我的持股最近外資在買還是賣？幫我看看 2330 和 0050";
 
-        private readonly AzureSQLDBContext _db = new(new DbContextOptionsBuilder<AzureSQLDBContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        private static readonly InMemoryDatabaseRoot DatabaseRoot = new();
+        private readonly DbContextOptions<AzureSQLDBContext> _options = new DbContextOptionsBuilder<AzureSQLDBContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString(), DatabaseRoot).Options;
+        private readonly AzureSQLDBContext _db;
+
+        public ConversationTitlerTests() => _db = new AzureSQLDBContext(_options);
         private readonly FakeAnthropic _anthropic = new();
         private readonly Mock<IAiUsageLogger> _usage = new();
         private readonly MemoryCache _cache = new(new MemoryCacheOptions());
@@ -141,6 +146,46 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         [Fact]
+        public async Task RenamedWhileTheModelWasAsked_KeepsTheReadersTitle()
+        {
+            var id = await ConversationAsync();
+            _anthropic.Reply("持股的外資買賣超");
+            _anthropic.WhileAsked = async () =>
+            {
+                // The reader renames it in the meantime (D-144), through another request.
+                using var other = new AzureSQLDBContext(_options);
+                var row = await other.ChatConversations.SingleAsync(c => c.Id == id);
+                row.Title = "我自己取的名字";
+                await other.SaveChangesAsync();
+            };
+
+            var result = await As(User).NameAsync(id, default);
+
+            Assert.Equal("我自己取的名字", result.Data!.Title);
+            Assert.Equal("我自己取的名字", await StoredTitleAsync(id));
+            Assert.Single(_anthropic.Requests);
+        }
+
+        [Fact]
+        public async Task DeletedWhileTheModelWasAsked_SavesNothing()
+        {
+            var id = await ConversationAsync();
+            _anthropic.Reply("持股的外資買賣超");
+            _anthropic.WhileAsked = async () =>
+            {
+                using var other = new AzureSQLDBContext(_options);
+                other.ChatConversations.Remove(await other.ChatConversations.SingleAsync(c => c.Id == id));
+                await other.SaveChangesAsync();
+            };
+
+            var result = await As(User).NameAsync(id, default);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(AnthropicChatService.TitleFrom(Question), result.Data!.Title);
+            Assert.False(await _db.ChatConversations.AsNoTracking().AnyAsync(c => c.Id == id));
+        }
+
+        [Fact]
         public async Task SomeoneElsesConversation_IsNotFound()
         {
             var id = await ConversationAsync(owner: "someone-else");
@@ -197,6 +242,9 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             private readonly Queue<Func<HttpResponseMessage>> _responses = new();
             public List<string> Requests { get; } = [];
 
+            /// <summary>Runs while the model is being asked, before its reply comes back.</summary>
+            public Func<Task>? WhileAsked { get; set; }
+
             public void Reply(string text) => _responses.Enqueue(() => new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(JsonSerializer.Serialize(new
@@ -222,6 +270,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
             {
                 Requests.Add(request.Content is null ? "" : await request.Content.ReadAsStringAsync(ct));
+                if (WhileAsked != null) await WhileAsked();
                 return _responses.Dequeue()();
             }
         }
