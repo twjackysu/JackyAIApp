@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-26 09:42 – 第 28 輪（語音對話：用說的問、用聽的答）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。
+- **語音對話**（D-120，只動前端）：輸入框裡有麥克風聽到的字，送出的那則回答**正常結束就自動朗讀**（`SendOptions.readAloud` → `Message.readAloud`；`useSpeechOutput` 的 `autoReadKey`，每則一次）；打字問的不念。三個助理（Studio、/finance、/data-analysis）共用。首頁今日簡報卡片多一個 **「用聽的」**（`AskStudioCard` 的 `listen`、`askStudio(…, { readAloud })`；手機只顯示耳機圖示）。念的時候回答下方的按鈕保持顯示（可按停止）。
+- **審查**（subagent，D-121）：高——麥克風會聽到助理自己的聲音（按麥克風先 `stopReading`、正在聽就不自動念：`isListening`）、iOS Safari 需要手勢內開始的語音（`unlockSpeech`）；中——面板收起／抽屜關掉時不念並停止、不蓋掉手動朗讀。都已修；低風險（用說的「/」不念、`:has()`）接受。
+- 截圖：`home-briefing-listen-*`、`studio-briefing-listen-*`、`studio-voice-reply-*`（新腳本 `.loop/shots/listen.cjs`；`speechSynthesis` 是唯讀屬性，替身要用 `Object.defineProperty`）。SHOWCASE 亮點列、demo 第 1 步、日誌一列。
+- 驗證：前端 lint、build、test（145 檔 1568 個）全過；CI 40256706443（D-120）綠；**本輪最後一次含程式碼的 push 7809a5e2（審查修正）的 CI 40258346196 綠**。
+- 問題：第一次審查修正時 `isListening` 的計數在測試替身的 `abort()`（不送 end 事件）後沒有歸零，自動朗讀就不念 → `cancel` 與 unmount 也釋放計數。
+
 ## 2026-10-26 07:42 – 第 27 輪（找出我的弱點、review_quiz 指定字）
 
 - 開工：master 沒有新 commit（5dc1160 已合過）；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。clone 是 shallow，先 `git fetch --unshallow`。
