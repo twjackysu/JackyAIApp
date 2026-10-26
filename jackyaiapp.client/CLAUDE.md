@@ -94,7 +94,11 @@ jackyaiapp.client/src/
   result shows in the answer is a card (`tool_result.card`, `cards/`): it comes from a tool, so it is
   untrusted, and `parseToolCard` keeps only plain text and numbers within limits and links to this site
   or https. The chat draws `table` and `link`; another kind is drawn by the app's renderer for it
-  (`AiChatConfig.cardRenderers`), or not at all. Each message is `memo(MessageItem)` (D-138): while an answer streams (every piece of text or thinking a new
+  (`AiChatConfig.cardRenderers`), or not at all. A card that is a table (a table card, or an app's card `AiChatConfig.cardTables` reads as one:
+  Data Analysis's chart) has 複製表格 and 下載 CSV under it (`cards/TableCardActions`, `cards/tableExport`, D-150): tab-separated
+  cells for a spreadsheet's paste, or a CSV with a BOM (so Excel reads Chinese), numbers plain, the rows on screen only (and it says
+  when the tool found more); a text cell or header a spreadsheet would run as a formula (=, +, -, @, a tab or CR first, and not a
+  number) gets a leading apostrophe, the server's `CsvExportWriter` rule, since the cells are a tool's. Nothing goes to the server. Each message is `memo(MessageItem)` (D-138): while an answer streams (every piece of text or thinking a new
   `messages` array, the other messages kept as the same objects by `useChatConversation`) and while the reader types,
   only the message that changed is drawn again; the page's callbacks reach the messages through one `handlers` object
   `MessageArea` keeps for the conversation's life (calling the latest ones). A new `MessageItem` prop must not be an

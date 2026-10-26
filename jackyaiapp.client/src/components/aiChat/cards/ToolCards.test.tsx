@@ -1,13 +1,13 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AiChatConfig, AiChatConfigContext } from '../config';
 
 import ToolCards from './ToolCards';
 
-import type { CustomCard, ToolCard } from './toolCard';
+import type { CustomCard, TableCard, ToolCard } from './toolCard';
 import type { ToolStep } from '../utils/toolActivity';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -159,5 +159,86 @@ describe('ToolCards', () => {
   it('leaves out a kind nobody draws', () => {
     render([step('c', { kind: 'chart', title: null, data: {} })]);
     expect(cards()).toHaveLength(0);
+  });
+});
+
+describe('ToolCards: a table to take out (D-150)', () => {
+  const table: TableCard = {
+    kind: 'table',
+    title: '外資買賣超',
+    columns: [
+      { key: 'code', label: '代號', numeric: false },
+      { key: 'net', label: '買賣超', numeric: true },
+    ],
+    rows: [
+      { code: '2330', net: 12345 },
+      { code: '=HYPERLINK("x")', net: null },
+    ],
+    totalRows: null,
+  };
+  const button = (label: string) =>
+    container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it('offers copy and CSV under a table card, and copies it as cells a spreadsheet pastes, formulas defused', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    render([step('t', table)]);
+    expect(button('下載 CSV')).not.toBeNull();
+    await act(async () => button('複製表格')!.click());
+    expect(writeText).toHaveBeenCalledWith('代號\t買賣超\n2330\t12345\n\'=HYPERLINK("x")\t');
+    expect(container.querySelector('[role="status"]')!.textContent).toBe('已複製 2 筆');
+  });
+
+  it('downloads a CSV named after the card, with a BOM, and says the tool found more when it did', async () => {
+    const blobs: Blob[] = [];
+    URL.createObjectURL = vi.fn((b: Blob) => {
+      blobs.push(b);
+      return 'blob:x';
+    });
+    URL.revokeObjectURL = vi.fn();
+    let downloaded = '';
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      downloaded = this.download;
+    });
+    render([step('t', { ...table, totalRows: 1200 })]);
+    act(() => button('下載 CSV')!.click());
+    expect(downloaded).toMatch(/^外資買賣超 \d{4}-\d{2}-\d{2}\.csv$/);
+    const bytes = new Uint8Array(await blobs[0].arrayBuffer());
+    expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    expect(new TextDecoder().decode(bytes.slice(3))).toBe(
+      '代號,買賣超\r\n2330,12345\r\n"\'=HYPERLINK(""x"")",\r\n',
+    );
+    expect(container.querySelector('[role="status"]')!.textContent).toBe(
+      '已下載畫面上的 2 筆（共找到 1,200 筆）',
+    );
+  });
+
+  it("offers them under an app's card it says how to read as a table, not under a link or an empty table", () => {
+    const Chart = () => <span>chart</span>;
+    render(
+      [
+        step('c', { kind: 'chart', title: '趨勢', data: {} }),
+        step('l', { kind: 'link', title: 'x', description: null, href: '/x', actionLabel: null }),
+        step('e', { ...table, rows: [] }),
+      ],
+      config({ cardRenderers: { chart: Chart }, cardTables: { chart: () => table } }),
+    );
+    const withButtons = cards().map(
+      (c) => c.querySelector('button[aria-label="下載 CSV"]') !== null,
+    );
+    expect(withButtons).toEqual([true, false, false]);
+  });
+
+  it("offers nothing under an app's card it gives no table for", () => {
+    const Quiz = () => <span>quiz</span>;
+    render(
+      [step('q', { kind: 'quiz', title: null, data: {} })],
+      config({ cardRenderers: { quiz: Quiz }, cardTables: { quiz: () => null } }),
+    );
+    expect(button('下載 CSV')).toBeNull();
   });
 });

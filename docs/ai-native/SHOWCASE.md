@@ -43,6 +43,7 @@
 | **失敗了按一下「重試」**：AI 服務忙碌、網路斷掉、回覆沒收完時，失敗的回答下方出現「重試」，問題原地重送（附檔、引用的頁面文字都照原樣），不用重打；對話太長、模型拒答這種再問也一樣的不給，已經動過手（跑過本站或 connector 工具）的也不給，免得同一筆寫入做兩次；長對話串流時只重畫正在寫的那則（每段 329 ms → 3.4 ms） | `useChatConversation.retry`：伺服器存過的問題當成編輯它自己、沒存過的重新送出；`isRetryableChatError`；`memo(MessageItem)`（D-138～D-140） | 2026 的 chat 產品的基本功：失敗可以一鍵重來、長對話不卡 |
 | **AI 替對話取名字**：問完第一個問題，左邊紀錄列表那一列從「台積電最近一個月的走勢如何？技術面和籌…」變成「台積電近一個月走勢」，之後一眼就找得到 | 第一個回答之後前端呼叫 `POST conversations/{id}/title`，`ConversationTitler` 用 Haiku 5.5（effort low）讀問題與回答開頭取 ≤24 字標題；每個對話一次、不另外計費（D-141、D-142） | Claude、ChatGPT 的對話列表都是 AI 取的名字；三個助理共用，不用設定。對話多了，紀錄欄上方可以**搜尋標題**（D-143）；想用自己的話也可以按鉛筆**改名**（D-144） |
 | **把對話帶走**：標題列「匯出對話」→ 複製成 Markdown 或下載 .md：問題、回答、用了哪些工具、表格與連結卡片都在，貼進筆記或信件就能用 | `conversationMarkdown`（純前端、不送伺服器、不計費）：表格卡片轉 Markdown 表格（數字照畫面的千分位、`\|` 跳脫）、本站連結補成完整網址、Data Analysis 的圖表寫成資料表（`AiChatConfig.cardTables`）、測驗這種 app 自己畫的卡片寫一行說明（D-147、D-149） | ChatGPT、Claude 都能分享或匯出對話；這裡是三個助理共用的一顆按鈕 |
+| **表格直接進試算表**：每張表格卡片（持倉、外資買賣超、Jira、Data Analysis 的圖表資料）下方「複製表格」「下載 CSV」，貼進 Excel／Google 試算表就是一格一格 | `cards/tableExport`（純前端、不計費）：複製是 TSV、CSV 帶 BOM（Excel 不亂碼）、數字不帶千分位；工具給的字以 `=`／`+`／`-`／`@` 開頭會加 `'`，貼上或打開都不會被當公式執行（CSV injection，跟伺服器的 Details 匯出同一條規則）；工具找到更多筆時會說只含畫面上的（D-150） | ChatGPT 的表格也能下載；這裡多了公式注入防護，因為表格內容來自外部工具 |
 | /finance 的 Stock Intelligence：**行為不變**，工具 chip 與進度改用中文（「個股歷史股價」「技術指標」），回答下方有「接著問」 | 同一套共用 chat（`FinanceChatRequestTests` 逐欄位鎖住請求）；中文名稱是前端的對照表（`FINANCE_TOOL_LABELS`） | — |
 
 ## Demo 腳本（約 10 分鐘）
@@ -163,6 +164,8 @@
    **把對話帶走**：標題列的 **分享圖示（匯出對話）** →「複製成 Markdown」或「下載 .md 檔」。問題、回答、AI 用了哪些工具，連同持倉表格（Markdown 表格、數字跟畫面一樣有千分位）和連結卡片都在裡面，直接貼進 Notion、信件或 Obsidian；/data-analysis 助理畫的圖表會寫成它的資料表。
    ![匯出對話的選單](screenshots/export-menu-desktop.png)
    ![複製好了](screenshots/export-copied-phone.png)
+   只要表格？每張表格卡片下方有 **「複製表格」**（貼進 Excel／Google 試算表就是一格一格）和 **「下載 CSV」**（Excel 直接打開不亂碼）；圖表卡片也有，拿到的是它的資料。
+   ![表格卡片下的複製與下載](screenshots/table-export-desktop.png)
 10. **收尾**：下面的架構圖，以及「新增一個 connector 要寫多少 code」（[CONTRIBUTING-CONNECTORS.md](CONTRIBUTING-CONNECTORS.md)）。
 
 ## 架構
@@ -275,5 +278,6 @@ flowchart LR
 | 10/27 | 36 | **AI 替對話取名字**：新對話第一個回答之後，紀錄列表換成 AI 取的短標題（三個助理都有；D-141）；審查修正：失敗後重試成功的也命名、回答裡的標籤改全形、同時請求只問一次（D-142）；對話滿 6 則時紀錄欄可以搜尋標題（D-143） |
 | 10/27 | 37 | 對話可以**手動改名**（紀錄列的鉛筆 → 輸入框，Enter 存、Escape 不改；伺服器只收一行、最多 40 字、不改排序；D-144） |
 | 10/27 | 38 | 改名被拒會說、鍵盤改名後焦點回到鉛筆（D-146）；**匯出對話**（複製成 Markdown 或下載 .md，表格、連結卡片與 Data Analysis 的圖表資料一起；三個助理都有；D-147、D-149）；全站截圖巡檢（無退化） |
+| 10/27 | 39 | **表格直接進試算表**：每張表格卡片與 Data Analysis 的圖表下方「複製表格」「下載 CSV」（三個助理都有，防公式注入；D-150） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

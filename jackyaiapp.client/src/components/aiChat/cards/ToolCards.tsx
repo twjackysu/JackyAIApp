@@ -5,9 +5,10 @@ import { useAiChatConfig } from '../config';
 import { hairline } from '../style';
 
 import LinkCardView from './LinkCardView';
+import TableCardActions from './TableCardActions';
 import TableCardView from './TableCardView';
 
-import type { ToolCard } from './toolCard';
+import type { CustomCard, TableCard, ToolCard } from './toolCard';
 import type { ToolStep } from '../utils/toolActivity';
 
 /**
@@ -23,12 +24,16 @@ export default function ToolCards({
   cards?: readonly ToolCard[];
 }) {
   const theme = useTheme();
-  const { cardRenderers } = useAiChatConfig();
+  const { cardRenderers, cardTables } = useAiChatConfig();
   const items = steps
     ? steps.map((s) => ({ key: s.key, card: s.card }))
     : (cards ?? []).map((card, i) => ({ key: `saved-${i}`, card }));
   const drawn = items
-    .map((s) => ({ key: s.key, view: s.card ? cardView(s.card, cardRenderers, !steps) : null }))
+    .map((s) => ({
+      key: s.key,
+      view: s.card ? cardView(s.card, cardRenderers, !steps) : null,
+      table: s.card ? tableOf(s.card, cardTables) : null,
+    }))
     .filter((c) => c.view !== null);
   if (drawn.length === 0) return null;
 
@@ -46,10 +51,20 @@ export default function ToolCards({
           }}
         >
           {c.view}
+          {c.table && c.table.rows.length > 0 && <TableCardActions table={c.table} />}
         </Box>
       ))}
     </Box>
   );
+}
+
+/** The card as a table to copy or download (D-150): a table card itself, or an app's card it says how to read as one. */
+function tableOf(
+  card: ToolCard,
+  cardTables: ReturnType<typeof useAiChatConfig>['cardTables'],
+): TableCard | null {
+  if (card.kind === 'table' && 'columns' in card) return card;
+  return 'data' in card ? (cardTables?.[card.kind]?.(card as CustomCard) ?? null) : null;
 }
 
 function cardView(
