@@ -405,7 +405,12 @@ function MessageArea({
                   </Typography>
                 )}
                 {!answering && message.content && (
-                  <MessageActions text={message.content} align="left" readAloud />
+                  <MessageActions
+                    text={message.content}
+                    align="left"
+                    readAloud
+                    autoReadKey={message.readAloud && message.answered ? message.id : undefined}
+                  />
                 )}
                 {message === last && onFollowUp && (
                   <FollowUps texts={followUps} onPick={onFollowUp} />

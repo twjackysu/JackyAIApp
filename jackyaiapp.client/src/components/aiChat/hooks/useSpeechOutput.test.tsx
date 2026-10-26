@@ -1,4 +1,4 @@
-import { act } from 'react';
+import { StrictMode, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -9,14 +9,24 @@ import { synthesisOf, useSpeechOutput } from './useSpeechOutput';
 type SpeechOutput = ReturnType<typeof useSpeechOutput>;
 
 /** Renders the hook for `text`; `result.current` is what it returned last. */
-function renderHook(text: string) {
+function renderHook(text: string, autoReadKey?: string, strict = false) {
   const result = {} as { current: SpeechOutput };
   function Probe() {
-    result.current = useSpeechOutput(text);
+    result.current = useSpeechOutput(text, autoReadKey);
     return null;
   }
   const root: Root = createRoot(document.createElement('div'));
-  act(() => root.render(<Probe />));
+  act(() =>
+    root.render(
+      strict ? (
+        <StrictMode>
+          <Probe />
+        </StrictMode>
+      ) : (
+        <Probe />
+      ),
+    ),
+  );
   return { result, unmount: () => act(() => root.unmount()) };
 }
 
@@ -118,5 +128,46 @@ describe('useSpeechOutput', () => {
     act(() => old.onerror!());
     expect(result.current.speaking).toBe(true);
     unmount();
+  });
+
+  describe('read by itself (autoReadKey, D-120)', () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it('starts by itself once, and not again when drawn again', () => {
+      const first = renderHook('Good morning.', 'answer-auto-1');
+      act(() => vi.runAllTimers());
+      expect(first.result.current.speaking).toBe(true);
+      expect(spoken.map((u) => u.text)).toEqual(['Good morning.']);
+      first.unmount();
+
+      const again = renderHook('Good morning.', 'answer-auto-1');
+      act(() => vi.runAllTimers());
+      expect(again.result.current.speaking).toBe(false);
+      expect(spoken).toHaveLength(1);
+      again.unmount();
+    });
+
+    it('reads once under StrictMode, which mounts twice', () => {
+      const { result, unmount } = renderHook('Twice mounted.', 'answer-auto-strict', true);
+      act(() => vi.runAllTimers());
+      expect(result.current.speaking).toBe(true);
+      expect(spoken.map((u) => u.text)).toEqual(['Twice mounted.']);
+      unmount();
+    });
+
+    it('reads nothing without a key, or where the browser cannot speak', () => {
+      const plain = renderHook('Not asked.');
+      act(() => vi.runAllTimers());
+      expect(spoken).toHaveLength(0);
+      plain.unmount();
+
+      vi.unstubAllGlobals();
+      const mute = renderHook('No voice.', 'answer-auto-mute');
+      act(() => vi.runAllTimers());
+      expect(mute.result.current.supported).toBe(false);
+      expect(synthesis.speak).not.toHaveBeenCalled();
+      mute.unmount();
+    });
   });
 });

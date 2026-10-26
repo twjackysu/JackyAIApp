@@ -37,7 +37,17 @@ export function synthesisOf(
  */
 let current: { token: symbol; reset: () => void } | null = null;
 
-export function useSpeechOutput(text: string) {
+/**
+ * The answers already read on their own (`autoReadKey`), by key: each is read once, so drawing it again (another
+ * conversation and back, the drawer closed and opened) does not read it again.
+ */
+const autoRead = new Set<string>();
+
+/**
+ * Reads `text` aloud on the reader's press (`toggle`). With `autoReadKey` (an answer asked to be read aloud once done,
+ * D-120) it also starts by itself, once per key in the page's life.
+ */
+export function useSpeechOutput(text: string, autoReadKey?: string) {
   const [speaking, setSpeaking] = useState(false);
   const token = useRef<symbol | null>(null);
   // The utterances being read: kept referenced, since a browser may drop an unreferenced one's end event.
@@ -90,6 +100,17 @@ export function useSpeechOutput(text: string) {
 
   // An answer that leaves the screen (another conversation, a closed drawer) stops being read.
   useEffect(() => stop, [stop]);
+
+  // Started a moment later, and counted as read only then: a mount that is undone at once (React's StrictMode
+  // mounts twice in development) reads nothing, and the one that stays reads it.
+  useEffect(() => {
+    if (!autoReadKey || autoRead.has(autoReadKey) || !synthesisOf()) return;
+    const timer = setTimeout(() => {
+      autoRead.add(autoReadKey);
+      start();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [autoReadKey, start]);
 
   return {
     /** Whether this browser can read aloud at all; no button where it cannot. */

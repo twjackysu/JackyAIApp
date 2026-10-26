@@ -29,6 +29,8 @@ export interface QueuedMessage {
   quotesPageText?: boolean;
   /** Handed over by another assistant (`SendOptions.handedOverBy`). */
   handedOverBy?: string;
+  /** Its answer is read aloud once done (`SendOptions.readAloud`). */
+  readAloud?: boolean;
 }
 
 export interface Message {
@@ -55,6 +57,8 @@ export interface Message {
   handedOverBy?: string;
   /** An answer that came to its end in this session (not stopped, failed or reopened): follow-ups go under it. */
   answered?: boolean;
+  /** An answer to read aloud once it is `answered` (`SendOptions.readAloud`, D-120): this session only. */
+  readAloud?: boolean;
 }
 
 export type AgentStatus = 'online' | 'working' | 'offline';

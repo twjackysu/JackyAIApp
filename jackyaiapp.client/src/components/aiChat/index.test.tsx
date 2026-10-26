@@ -198,6 +198,7 @@ type Ask = {
   fresh?: boolean;
   quotesPageText?: boolean;
   handedOverBy?: string;
+  readAloud?: boolean;
 };
 
 /** Pages an answer took the reader to (`onNavigate`), with the task handed to that page's assistant if any. */
@@ -470,6 +471,101 @@ describe('AiAssistantPanel', () => {
     });
     expect(recognition.aborted).toBe(true);
     expect(chatBodies[0]).toMatchObject({ message: '你好' });
+  });
+
+  describe('asked by voice, answered by voice (D-120)', () => {
+    let spoken: string[];
+    beforeEach(() => {
+      spoken = [];
+      vi.stubGlobal('speechSynthesis', {
+        speak: (u: { text: string }) => spoken.push(u.text),
+        cancel: () => {},
+      });
+      vi.stubGlobal(
+        'SpeechSynthesisUtterance',
+        class {
+          lang = '';
+          onend = null;
+          onerror = null;
+          constructor(public text: string) {}
+        },
+      );
+    });
+    const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+
+    it('reads the answer to a spoken message aloud once done, and not one to a typed message', async () => {
+      let recognition!: { onresult: (e: unknown) => void; onend: () => void };
+      vi.stubGlobal(
+        'webkitSpeechRecognition',
+        class {
+          onresult = null;
+          onend = null;
+          start() {
+            recognition = this as unknown as typeof recognition;
+          }
+          stop() {}
+          abort() {}
+        },
+      );
+      chatReplies.push(() =>
+        sseReply(
+          { type: 'delta', text: 'It means a happy accident.' },
+          { type: 'done', conversationId: 'conv-1' },
+        ),
+      );
+      await mount();
+      await act(async () => buttonByLabel('語音輸入')!.click());
+      act(() =>
+        recognition.onresult({
+          results: [Object.assign([{ transcript: 'serendipity 是什麼' }], { isFinal: true })],
+        }),
+      );
+      act(() => recognition.onend());
+      await act(async () => {
+        textarea().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      });
+      await waitForText('It means a happy accident.');
+      await settle();
+      expect(spoken).toEqual(['It means a happy accident.']);
+      // Nothing of it goes to the server.
+      expect(chatBodies[0]).toEqual({
+        message: 'serendipity 是什麼',
+        conversationId: '',
+        attachmentIds: [],
+        profile: 'finance',
+      });
+
+      chatReplies.push(() =>
+        sseReply({ type: 'delta', text: '不客氣' }, { type: 'done', conversationId: 'conv-1' }),
+      );
+      await send('謝謝');
+      await waitForText('不客氣');
+      await settle();
+      expect(spoken).toEqual(['It means a happy accident.']);
+    });
+
+    it("reads the answer to a page's ask with readAloud (the briefing to listen to)", async () => {
+      chatReplies.push(() =>
+        sseReply(
+          { type: 'delta', text: '早安，今天有兩件事。' },
+          { type: 'done', conversationId: 'c' },
+        ),
+      );
+      await mount('', { id: 1, text: '給我今天的簡報', fresh: true, readAloud: true });
+      await waitForText('早安，今天有兩件事。');
+      await settle();
+      expect(spoken).toEqual(['早安，今天有兩件事。']);
+    });
+
+    it('reads nothing of an answer that failed', async () => {
+      chatReplies.push(() =>
+        sseReply({ type: 'delta', text: '一半' }, { type: 'error', code: 'X', message: 'boom' }),
+      );
+      await mount('', { id: 1, text: '給我今天的簡報', readAloud: true });
+      await settle();
+      await settle();
+      expect(spoken).toEqual([]);
+    });
   });
 
   it('sends what a page asked (askStudio) once, as if typed', async () => {

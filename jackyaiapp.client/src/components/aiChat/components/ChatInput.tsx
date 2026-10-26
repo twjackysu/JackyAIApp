@@ -57,6 +57,8 @@ interface ChatInputProps {
   /** Pasted formatted text (tables, lists) is turned into Markdown rather than plain text. */
   keepFormatting: boolean;
   onKeepFormattingChange: (keep: boolean) => void;
+  /** Words were heard into the box (its microphone): the panel reads the answer to that draft aloud (D-120). */
+  onSpoken?: () => void;
 }
 
 /**
@@ -79,6 +81,7 @@ const ChatInput = ({
   onPaste,
   keepFormatting,
   onKeepFormattingChange,
+  onSpoken,
 }: ChatInputProps) => {
   const theme = useTheme();
   const { inputPlaceholder, disclaimer } = useAiChatConfig();
@@ -94,8 +97,11 @@ const ChatInput = ({
   // What was heard goes after what the reader had typed when they started speaking; they still send it.
   const typedBeforeSpeaking = useRef('');
   const onHeard = useCallback(
-    (heard: string) => onChange(joinSpeech(typedBeforeSpeaking.current, heard)),
-    [onChange],
+    (heard: string) => {
+      onChange(joinSpeech(typedBeforeSpeaking.current, heard));
+      if (heard) onSpoken?.();
+    },
+    [onChange, onSpoken],
   );
   const speech = useSpeechInput(onHeard);
 
@@ -282,7 +288,7 @@ const ChatInput = ({
             </Menu>
 
             {speech.supported && (
-              <ActionTooltip title={speech.listening ? '停止聽寫' : '用說的（語音輸入）'}>
+              <ActionTooltip title={speech.listening ? '停止聽寫' : '用說的（回答會念給你聽）'}>
                 <IconButton
                   aria-label={speech.listening ? '停止聽寫' : '語音輸入'}
                   aria-pressed={speech.listening}

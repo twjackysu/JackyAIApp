@@ -10,6 +10,8 @@ export interface AskStudioDetail {
   text: string;
   /** In a new conversation, not the one on screen. */
   fresh?: boolean;
+  /** Its answer read aloud once done. */
+  readAloud?: boolean;
 }
 
 export interface AskStudioOptions {
@@ -19,13 +21,22 @@ export interface AskStudioOptions {
    * old one read makes every write ask first (docs/ai-native DECISIONS D-055, D-061).
    */
   fresh?: boolean;
+  /**
+   * Read the answer aloud once it is done, with the browser's own voice (the briefing to listen to, D-120): nothing
+   * more is sent to the server and nothing more is charged.
+   */
+  readAloud?: boolean;
 }
 
 /** Opens Studio AI and sends `text`. */
 export function askStudio(text: string, options?: AskStudioOptions): void {
   const message = text.trim();
   if (!message) return;
-  const detail: AskStudioDetail = { text: message, ...(options?.fresh && { fresh: true }) };
+  const detail: AskStudioDetail = {
+    text: message,
+    ...(options?.fresh && { fresh: true }),
+    ...(options?.readAloud && { readAloud: true }),
+  };
   window.dispatchEvent(new CustomEvent<AskStudioDetail>(ASK_STUDIO_EVENT, { detail }));
 }
 
@@ -33,9 +44,17 @@ export function askStudio(text: string, options?: AskStudioOptions): void {
 export function askedOf(event: Event): AskStudioDetail | null {
   const detail = (event as CustomEvent<unknown>).detail;
   if (typeof detail !== 'object' || detail === null) return null;
-  const { text, fresh } = detail as { text?: unknown; fresh?: unknown };
+  const { text, fresh, readAloud } = detail as {
+    text?: unknown;
+    fresh?: unknown;
+    readAloud?: unknown;
+  };
   if (typeof text !== 'string' || !text.trim()) return null;
-  return { text: text.trim().slice(0, 2000), ...(fresh === true && { fresh: true }) };
+  return {
+    text: text.trim().slice(0, 2000),
+    ...(fresh === true && { fresh: true }),
+    ...(readAloud === true && { readAloud: true }),
+  };
 }
 
 /** What the morning briefing asks (the home page's card); the server's prompt says what it covers.

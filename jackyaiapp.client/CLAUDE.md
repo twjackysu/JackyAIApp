@@ -52,6 +52,11 @@ jackyaiapp.client/src/
   synthesis, nothing sent to the server and no usage; `utils/speechText` turns the Markdown into words and cuts them into
   runs of English and Chinese, each read in a voice of its language, an abbreviation in a Chinese sentence staying Chinese,
   in pieces of at most 200 characters; one answer reads at a time, and only the one reading may stop the browser's speech).
+  Asked by voice, answered by voice (D-120): a message whose draft has words the microphone heard (`ChatInput`'s `onSpoken`, the
+  panel's `draftSpoken`, reset when the box is emptied), or an ask with `readAloud` (`askStudio`, `ChatAsk`), goes with
+  `SendOptions.readAloud`, and its answer (`Message.readAloud`) reads itself aloud once it is `answered` — never a stopped or
+  failed one, nor a reopened conversation; once per message id (`useSpeechOutput`'s `autoReadKey`, started a tick later so
+  StrictMode's second mount reads it once), its buttons kept shown while it reads so 停止朗讀 is there. Nothing of it reaches the server.
   What differs between apps' assistants (greeting, example questions, suggestions,
   placeholders, the server profile, error wording, words for tools the server names no display name for,
   `toolLabels`: Finance's hosted tw-stock tools, `FINANCE_TOOL_LABELS`, so its chips and header read 「個股歷史股價」
@@ -109,7 +114,8 @@ jackyaiapp.client/src/
   `useChatConversation`'s `send(…, { fresh: true })`, queued like any message while an answer is written): the home
   page's 「AI 今日簡報」 (`Portal/BriefingCard`, signed in only, nothing asked until clicked) sends `BRIEFING_PROMPT`,
   always fresh, so it neither resends an old conversation's history nor inherits that conversation's tainted writes. That card is
-  `StudioAssistant/AskStudioCard` (icon, title, description, the request; pressed, it asks fresh), which the stats page shows too as
+  `StudioAssistant/AskStudioCard` (icon, title, description, the request; pressed, it asks fresh; with `listen`, the briefing's,
+  a 「用聽的」 button beside it asks the same with `readAloud`, where the browser can speak, D-120), which the stats page shows too as
   「AI 弱點分析」 (`FIND_MY_WEAK_SPOTS`, D-118). A dashboard's owner gets
   「AI 解讀」 (`READ_DASHBOARD_PROMPT`, fresh; the server names the dashboard on screen and `read_dashboard` reads it), which is
   also Studio AI's first suggestion on a dashboard. A tool result's `navigate` (Studio AI's `open_page` with `go`, a path on this site only, `sitePathOf`, as it streams,

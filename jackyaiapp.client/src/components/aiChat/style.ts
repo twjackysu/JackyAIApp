@@ -26,6 +26,8 @@ export const accentWash = (theme: Theme, strength = 0.12) =>
 export const revealActionsOnHover = {
   '& .message-actions': { opacity: 0, transition: 'opacity 120ms' },
   '&:hover .message-actions, &:focus-within .message-actions': { opacity: 1 },
+  // An answer being read aloud keeps its buttons, so 停止朗讀 can be pressed without finding it (D-120).
+  '& .message-actions:has([aria-pressed="true"])': { opacity: 1 },
   '@media (hover: none)': { '& .message-actions': { opacity: 1 } },
 };
 

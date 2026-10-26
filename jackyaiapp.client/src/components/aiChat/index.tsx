@@ -110,6 +110,13 @@ function AiAssistantPanel({
   const attachments = usePendingAttachments();
   const [keepFormatting, setKeepFormatting] = useKeepPasteFormatting();
   const { statusText } = useAgentStatus(conversation.streamingStatus);
+
+  // Some of the draft was spoken (the box's microphone): its answer is read aloud once done (D-120). Until the box
+  // is emptied — sent, or cleared by the reader.
+  const [draftSpoken, setDraftSpoken] = useState(false);
+  useEffect(() => {
+    if (!inputValue.trim()) setDraftSpoken(false);
+  }, [inputValue]);
   const theme = useTheme();
 
   // The history is a fixed column beside the chat on wide screens. Where that would leave the chat
@@ -139,6 +146,7 @@ function AiAssistantPanel({
     const options = {
       ...(ask.quotesPageText && { quotesPageText: true }),
       ...(ask.handedOverBy && { handedOverBy: ask.handedOverBy }),
+      ...(ask.readAloud && { readAloud: true }),
     };
     if (ask.fresh) {
       // A preview of the old conversation's answer has nothing to do with the new one.
@@ -199,7 +207,11 @@ function AiAssistantPanel({
     }
     const sent = attachments.takeForMessage();
     setInputValue('');
-    conversation.send(text, sent, inputQuotesPageText ? { quotesPageText: true } : undefined);
+    conversation.send(text, sent, {
+      ...(inputQuotesPageText && { quotesPageText: true }),
+      // Asked by voice, answered by voice (D-120): the reader is likely not looking at the screen.
+      ...(draftSpoken && { readAloud: true }),
+    });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -292,6 +304,7 @@ function AiAssistantPanel({
             onPaste={handlePaste}
             keepFormatting={keepFormatting}
             onKeepFormattingChange={setKeepFormatting}
+            onSpoken={() => setDraftSpoken(true)}
           />
         </Box>
 

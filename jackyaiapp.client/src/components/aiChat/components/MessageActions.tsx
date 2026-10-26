@@ -19,12 +19,22 @@ interface MessageActionsProps {
   onEdit?: () => void;
   /** An answer: it can be read aloud (where the browser can speak). */
   readAloud?: boolean;
+  /** Read it aloud by itself, once for this key (an answer asked to be read once done, D-120). */
+  autoReadKey?: string;
   align: 'left' | 'right';
 }
 
 /** Reads the answer aloud, or stops (`useSpeechOutput`); nothing where the browser cannot speak. */
-function ReadAloudButton({ text, sx }: { text: string; sx: object }) {
-  const { supported, speaking, toggle } = useSpeechOutput(text);
+function ReadAloudButton({
+  text,
+  autoReadKey,
+  sx,
+}: {
+  text: string;
+  autoReadKey?: string;
+  sx: object;
+}) {
+  const { supported, speaking, toggle } = useSpeechOutput(text, autoReadKey);
   if (!supported) return null;
   const label = speaking ? '停止朗讀' : '朗讀';
   return (
@@ -39,9 +49,10 @@ function ReadAloudButton({ text, sx }: { text: string; sx: object }) {
 /**
  * The small buttons under a message. On a screen with a mouse they show while the pointer is over
  * the message (or a button has keyboard focus); where there is no hover — phones — they are always
- * shown, as ChatGPT does, since there is nothing to hover with.
+ * shown, as ChatGPT does, since there is nothing to hover with. While an answer is read aloud they stay shown, so
+ * its stop button is there to press (`style.ts`).
  */
-function MessageActions({ text, onEdit, readAloud, align }: MessageActionsProps) {
+function MessageActions({ text, onEdit, readAloud, autoReadKey, align }: MessageActionsProps) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -74,7 +85,7 @@ function MessageActions({ text, onEdit, readAloud, align }: MessageActionsProps)
           {copied ? <CheckIcon sx={{ fontSize: 16 }} /> : <ContentCopyIcon sx={{ fontSize: 16 }} />}
         </IconButton>
       </Tooltip>
-      {readAloud && <ReadAloudButton text={text} sx={buttonSx} />}
+      {readAloud && <ReadAloudButton text={text} autoReadKey={autoReadKey} sx={buttonSx} />}
       {onEdit && (
         <Tooltip title="編輯">
           <IconButton size="small" aria-label="編輯" onClick={onEdit} sx={buttonSx}>

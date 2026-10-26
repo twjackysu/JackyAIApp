@@ -11,6 +11,8 @@ export interface ChatAsk {
   quotesPageText?: boolean;
   /** Another assistant handed this task over (`SendOptions.handedOverBy`): its name, shown over the message. */
   handedOverBy?: string;
+  /** Its answer read aloud once done (`SendOptions.readAloud`). */
+  readAloud?: boolean;
 }
 
 /**

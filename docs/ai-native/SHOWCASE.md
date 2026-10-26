@@ -12,7 +12,7 @@
 | **⌘K 也是指令列**：在 Studio 打「複習」「portfolio」、自己 dashboard 的名稱或一個英文單字，輸入框上方立刻出現「前往『複習』」「查字典：review」，按下直接到（不問 AI、不花用量）；打完整的問題就交給 AI | 前端的 `quickActionsFor`（頁面清單由測試對齊伺服器的 `SitePages`），只認頁面名稱與單一英文單字 | Raycast／Linear 式的指令列與 AI 助理合而為一：簡單的事零延遲，複雜的事交給 agent |
 | **打「/」就有現成指令**：Studio 輸入框打 `/` → 今日簡報、考我單字、用我的單字寫短文、投資組合健檢…一排按鈕，打 `/簡報`、`/quiz` 就篩出來，按下直接送出；/finance（`/外資`、`/景氣`）與 /data-analysis（`/欄位`、`/dashboard`）自己的助理也有各自的一組 | 共用的 `matchSlashCommands`＋`QuickChips`，每個助理的清單在它的 `AiChatConfig.slashCommands`；Studio 的名稱跟本站 MCP server 的 prompts 一樣，名稱跟本站 MCP server 的 prompts 一樣，所以 Claude Code 裡的 `/mcp__jacky-studio__quiz_me` 與本站的 `/quiz` 是同一件事 | 斜線指令是 2026 AI 產品的共通語言（Claude、ChatGPT、Cursor） |
 | **用說的**：三個助理的輸入框都有麥克風，說「給我今天的簡報」字就出現在框裡 | 瀏覽器內建的 Web Speech API（zh-TW），不經本站伺服器、不花 AI 額度；Firefox 沒有就不顯示 | 語音是 2026 AI 助理的基本互動 |
-| **聽它說**：每個回答下方的「朗讀」，英文段落用英文聲音、中文翻譯用中文聲音念出來（配上麥克風就是語音對話） | 瀏覽器的 speechSynthesis，`speechText` 把 Markdown 變成字並依語言切段；不經伺服器、不花用量 | 語音進、語音出：AI 助理不只能看 |
+| **聽它說、跟它對話**：用麥克風問的問題，**回答一結束就自動念給你聽**（打字問的不念）；首頁今日簡報旁的 **「用聽的」**，早上不用看螢幕就聽完行程、複習與資產；每個回答下方也有「朗讀」，英文段落用英文聲音、中文用中文聲音 | 瀏覽器的 speechSynthesis，`speechText` 把 Markdown 變成字並依語言切段；`SendOptions.readAloud`：只在回答正常結束才念、每則只念一次、念的時候「停止朗讀」一直顯示（D-120）；不經伺服器、不花用量 | 語音進、語音出：ChatGPT／Gemini 的語音對話，在網頁上用瀏覽器內建能力做到 |
 | **AI 今日簡報**：首頁一鍵，Studio AI 同時讀行程、學習進度、投資組合，整理成三段重點與「先做哪件事」 | `askStudio`（任何頁面帶一句話打開 Studio）；模型在一次回覆裡呼叫三個工具，卡片與文字一起出現 | Agent 的價值是「跨 app 組合」：一個問題用到三個資料源 |
 | **「帶我去複習」→ 頁面真的切過去**，對話留在旁邊說明到了之後怎麼做；每個回答下方有 2–3 個 **「接著問」** 一鍵續問 | `open_page` 的 `go` → `tool_result.navigate`（只限本站工具、站內路徑、沒讀過外部內容）；接著問依回答用到的工具決定（不花 token） | AI 不只回答，還會操作網站本身 |
 | **「考我今天該複習的單字」→ 回答裡直接出現可以作答的測驗卡**：一次一題、按下立刻顯示對錯與解說，答完自動記進 SM-2 複習排程（+XP） | `review_quiz`（每日挑戰的題型產生器，不花 AI）→ `quiz` 卡片 → 前端呼叫既有的 `review/submit`；模型被告知考哪些字但不准說出答案 | Generative UI 不只顯示結果，還能「互動」：對話裡長出一個小 app |
@@ -44,6 +44,9 @@
    ![首頁的 AI 今日簡報](screenshots/home-briefing-card-desktop.png)
    ![Studio 的今日簡報](screenshots/studio-briefing-desktop.png)
    ![語音輸入](screenshots/studio-voice-desktop.png)
+   **用聽的**：今日簡報卡片右邊的耳機「用聽的」→ 同一份簡報，回答一結束就自動念出來（下方按鈕變成「停止朗讀」）；用麥克風說完送出的問題也一樣自動念（D-120）。
+   ![今日簡報的用聽的](screenshots/home-briefing-listen-desktop.png)
+   ![用說的問、用聽的答](screenshots/studio-voice-reply-phone.png)
    ![Studio 打開](screenshots/studio-open-desktop.png)
    **指令列**：在 Studio 輸入框打「review」→ 上方出現「前往『複習』」與「查字典：review」，按一下就到，完全不經 AI；打一整句問題就照常送給 AI。
    ![⌘K 指令列](screenshots/studio-quick-desktop.png)
@@ -220,5 +223,6 @@ flowchart LR
 | 10/26 | 25 | 「/」指令跟著頁面走：單字頁「解釋 {word}」、/portfolio「記一筆交易」、/dashboards「做一個新的 dashboard」、自己的 dashboard「解讀這個 dashboard」排在最前面 |
 | 10/26 | 26 | /finance 與 /data-analysis 自己的助理也有「/」現成指令（`AiChatConfig.slashCommands`；比對與 chip 搬進共用的 `aiChat`）；CI 的 .NET SDK 改回 `10.0.x` |
 | 10/26 | 27 | **找出我的弱點**（`weak_spots`：測驗答對率與最常錯的字，AI 點出最該加強的地方，再用只考那幾個字的測驗卡〔`review_quiz` 的 `words`〕；學習統計頁的「AI 弱點分析」卡片；「/」與本站 MCP prompt `my_weak_spots`） |
+| 10/26 | 28 | **語音對話**：用麥克風問的問題，回答結束自動朗讀；首頁今日簡報的「用聽的」（D-120） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

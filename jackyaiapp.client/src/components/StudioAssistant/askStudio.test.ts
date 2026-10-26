@@ -21,6 +21,12 @@ describe('askStudio', () => {
     expect(heard).toHaveReturnedWith({ text: '給我今天的簡報', fresh: true });
   });
 
+  it('can ask for the answer to be read aloud (D-120)', () => {
+    window.addEventListener(ASK_STUDIO_EVENT, heard);
+    askStudio('給我今天的簡報', { fresh: true, readAloud: true });
+    expect(heard).toHaveReturnedWith({ text: '給我今天的簡報', fresh: true, readAloud: true });
+  });
+
   it('asks nothing for an empty message', () => {
     window.addEventListener(ASK_STUDIO_EVENT, heard);
     askStudio('   ');
@@ -41,5 +47,14 @@ describe('askedOf', () => {
     expect(
       askedOf(new CustomEvent(ASK_STUDIO_EVENT, { detail: { text: 'x', fresh: 'yes' } })),
     ).toEqual({ text: 'x' });
+  });
+});
+
+describe('askedOf readAloud', () => {
+  it('takes reading aloud only when it is asked for as such', () => {
+    const of = (readAloud: unknown) =>
+      askedOf(new CustomEvent(ASK_STUDIO_EVENT, { detail: { text: 'x', readAloud } }));
+    expect(of('yes')).toEqual({ text: 'x' });
+    expect(of(true)).toEqual({ text: 'x', readAloud: true });
   });
 });

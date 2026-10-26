@@ -38,6 +38,11 @@ export interface SendOptions {
    * reader's message so they see where it came from (D-099). Nothing of it goes to the server.
    */
   handedOverBy?: string;
+  /**
+   * Read the answer aloud once it is done (D-120): the reader asked by voice, or for a briefing to listen to. Only in
+   * this session and nothing of it goes to the server; reopening the conversation reads nothing.
+   */
+  readAloud?: boolean;
 }
 
 /** Maps stored conversation rows (one per turn) into chat bubbles. */
@@ -156,7 +161,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
     text: string,
     attachments: ChatAttachment[],
     edited?: Message,
-    { fresh = false, quotesPageText = false, handedOverBy }: SendOptions = {},
+    { fresh = false, quotesPageText = false, handedOverBy, readAloud = false }: SendOptions = {},
   ) => {
     const userMessage: Message = {
       id: `${Date.now()}-${nextTurnKey.current++}`,
@@ -173,6 +178,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
       isUser: false,
       timestamp: new Date(),
       parsedBlocks: [],
+      ...(readAloud && { readAloud }),
     };
     setMessages((prev) => {
       if (fresh) return [userMessage, botMessage];
@@ -305,6 +311,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
     const fresh = options?.fresh === true;
     const quotesPageText = options?.quotesPageText === true;
     const handedOverBy = options?.handedOverBy;
+    const readAloud = options?.readAloud === true;
     if (busy) {
       setQueued((prev) => [
         ...prev,
@@ -315,10 +322,16 @@ export function useChatConversation(options?: ChatConversationOptions) {
           ...(fresh && { fresh }),
           ...(quotesPageText && { quotesPageText }),
           ...(handedOverBy && { handedOverBy }),
+          ...(readAloud && { readAloud }),
         },
       ]);
     } else {
-      void sendTurn(text, attachments, undefined, { fresh, quotesPageText, handedOverBy });
+      void sendTurn(text, attachments, undefined, {
+        fresh,
+        quotesPageText,
+        handedOverBy,
+        readAloud,
+      });
     }
   };
 
