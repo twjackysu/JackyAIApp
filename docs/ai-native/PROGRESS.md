@@ -7,7 +7,7 @@
 - Studio「/」加「找 MCP server」（`find_mcp_server` key，`/mcp`、`/外掛` 叫得出來）。
 - **審查**（subagent，D-125）：無高風險；中——`more` 少算、第一次讀 Registry 可能超過 30 秒工具上限（改成等 20 秒就回「正在載入」）、taint 讓交棒失效（prompt 收窄、要先交棒）、手機上「加入」被抽屜蓋住（`/connectors?registry=` 時抽屜自己收起）；低——自訂已滿提示、名稱完全相同排第一、本站說明放在發布者文字前。都已修。
 - 截圖：`studio-find-mcp-*`、`studio-find-mcp-added-*`（新腳本 `.loop/shots/find-mcp.cjs`）。
-- 驗證：cscheck 新診斷 0（第二次抓到少了 `using JackyAIApp.Server.Common;`，已補）；前端 lint、test（149 檔 1593 個）、build 全過，審查修正後 StudioAssistant＋Connectors 測試 25 檔 222 個、tsc、eslint 過；CI 40276686274（D-124）、40277894340（審查修正）綠；CI_RESULT_PLACEHOLDER
+- 驗證：cscheck 新診斷 0（第二次抓到少了 `using JackyAIApp.Server.Common;`，已補）；前端 lint、test（149 檔 1593 個）、build 全過，審查修正後 StudioAssistant＋Connectors 測試 25 檔 222 個、tsc、eslint 過；CI 40276686274（D-124）、40277894340（審查修正）綠；**40278449104（本輪最後一次含程式碼的 push 73f8a0b3：「/」指令＋文件）綠**。
 - 問題：無阻礙。
 
 ## 2026-10-26 11:42 – 第 29 輪（/connectors 搜尋 MCP 官方目錄）
