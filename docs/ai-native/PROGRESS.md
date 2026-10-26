@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-26 17:42 – 第 32 輪（Jira 原生 connector、朗讀與 Registry 的小修）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。
+- **D-129**（前端）：自動朗讀改看草稿還留著多少聽到的字（`utils/spokenDraft` 的 `stillSpoken`，LCS ≥ 一半）——刪掉聽到的字改用打的就不念，修正聽錯的字仍念；`AddMcpServerForm` 以 `registrySearch` 當 key，Studio 第二次「加入」換成新的搜尋。
+- **Jira 原生 connector**（D-130）：`jira_issues`（`Services/Connectors/Atlassian/JiraIssuesTool`）用既有 Atlassian 連線（`read:jira-work`，不用重連）：accessible-resources → 第一個 Jira 網站 → `/rest/api/3/search/jql`；預設「指派給我、未完成」，模型可自己寫 JQL，400 時把 Jira 的說明交給模型修正；表格卡片＋每張票的 `/browse` 連結；`OutsideText`。Studio prompt、「/」我的工作待辦（`my_jira_issues`）、接著問；本站 MCP 同意頁與 token 說明加上 Jira。原始需求「既有 Atlassian／Microsoft／Google 連線對 AI 來說也是工具」從只有 Google 補到 Atlassian。截圖 `studio-jira-*`（新腳本 `.loop/shots/jira.cjs`），SHOWCASE 亮點、demo、開發日誌。
+- **審查**（subagent，D-131）：無高風險；中——新讀取工具會自動給已發出的本站 MCP token（production 還沒有 token，合併後的新工具要處理，記在 NEXT）；低——JQL 要有篩選條件（寫進工具說明）、截字切開 emoji（`CutAt`）、長貼文後用說的比對漏掉（改看草稿結尾）已修。
+- 驗證：cscheck 新診斷只有已知的 `[GeneratedRegex]` 雜訊；前端 lint、test（150 檔 1619 個）、build 全過，審查修正後 aiChat utils 測試、eslint、prettier 過；CI 40303525213（D-129＋D-130）綠；**40304791938（本輪最後一次含程式碼的 push f940db89：審查修正）綠**。
+- 問題：無阻礙。
+
 ## 2026-10-26 15:42 – 第 31 輪（接上就試、已加入的標示）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。
