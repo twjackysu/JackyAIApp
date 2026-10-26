@@ -24,6 +24,7 @@
 | 「我的投資組合現在怎麼樣？」→ **持倉表格卡片** + 重點分析 | `portfolio_summary`，照 /portfolio 的估值 | 結果是 UI，不是一坨文字（generative UI） |
 | 「我今天加碼 0050 兩張，均價 185，幫我記下來」（或**貼一張券商成交回報的截圖**）→ **確認卡**「『0050』加 2,000（成交價 185）（存成今天的快照）」→ 允許 → 投資組合更新 | `update_holding`（寫入，先確認）：最新快照改那一筆、存成今天的快照，成本照平均成本法（買進加上付出的錢、賣出保留平均成本）；買進沒說價格就先問、對到兩筆就不猜 | 跨 app 的「用說的記帳」：AI 不只讀你的資料，也幫你維護它 |
 | 「我今天有什麼行程？」→ **Google 日曆表格卡片** + 空檔建議 | 原生 connector `google_calendar_events`：用既有 Google 帳號連線（唯讀），行程標題視為外部文字 | 不只 MCP：自家程式呼叫 API 也是同一套工具抽象 |
+| 「我手上有哪些 Jira 票？」（或打 **`/jira`**）→ **Jira 表格卡片** + 先處理哪張的建議，每張票的 key 直接連到 Jira | 原生 connector `jira_issues`：用既有 Atlassian 帳號連線（唯讀、不用新 scope），先找到你的 Jira 網站再用 JQL 搜尋；問特定專案或狀態時 AI 自己寫 JQL，寫錯會照 Jira 的說明自己修正 | 既有的帳號連線不用重連，就變成 AI 的工具；Claude Desktop 透過本站 MCP server 也查得到 |
 | /data-analysis 最上方的 AI 對話：問問題 → **互動圖表**（卡片上直接換成長條、圓餅…，不再問 AI）→ 「存到業績追蹤 dashboard」→ 確認 → 完成 | `ask_data`（沿用 問 AI 的檢查過的查詢管線）、`describe_data`、`save_to_dashboard` | AI 只用經過驗證的查詢，不自己寫 SQL |
 | **一句話做出整個 dashboard**：「幫我做一個業績總覽 dashboard（3 到 4 張圖），存完打開」→ AI 自己挑趨勢、組成、排名三四張互補的圖 → 一張確認卡列出全部，按 **「全部允許（3）」** → 頁面切到剛做好的 dashboard | 只靠 prompt：同一個回覆一起呼叫多個 `ask_data`，再一起呼叫多個 `save_to_dashboard`（依序執行，第一張建立、之後的找到它）；確認卡的「全部允許」只在全部是本站工具、沒有無法復原的動作、沒讀過外部內容時出現 | Agent 做的是「一件事」而不是「一個步驟」：規劃、執行多步、一次讓你確認 |
 | **AI 之間交棒**：在任何頁面跟 Studio AI 說「幫我做一個業績總覽 dashboard」→ 它說「交給資料分析的 AI 助理」→ 頁面自己切到 /data-analysis，那裡的助理**自動展開並接手**，畫圖、出確認卡 | `open_page` 的 `go`＋`ask` → `tool_result.handoff`（只跟著站內導覽送、讀過外部內容的對話不送）→ react-router 的 location state（外部連結設不了）→ 目的頁的 launcher 以新對話送一次後清掉 | 多 agent 協作（handoff）：全站助理是入口與調度者，專門的助理帶專門的工具做事；使用者不必知道該去哪問、也不用重打一次 |
@@ -93,6 +94,8 @@
    ![貼成交回報截圖記帳](screenshots/studio-trade-image-desktop.png)
    接著問「我今天有什麼行程？」（需先在 /connectors 的帳號連線連上 Google）→ Google 日曆表格卡片與空檔。
    ![Studio 讀 Google 日曆](screenshots/studio-calendar-desktop.png)
+   打 **`/jira`** →「我的工作待辦」→ Studio 用 Atlassian 帳號連線讀 Jira，表格列出手上還沒完成的票，再建議先處理哪張（每個 key 連到 Jira）；接著問「只看優先度高的」，AI 自己寫 JQL 再查一次（D-130）。
+   ![Studio 讀 Jira](screenshots/studio-jira-desktop.png)
    **持股的市場面交給 Stock Intelligence**：回到 /portfolio → ⌘K → 建議「我的持股最近外資在買還是賣？」→ Studio AI 讀完持股（表格卡片）說「我把這三檔交給 Stock Intelligence 的 AI 助理了」→ 頁面切到 /finance，那裡的助理收到「我持有 2330 台積電、0050、2454 聯發科，這幾檔最近外資在買還是賣？」並用 tw-stock 工具回答——兩個 AI 各用自己的工具接力，使用者一個字都沒重打。
    ![Studio 讀持股後交棒](screenshots/studio-holdings-handoff-desktop.png)
    ![Stock Intelligence 接手回答](screenshots/studio-holdings-finance-desktop.png)
@@ -151,7 +154,7 @@ flowchart LR
   subgraph Server["ASP.NET Core"]
     Chat["Chat 引擎（Services.Chatbot）<br/>agent loop・SSE・確認・usage 計費"]
     Profiles["IChatProfile<br/>studio / data-analysis / finance"]
-    Site["本站工具 ISiteTool<br/>字典・單字庫・Portfolio・Google 日曆・open_page"]
+    Site["本站工具 ISiteTool<br/>字典・單字庫・Portfolio・Google 日曆・Jira・open_page"]
     DATools["ask_data・describe_data・save_to_dashboard"]
     CTS["ConnectorToolSource<br/>使用者的 MCP connector"]
     OAuth["MCP OAuth<br/>PRM・AS metadata・CIMD/DCR・PKCE・refresh"]
@@ -241,5 +244,6 @@ flowchart LR
 | 10/26 | 29 | **/connectors 搜尋 MCP 官方目錄**：不知道網址也能加 remote MCP server（D-122）；審查後改成整份讀一次、本機比對名稱與說明（D-123） |
 | 10/26 | 30 | **Studio AI 幫你找 MCP server**（`find_mcp_server`：卡片按「加入」到 /connectors，對話框已搜好；安裝仍由你按；D-124、D-125） |
 | 10/26 | 31 | **接上就試**（「在 Studio AI 試試看」：新增 MCP server 的最後一步與 connector 詳情，Studio 開新對話用一個讀取工具示範；D-126） |
+| 10/26 | 32 | **Jira 原生 connector**（`jira_issues`：既有 Atlassian 連線變成 AI 工具，JQL 搜尋、表格卡片、Studio「/jira」；D-130）；改用打字後不再自動朗讀、Studio 第二次「加入」換新搜尋（D-129） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。
