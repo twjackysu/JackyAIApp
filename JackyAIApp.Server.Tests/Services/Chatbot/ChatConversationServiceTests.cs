@@ -225,5 +225,56 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             Assert.Equal(["fin"], (await As("alice").ListAsync("finance", default)).Data!.Select(c => c.Id));
             Assert.Equal(["data"], (await As("alice").ListAsync("data-analysis", default)).Data!.Select(c => c.Id));
         }
+
+        [Fact]
+        public async Task Rename_KeepsTheReadersTitleOnOneLine_AndLeavesWhenItWasLastChanged()
+        {
+            await SeedAsync();
+
+            var result = await As("alice").RenameAsync("c1", "  台積電\n  財報\t重點 ", default);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal("台積電 財報 重點", result.Data!.Title);
+            var stored = Db().ChatConversations.AsNoTracking().Single(c => c.Id == "c1");
+            Assert.Equal("台積電 財報 重點", stored.Title);
+            Assert.Equal(_t0, stored.UpdatedAt);
+        }
+
+        [Fact]
+        public async Task Rename_RefusesAnEmptyOrTooLongTitle_AndSomeoneElsesConversation()
+        {
+            await SeedAsync();
+            var alice = As("alice");
+
+            Assert.Equal(ErrorCodes.BadRequest, (await alice.RenameAsync("c1", " \n ", default)).Error);
+            Assert.Equal(ErrorCodes.BadRequest, (await alice.RenameAsync("c1", null, default)).Error);
+            Assert.Equal(ErrorCodes.BadRequest, (await alice.RenameAsync("c1", new string('字', 41), default)).Error);
+            Assert.Equal(ErrorCodes.BadRequest, (await alice.RenameAsync(" ", "新標題", default)).Error);
+            Assert.Equal(ErrorCodes.NotFound, (await alice.RenameAsync("c2", "新標題", default)).Error);
+            Assert.Equal(ErrorCodes.NotFound, (await alice.RenameAsync("nope", "新標題", default)).Error);
+
+            var titles = Db().ChatConversations.AsNoTracking().OrderBy(c => c.Id).Select(c => c.Title).ToList();
+            Assert.Equal(["台積電", "鴻海"], titles);
+        }
+
+        [Fact]
+        public async Task Rename_CountsAnEmojiAsOneCharacter()
+        {
+            await SeedAsync();
+            var forty = string.Concat(Enumerable.Repeat("📈", 40));
+
+            var result = await As("alice").RenameAsync("c1", forty, default);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(forty, result.Data!.Title);
+        }
+
+        [Theory]
+        [InlineData("台積電", "台積電")]
+        [InlineData("  a\r\n\tb  ", "a b")]
+        [InlineData("a\u3000b", "a b")]
+        [InlineData("\n\t ", null)]
+        public void CleanTitle_IsOneLine(string typed, string? expected) =>
+            Assert.Equal(expected, ChatConversationService.CleanTitle(typed));
     }
 }

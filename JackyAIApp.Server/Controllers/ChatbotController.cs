@@ -199,6 +199,15 @@ namespace JackyAIApp.Server.Controllers
             _responseFactory.ToActionResult(await _titler.NameAsync(conversationId, ct));
 
         /// <summary>
+        /// Gives one of the current user's conversations the title they typed (D-144). Not charged: no AI.
+        /// A conversation renamed before the AI named it is not named by the AI after.
+        /// </summary>
+        [HttpPut("conversations/{conversationId}/title")]
+        public async Task<IActionResult> RenameConversation(
+            string conversationId, [FromBody] ChatRenameRequest request, CancellationToken ct = default) =>
+            _responseFactory.ToActionResult(await _conversations.RenameAsync(conversationId, request.Title, ct));
+
+        /// <summary>
         /// Stops the answer being written in one of the current user's conversations. What was said
         /// before the stop is kept, marked as cut off; the stream ends with done { stopped: true }.
         /// Succeeds whether or not an answer was still being written (it may just have finished).

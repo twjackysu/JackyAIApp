@@ -342,6 +342,11 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   may be named once more; without the API key or on any failure (deleted meanwhile included) the title stays as it was, still
   200, a reply with no title logged with its stop reason. Not charged on its own: a conversation exists only after a charged
   message, and the call is a few hundred tokens (logged as `chatbot.title`)
+- The reader can also give a conversation a title of their own (D-144): `PUT conversations/{id}/title` with `{ title }`
+  (`ChatConversationService.RenameAsync`): only their own (else NotFound), kept on one line (`CleanTitle`: every run of
+  white space or control characters one space), at most `MaxTitleLength` (40) characters counted as text elements, an
+  empty or longer one refused (400), never cut. It leaves `UpdatedAt` alone, so a renamed conversation keeps its place in
+  the list; no AI, no charge. A renamed conversation is no longer under its question's title, so the AI does not name it
 - `AnthropicChatService.StreamChatAsync` only orchestrates a turn. Its requests and the reading of the
   stream (the deltas to the reader, the pause_turn retries, uploading the files again when the Files API
   no longer has one) are `ModelTurn`, which ends in a `TurnOutcome`; what an outcome comes to (answered,

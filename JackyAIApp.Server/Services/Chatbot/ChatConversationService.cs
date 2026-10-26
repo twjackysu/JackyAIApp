@@ -3,6 +3,7 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using System.Text.Json;
 
 namespace JackyAIApp.Server.Services.Chatbot
@@ -19,6 +20,13 @@ namespace JackyAIApp.Server.Services.Chatbot
 
         /// <summary>A conversation's messages, oldest first.</summary>
         Task<ServiceResult<List<ChatMessageDto>>> GetMessagesAsync(string conversationId, CancellationToken ct);
+
+        /// <summary>
+        /// Gives a conversation the title the reader typed (D-144): one line, its spaces run together, at most
+        /// <see cref="ChatConversationService.MaxTitleLength"/> characters; an empty or longer one is refused,
+        /// never cut. When it was last changed is left alone, so renaming does not move it up the list.
+        /// </summary>
+        Task<ServiceResult<ChatTitleResponse>> RenameAsync(string conversationId, string? title, CancellationToken ct);
 
         /// <summary>Deletes a conversation with its messages, attachments and their files.</summary>
         Task<ServiceResult<NoData>> DeleteAsync(string conversationId, CancellationToken ct);
@@ -110,6 +118,40 @@ namespace JackyAIApp.Server.Services.Chatbot
             }).ToList();
 
             return ServiceResult.Ok(result);
+        }
+
+        /// <summary>The longest title a reader may give a conversation (the client's box holds the same, D-144).</summary>
+        internal const int MaxTitleLength = 40;
+
+        public async Task<ServiceResult<ChatTitleResponse>> RenameAsync(string conversationId, string? title, CancellationToken ct)
+        {
+            var userId = currentUser.RequireId();
+            if (string.IsNullOrWhiteSpace(conversationId))
+                return ConversationIdRequired;
+
+            var cleaned = CleanTitle(title);
+            if (cleaned == null)
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "標題不能是空白。");
+            if (new StringInfo(cleaned).LengthInTextElements > MaxTitleLength)
+                return ServiceResult.Fail(ErrorCodes.BadRequest, $"標題最多 {MaxTitleLength} 個字。");
+
+            var conversation = await dbContext.ChatConversations
+                .FirstOrDefaultAsync(c => c.Id == conversationId && c.UserId == userId, ct);
+            if (conversation == null)
+                return ConversationNotFound;
+
+            conversation.Title = cleaned;
+            await dbContext.SaveChangesAsync(ct);
+            return ServiceResult.Ok(new ChatTitleResponse(cleaned));
+        }
+
+        /// <summary>A typed title on one line: every run of white space or control characters one space, trimmed; null when nothing is left.</summary>
+        internal static string? CleanTitle(string? title)
+        {
+            if (title == null) return null;
+            var spaced = new string(title.Select(c => char.IsControl(c) || char.IsWhiteSpace(c) ? ' ' : c).ToArray());
+            var cleaned = string.Join(' ', spaced.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+            return cleaned.Length == 0 ? null : cleaned;
         }
 
         public async Task<ServiceResult<NoData>> DeleteAsync(string conversationId, CancellationToken ct)
