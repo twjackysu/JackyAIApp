@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-26 23:42 – 第 35 輪（長對話不卡、失敗的回答可以重試）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`gh` 沒登入，CI 用公開 API 看。
+- **每則訊息各自 memo**（D-138，只動前端）：NEXT 的「`MessageArea` 每則訊息 `React.memo`，要做先量」。量了：30 則（一半有表格）的對話，每段串流 329 ms 重畫整串 → `memo(MessageItem)`＋整段對話不變的 `handlers` 後 3.4 ms；打字時也不再重畫訊息。`MessageArea.memo.test`（舊程式碼會失敗的兩個案例＋仍呼叫最新 callback）。
+- **失敗的回答下方「重試」**（D-139，只動前端）：最後一則失敗、而且再問可能會好（忙碌、沒收到完整回覆、串流斷掉、連不上）時出現；問題原地重送（存過的當編輯、沒存過的連同附檔、`quotesPageText`、交棒標記、用聽的重新送出）。截圖 `retry-*`（新腳本 `.loop/shots/retry.cjs`），SHOWCASE 亮點、demo 第 9 步、日誌。
+- **審查**（subagent，D-140）：D-138 無行為差異。中——失敗的編輯重試變成追加（`replacesServerId`）、伺服器可能已存問題但沒送 `start`（只在收到 `start` 或 fetch 被拒時給重試）、重試可能重做寫入（有 `id` 的工具跑完就不給）；低——`hasOwnProperty`。都已修並補測試。
+- 驗證：前端 lint、test（152 檔 1644 個）、build 全過；CI 40353952704（D-138）、40355908452（D-139）綠；**40357652223（本輪最後一次含程式碼的 push 65705520：D-140）綠**。
+- 問題：無阻礙。
+
 ## 2026-10-26 21:46 – 第 34 輪（看得見 AI 在想什麼：思考摘要）
 
 - 開工：master 的新 commit（README 精簡）已在 branch 裡；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。clone 是 shallow，先 `--unshallow`；`gh` 沒登入，CI 用 GitHub MCP 與公開 API（`curl api.github.com/.../check-runs/<id>/annotations` 不用 token 也讀得到）。
