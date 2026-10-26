@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-26 21:46 – 第 34 輪（看得見 AI 在想什麼：思考摘要）
+
+- 開工：master 的新 commit（README 精簡）已在 branch 裡；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。clone 是 shallow，先 `--unshallow`；`gh` 沒登入，CI 用 GitHub MCP 與公開 API（`curl api.github.com/.../check-runs/<id>/annotations` 不用 token 也讀得到）。
+- **思考摘要**（D-136）：Haiku 5.5 本來就會思考，預設 `display: omitted` 不回傳。`ChatTurnRequest` 三種請求都帶 `thinking: adaptive + display: summarized`（計費相同），`ModelTurn` 把思考摘要送成 SSE `thinking`（不算回答、不存）。前端 `utils/thinking`＋`ThinkingTraceView`：「思考中… N 秒」＋最後一行 →「已思考 N 秒」，按下展開；純文字；header「💭 思考中…」；失敗的回合連思考一起拿掉。/finance、/data-analysis、Studio 都有。SDK 原始碼（`git clone --depth 1 --branch Anthropic-v12.60.0 https://github.com/anthropics/anthropic-sdk-csharp`）拿來確認型別。截圖 `thinking-*`（新腳本 `.loop/shots/thinking.cjs`），SHOWCASE 亮點、demo 第 1 步、日誌。
+- **審查**（subagent，D-137）：無高風險；低～中——兩個 thinking block 之間（Finance 的 tool search、pause_turn 重試）摘要黏在一起 → 伺服器在第二個起的 block 前加段落間隔、前端只留一個；低——`pause()` 沒變就不重畫、展開區塊 `unmountOnExit`。
+- 本站 MCP prompt `daily_briefing` 也讀 Outlook（`ifConnected`，沒有工具就略過；不列進 `Tools`，免得關掉 Outlook 的人連 prompt 都看不到）。
+- 驗證：前端 lint、test（全套 TEST 0）、build 全過，審查修正後 aiChat 測試 323 個、eslint、tsc 過；CI 40334251022 紅（`FinanceChatRequestTests` 的欄位清單沒加 `thinking`）→ 修正。
+- 問題：無阻礙。
+
 ## 2026-10-26 19:42 – 第 33 輪（Jira 留言、Outlook 行事曆）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。clone 是 shallow，先 `--unshallow`；`gh` CLI 沒有登入，CI 改用 GitHub MCP（`actions_list`／`actions_get`）看。

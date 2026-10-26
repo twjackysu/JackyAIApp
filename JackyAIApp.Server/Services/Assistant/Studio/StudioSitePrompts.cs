@@ -1,5 +1,6 @@
 using JackyAIApp.Server.Services.Connectors;
 using JackyAIApp.Server.Services.Connectors.Google;
+using JackyAIApp.Server.Services.Connectors.Outlook;
 
 namespace JackyAIApp.Server.Services.Assistant.Studio
 {
@@ -17,9 +18,10 @@ namespace JackyAIApp.Server.Services.Assistant.Studio
             [GoogleCalendarTool.Name, "learning_progress", "portfolio_summary"],
             [],
             _ =>
-                $"給我今天的簡報。在同一次回覆裡呼叫 jacky-studio 的 {GoogleCalendarTool.Name}（今天）、learning_progress、portfolio_summary，" +
+                $"給我今天的簡報。在同一次回覆裡呼叫 jacky-studio 的 {GoogleCalendarTool.Name}（今天，ifConnected: true）、" +
+                $"{OutlookCalendarTool.Name}（今天，ifConnected: true；沒有這個工具就略過）、learning_progress、portfolio_summary，" +
                 "整理成「📅 今天的行程」「📚 學習」「💰 資產」三段，每段一兩句重點（行程列出時間與空檔，學習說要複習幾個字與連續天數，" +
-                "資產說淨值與今天最需要注意的一檔），最後一句建議我先做哪件事。某個工具沒有資料（沒連 Google、還沒有投資組合）" +
+                "資產說淨值與今天最需要注意的一檔），最後一句建議我先做哪件事。某個工具沒有資料（兩個行事曆都沒連、還沒有投資組合）" +
                 "就在那段用一句話說明怎麼開始，不要編造。");
 
         public static IReadOnlyList<SitePrompt> All { get; } = [DailyBriefing];
