@@ -2,7 +2,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DownloadIcon from '@mui/icons-material/FileDownloadOutlined';
 import IosShareIcon from '@mui/icons-material/IosShare';
 import { IconButton, ListItemIcon, ListItemText, Menu, MenuItem, Snackbar } from '@mui/material';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import { useAiChatConfig } from '../config';
 import { Message } from '../types';
@@ -26,21 +26,28 @@ interface ExportConversationButtonProps {
 
 /**
  * The header's 匯出對話 (D-147): the conversation on screen as Markdown, copied or downloaded as a .md file.
- * Nothing goes to the server and nothing is charged; the title comes from the history list (read when the
- * menu opens, from the cache when it is there).
+ * Nothing goes to the server and nothing is charged; the title comes from the history list's cache.
  */
 const ExportConversationButton = ({
   messages,
   conversationId,
   busy,
 }: ExportConversationButtonProps) => {
-  const { profile, title: assistant = 'AI 助手' } = useAiChatConfig();
+  const { profile, title: assistant = 'AI 助手', cardRenderers } = useAiChatConfig();
+  const menuId = useId();
   // The menu is open while it has the button to hang from.
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const open = anchor !== null;
   const close = () => setAnchor(null);
+  // The notice keeps its words while it fades out; only `noticeOpen` goes.
   const [notice, setNotice] = useState('');
-  const { data } = useGetConversationsQuery(profile, { skip: !open || !conversationId });
+  const [noticeOpen, setNoticeOpen] = useState(false);
+  const say = (text: string) => {
+    setNotice(text);
+    setNoticeOpen(true);
+  };
+  // The history column reads the list (it stays mounted), so this is its cache.
+  const { data } = useGetConversationsQuery(profile, { skip: !conversationId });
   const title = data?.data.find((c) => c.id === conversationId)?.title;
 
   const markdown = () => {
@@ -52,6 +59,7 @@ const ExportConversationButton = ({
         assistant,
         exportedAt,
         origin: window.location.origin,
+        drawnKinds: Object.keys(cardRenderers ?? {}),
       }),
     };
   };
@@ -60,9 +68,9 @@ const ExportConversationButton = ({
     close();
     try {
       await copyText(markdown().text);
-      setNotice('已複製整段對話（Markdown）');
+      say('已複製整段對話（Markdown）');
     } catch {
-      setNotice('沒有複製成功，請改用下載');
+      say('沒有複製成功，請改用下載');
     }
   };
 
@@ -88,6 +96,8 @@ const ExportConversationButton = ({
             onClick={(e) => setAnchor(e.currentTarget)}
             aria-label="匯出對話"
             aria-haspopup="menu"
+            aria-expanded={open}
+            aria-controls={open ? menuId : undefined}
             disabled={busy || !canExportConversation(messages)}
             size="small"
             sx={{ color: 'text.secondary' }}
@@ -97,6 +107,7 @@ const ExportConversationButton = ({
         </span>
       </ActionTooltip>
       <Menu
+        id={menuId}
         anchorEl={anchor}
         open={open}
         onClose={close}
@@ -117,9 +128,9 @@ const ExportConversationButton = ({
         </MenuItem>
       </Menu>
       <Snackbar
-        open={!!notice}
+        open={noticeOpen}
         autoHideDuration={3000}
-        onClose={() => setNotice('')}
+        onClose={() => setNoticeOpen(false)}
         message={notice}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />

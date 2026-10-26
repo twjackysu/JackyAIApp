@@ -14,7 +14,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { useAiChatConfig } from '../config';
 import { noSelectionAsk } from '../selection/readSelection';
@@ -76,8 +76,13 @@ const ConversationList = ({
   const [renameConversation] = useRenameConversationMutation();
   // The conversation whose title is a box in its row (D-144).
   const [editingId, setEditingId] = useState<string | null>(null);
-  // A box closed from the keyboard gives the focus back to its row's pencil, which mounts again then (D-146).
+  // A box closed from the keyboard gives the focus back to its row's pencil, which mounts again then (D-146). Only on
+  // that commit: a row that does not come back (its new title is not what the search asks for, or it was deleted)
+  // must not take the focus whenever it shows again later (D-148).
   const refocusPencil = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (editingId === null) refocusPencil.current = null;
+  }, [editingId]);
   // A rename the server refused: its title is back as it was, and the column says why for a moment (D-146).
   const [renameFailed, setRenameFailed] = useState(false);
   useEffect(() => {
@@ -170,16 +175,15 @@ const ConversationList = ({
             }}
           />
         )}
-        {renameFailed && (
-          <Typography
-            role="status"
-            variant="caption"
-            color="error"
-            sx={{ display: 'block', mt: 0.75, px: 0.5 }}
-          >
-            {RENAME_FAILED_TEXT}
-          </Typography>
-        )}
+        {/* Always there, so a screen reader announces the words when they come (D-148). */}
+        <Typography
+          role="status"
+          variant="caption"
+          color="error"
+          sx={{ display: 'block', px: 0.5, ...(renameFailed && { mt: 0.75 }) }}
+        >
+          {renameFailed ? RENAME_FAILED_TEXT : ''}
+        </Typography>
       </Box>
 
       {isFetching && conversations.length === 0 ? (

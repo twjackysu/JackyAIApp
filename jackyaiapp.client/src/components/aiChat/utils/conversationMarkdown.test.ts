@@ -6,6 +6,7 @@ import {
   canExportConversation,
   conversationFileName,
   conversationMarkdown,
+  messageBody,
   taipeiMinute,
 } from './conversationMarkdown';
 
@@ -143,7 +144,7 @@ describe('conversationMarkdown (D-147)', () => {
           ],
         }),
       ],
-      options,
+      { ...options, drawnKinds: ['quiz'] },
     );
     expect(md).toContain('（「複習小測驗」在對話裡顯示，這裡沒有匯出）');
     expect(md).toContain('[Docs](<https://example.com/a b>)');
@@ -166,6 +167,84 @@ describe('conversationMarkdown (D-147)', () => {
   });
 });
 
+describe('what could break the document (D-148)', () => {
+  it("puts a message's headings two levels under the turns', not those in code", () => {
+    expect(
+      messageBody('## 你的持股\n內文\n# 總結\n###### 深\n#不是標題\n```\n# 註解\n```\n   ## 縮排'),
+    ).toBe('#### 你的持股\n內文\n### 總結\n###### 深\n#不是標題\n```\n# 註解\n```\n   #### 縮排');
+  });
+
+  it('closes a code block a cut answer left open, so the turns after it are not code', () => {
+    expect(messageBody('看這段：\n```ts\nconst a = 1;')).toBe('看這段：\n```ts\nconst a = 1;\n```');
+    expect(messageBody('~~~~\n```\n還在裡面')).toBe('~~~~\n```\n還在裡面\n~~~~');
+    const md = conversationMarkdown(
+      [user('程式'), bot('```py\nprint(1)', { truncated: true }), user('下一題')],
+      options,
+    );
+    expect(md).toContain('print(1)\n```\n\n*（回答太長，在這裡被截斷）*\n\n## 你\n\n下一題');
+  });
+
+  it("keeps a card's words from opening a link, emphasis or markup, and a backslash in an address whole", () => {
+    const md = conversationMarkdown(
+      [
+        user('q'),
+        bot('a', {
+          cards: [
+            {
+              kind: 'link',
+              title: 'C:\\dir\\ *x* <b>#',
+              description: null,
+              href: 'https://e.com/a\\',
+              actionLabel: null,
+            },
+            {
+              kind: 'table',
+              title: '**粗**',
+              columns: [{ key: 'a', label: 'A', numeric: false }],
+              rows: [],
+              totalRows: null,
+            },
+          ],
+        }),
+      ],
+      options,
+    );
+    expect(md).toContain('[C:\\\\dir\\\\ \\*x\\* \\<b\\>\\#](<https://e.com/a%5C>)');
+    expect(md).toContain('**\\*\\*粗\\*\\***');
+  });
+
+  it('lists only the tools that did their work, and leaves out a card this chat does not draw', () => {
+    const md = conversationMarkdown(
+      [
+        user('q'),
+        bot('a', {
+          toolSteps: [
+            { key: '1', name: 'x', label: '失敗的', status: 'failed' },
+            {
+              key: '2',
+              name: 'y',
+              label: '成功的',
+              status: 'done',
+              card: { kind: 'chart', title: '營收', data: {} },
+            },
+            {
+              key: '3',
+              name: 'z',
+              label: '測驗',
+              status: 'done',
+              card: { kind: 'quiz', title: '小測驗', data: {} },
+            },
+          ],
+        }),
+      ],
+      { ...options, drawnKinds: ['quiz'] },
+    );
+    expect(md).toContain('*用了：成功的、測驗*');
+    expect(md).not.toContain('營收');
+    expect(md).toContain('「小測驗」在對話裡顯示');
+  });
+});
+
 describe('canExportConversation', () => {
   it('needs a question', () => {
     expect(canExportConversation([])).toBe(false);
@@ -178,6 +257,8 @@ describe('conversationFileName', () => {
   it('is the title without what file systems refuse', () => {
     expect(conversationFileName('Q3/Q4 營收: 比較?', at)).toBe('Q3 Q4 營收 比較.md');
     expect(conversationFileName('x'.repeat(80), at)).toBe(`${'x'.repeat(60)}.md`);
+    // Cut by characters: no half emoji.
+    expect(conversationFileName(`${'x'.repeat(59)}📈📈`, at)).toBe(`${'x'.repeat(59)}📈.md`);
   });
 
   it('is the date in Taipei without a title', () => {
