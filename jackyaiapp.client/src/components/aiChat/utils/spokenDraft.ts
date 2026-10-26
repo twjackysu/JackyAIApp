@@ -1,4 +1,4 @@
-/** At most this much of either text is compared; a longer draft was typed or pasted far more than it was spoken. */
+/** At most this much of either text is compared (the draft's end), so a long draft costs no more than this. */
 const MAX_COMPARED = 1000;
 
 /**
@@ -9,7 +9,8 @@ const MAX_COMPARED = 1000;
 export function stillSpoken(draft: string, heard: string): boolean {
   const h = [...heard.replace(/\s+/g, '')].slice(0, MAX_COMPARED);
   if (h.length === 0) return false;
-  const d = [...draft.replace(/\s+/g, '')].slice(0, MAX_COMPARED);
+  // The end of the draft: what was heard goes after what was typed (a long paste first keeps it in reach).
+  const d = [...draft.replace(/\s+/g, '')].slice(-MAX_COMPARED);
   return commonInOrder(d, h) * 2 >= h.length;
 }
 

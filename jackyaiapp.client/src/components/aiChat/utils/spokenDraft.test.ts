@@ -8,6 +8,10 @@ describe('stillSpoken', () => {
     expect(stillSpoken('幫我查單字', '單字')).toBe(true);
   });
 
+  it('finds what was heard after a long text pasted first', () => {
+    expect(stillSpoken(`${'貼上的內容'.repeat(400)} 幫我摘要這段`, '幫我摘要這段')).toBe(true);
+  });
+
   it('keeps counting a misheard word the reader fixed', () => {
     expect(stillSpoken('serendipity 是什麼意思', 'sarah dippity 是什麼意思')).toBe(true);
   });

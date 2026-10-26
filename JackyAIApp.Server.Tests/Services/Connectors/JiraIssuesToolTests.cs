@@ -115,6 +115,19 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Fact]
+        public async Task ACutNeverSplitsAnEmoji()
+        {
+            Connected();
+            var jql = new string('a', JiraIssuesTool.MaxJql - 1) + "😀";
+
+            await Run(new { jql });
+
+            Assert.Equal(new string('a', JiraIssuesTool.MaxJql - 1), AskedJql());
+            Assert.Equal("ab", JiraIssuesTool.CutAt("ab😀", 3));
+            Assert.Equal("ab😀", JiraIssuesTool.CutAt("ab😀", 4));
+        }
+
+        [Fact]
         public async Task TheIssues_AreATable_WithTheirLinks_EachOnOneLine_AndBadKeysDropped()
         {
             Connected();
