@@ -177,7 +177,10 @@ const STUDIO_FOLLOW_UPS: NonNullable<AiChatConfig['followUps']> = [
   },
   { tools: ['update_holding'], texts: ['我的投資組合現在怎麼樣？'] },
   { tools: ['remember', 'forget'], texts: [WHAT_DO_YOU_REMEMBER] },
-  { tools: ['google_calendar_events'], texts: ['明天呢？', '這週哪天比較空？'] },
+  {
+    tools: ['google_calendar_events', 'outlook_calendar_events'],
+    texts: ['明天呢？', '這週哪天比較空？'],
+  },
   {
     tools: ['jira_issues'],
     texts: ['只看優先度高的', '哪幾張最久沒更新？', JIRA_COMMENT_FOLLOW_UP],

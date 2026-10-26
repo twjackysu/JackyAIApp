@@ -89,10 +89,10 @@ namespace JackyAIApp.Server.Services.Connectors.Google
             actionLabel = "前往 Connectors",
         };
 
-        /// <summary>What the model is told: one line an event, in Taipei time.</summary>
-        internal static string TextOf(CalendarRange range, IReadOnlyList<CalendarEvent> events)
+        /// <summary>What the model is told: one line an event, in Taipei time (<paramref name="calendar"/>: whose calendar, also Outlook's).</summary>
+        internal static string TextOf(CalendarRange range, IReadOnlyList<CalendarEvent> events, string calendar = "Google 日曆")
         {
-            var text = new StringBuilder($"Google 日曆，{range.Label}（{range.From:yyyy-MM-dd} 起 {range.Days} 天，台北時間）：");
+            var text = new StringBuilder($"{calendar}，{range.Label}（{range.From:yyyy-MM-dd} 起 {range.Days} 天，台北時間）：");
             if (events.Count == 0) return text.Append("沒有行程。").ToString();
             text.AppendLine($"{events.Count} 個行程");
             foreach (var e in events)
@@ -106,10 +106,10 @@ namespace JackyAIApp.Server.Services.Connectors.Google
         }
 
         /// <summary>The events as a table card.</summary>
-        internal static object CardOf(CalendarRange range, IReadOnlyList<CalendarEvent> events) => new
+        internal static object CardOf(CalendarRange range, IReadOnlyList<CalendarEvent> events, string calendar = "Google 日曆") => new
         {
             kind = "table",
-            title = $"Google 日曆・{range.Label}",
+            title = $"{calendar}・{range.Label}",
             columns = new object[]
             {
                 new { key = "when", label = "時間", nowrap = true },
@@ -225,7 +225,8 @@ namespace JackyAIApp.Server.Services.Connectors.Google
         private static string? Text(JsonElement e, string name) =>
             e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
-        private static string? Cut(string? text, int max)
+        /// <summary>An event's text on one line and cut (also Outlook's, <see cref="Outlook.OutlookCalendarTool"/>).</summary>
+        internal static string? Cut(string? text, int max)
         {
             // One line: an event's text never becomes several lines of the model's input.
             var t = text?.ReplaceLineEndings(" ").Trim();

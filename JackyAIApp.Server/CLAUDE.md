@@ -54,7 +54,7 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 | Platform | `Common`, `Configuration`, `Data`, `Services` (only what is directly in it: current user, accounts, usage limits, connectors, `DrawdownBrakeAccess`), `Services.AiUsage`, `.OpenAI`, `.Prompt`, `.Speech`, `.ExternalApi` (the gateway) | — |
 | MarketData | `Services.Market` (prices, history and backfill, fundamentals/chips/macro providers, TW symbol list, MIS TAIEX quote, trading calendar, `TwStockCode`), `Services.ExternalApi.Twse` | Platform |
 | English | `Services.Dictionary` (with `.Assistant`: its tools for Studio AI), `.Repository`, `.Exam`, `.Listening`, `.SpacedRepetition`, `.DailyChallenge`, `.WordOfTheDay`, `.SpellChecker`, `Mappers` | Connectors, Platform |
-| Connectors | `Services.Connectors` (what the AI may use: the tool contract `IAiTool`, the site's own tools as features register them, the reader's connectors and tool permissions, the hosted MCP servers, e.g. `TwStockMcp`; native connectors, `.Google`; the site's own MCP server, `.SiteMcp`; see docs/ai-native/design/03) | Platform |
+| Connectors | `Services.Connectors` (what the AI may use: the tool contract `IAiTool`, the site's own tools as features register them, the reader's connectors and tool permissions, the hosted MCP servers, e.g. `TwStockMcp`; native connectors, `.Google`, `.Atlassian`, `.Outlook` (never `.Microsoft`: it would hide the framework's `Microsoft.*` in this module); the site's own MCP server, `.SiteMcp`; see docs/ai-native/design/03) | Platform |
 | Assistant | `Services.Assistant` (chat profiles, the turn's request; `.Memory`: what the reader asked Studio AI to remember), `Services.Chatbot` (the shared chat engine: turns, stream, history, attachments) | Connectors, Platform |
 | Finance | `Services.Finance` (analysis, indicators, scoring, predictions, digest; `Services.Finance.Assistant`: the /finance assistant's profile and market background) | Assistant, Connectors, MarketData, Platform |
 | Portfolio | `Services.Portfolio` (with `.Assistant`: its tools for Studio AI) | Connectors, MarketData, Platform |
@@ -294,7 +294,7 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   cost needs its `price`, or the total `cost` paid, which is the only one taken when the cost is kept in another currency than
   the price, and is refused without one; a second change on a day replaces that day's snapshot, and the reply says so); the prompt has a trade confirmation the reader attached
   (a broker's screenshot) read out trade by trade and each one put to them as its own `update_holding` call; a new holding, or a name that matches two, is refused with a link to
-  /portfolio, never guessed: `Services/Portfolio/Assistant`; Data Analysis's `read_dashboard`, below; Connectors' `google_calendar_events`, `jira_issues` and `jira_add_comment`)
+  /portfolio, never guessed: `Services/Portfolio/Assistant`; Data Analysis's `read_dashboard`, below; Connectors' `google_calendar_events`, `outlook_calendar_events`, `jira_issues` and `jira_add_comment`)
   and the reader's connectors' tools. No tw-stock: /finance has its own assistant for the market. Its prompt also says
   what the morning briefing is (the home page's 「給我今天的簡報」: the calendar, `learning_progress` and
   `portfolio_summary` in one reply, three short parts, and with words due, an offer of a `review_quiz`; `StudioChatProfileTests` pins the tool names it uses). On a
@@ -395,7 +395,12 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   token from `IConnectorService`): an `ISiteTool` in `Services/Connectors/<Service>`. `GoogleCalendarTool`
   (`google_calendar_events`, `Services/Connectors/Google`) reads the primary calendar (today, tomorrow or 7 days,
   whole Taipei days; scope `calendar.readonly`) as a table card; without a Google connection, or one Google refuses,
-  it answers with a link card to /connectors rather than an error. Its results are `OutsideText`. `JiraIssuesTool`
+  it answers with a link card to /connectors rather than an error. Its results are `OutsideText`. `OutlookCalendarTool`
+  (`outlook_calendar_events`, `Services/Connectors/Outlook`, D-134) is the same days, events and card from the Microsoft
+  connection (scope `Calendars.Read`): Graph's `me/calendarView` for the range's whole Taipei days, with
+  `Prefer: outlook.timezone="Taipei Standard Time"` (a time Graph still gives in UTC is converted); `CalendarRange`,
+  `CalendarEvent` and the text and card (`GoogleCalendarTool.TextOf`/`CardOf` with the calendar's name) are shared. The
+  briefing calls both calendars and speaks only of those connected. `JiraIssuesTool`
   (`jira_issues`, `Services/Connectors/Atlassian`, D-130) reads Jira through the Atlassian connection (scope `read:jira-work`):
   the token's accessible resources give the first site granted Jira (a cloud id of letters, digits and dashes only, an https
   address), searched with the enhanced JQL search (`/rest/api/3/search/jql`, 20 issues) — the model's JQL, on one line and cut

@@ -5,6 +5,7 @@ using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.Connectors;
 using JackyAIApp.Server.Services.Connectors.Atlassian;
 using JackyAIApp.Server.Services.Connectors.Google;
+using JackyAIApp.Server.Services.Connectors.Outlook;
 using JackyAIApp.Server.Services.Connectors.SiteMcp;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.AiUsage;
@@ -208,6 +209,9 @@ namespace JackyAIApp.Server.Extensions
             // A native connector (design/03 §2): the reader's Google Calendar through their Google account connection.
             services.AddScoped<ISiteTool, GoogleCalendarTool>();
             services.AddSingleton(new SiteToolSet("Google 日曆", [GoogleCalendarTool.Definition]));
+            // …the reader's Outlook calendar through their Microsoft account connection (read only).
+            services.AddScoped<ISiteTool, OutlookCalendarTool>();
+            services.AddSingleton(new SiteToolSet("Outlook 行事曆", [OutlookCalendarTool.Definition]));
             // …and the reader's Jira issues through their Atlassian account connection: read, and a comment (a write, asked first).
             services.AddScoped<ISiteTool, JiraIssuesTool>();
             services.AddScoped<ISiteTool, JiraAddCommentTool>();

@@ -5,6 +5,7 @@ using JackyAIApp.Server.Services.Assistant.Memory;
 using JackyAIApp.Server.Services.Assistant.Studio;
 using JackyAIApp.Server.Services.Connectors;
 using JackyAIApp.Server.Services.Connectors.Google;
+using JackyAIApp.Server.Services.Connectors.Outlook;
 using JackyAIApp.Server.Services.Dictionary.Assistant;
 using JackyAIApp.Server.Services.Portfolio.Assistant;
 using Moq;
@@ -54,6 +55,7 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
             // The home page's 「AI 今日簡報」 sends 「給我今天的簡報」 (client: askStudio's BRIEFING_PROMPT).
             Assert.Contains("給我今天的簡報", setup.SystemPrompt);
             Assert.Contains(GoogleCalendarTool.Name, setup.SystemPrompt);
+            Assert.Contains(OutlookCalendarTool.Name, setup.SystemPrompt);
             Assert.Contains(LearningProgressTool.Name, setup.SystemPrompt);
             Assert.Contains(PortfolioSummaryTool.Name, setup.SystemPrompt);
             // …and offers a quiz when words are due.

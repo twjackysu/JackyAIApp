@@ -142,6 +142,12 @@ describe('studioFollowUpsFor', () => {
     expect(onReview.texts).not.toContain('帶我去複習');
   });
 
+  it('after reading either calendar, offers the next days', () => {
+    for (const tool of ['google_calendar_events', 'outlook_calendar_events']) {
+      expect(followUpsOn('/').find((r) => r.tools?.includes(tool))!.texts).toContain('明天呢？');
+    }
+  });
+
   it('after reading Jira, offers a comment on the latest issue; after a comment, the rest of the issues', () => {
     const read = followUpsOn('/').find((r) => r.tools?.includes('jira_issues'))!;
     expect(read.texts).toContain(JIRA_COMMENT_FOLLOW_UP);
