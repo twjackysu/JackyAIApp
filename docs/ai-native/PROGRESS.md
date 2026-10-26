@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-27 03:43 – 第 37 輪（對話手動改名、中途巡檢）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`gh` 沒登入，CI 用公開 API 看。
+- **對話手動改名**（D-144，後端＋前端）：紀錄列每列刪除旁多一支鉛筆 → 該列變成輸入框，Enter 或離開存、Escape 不改（不關抽屜）。`PUT api/chatbot/conversations/{id}/title`（`ChatConversationService.RenameAsync`／`CleanTitle`）：只限自己的、一行、最多 40 字（text element）、超過拒絕不截斷、不改 `UpdatedAt`、不計費；前端 `renameConversation` 樂觀更新、被拒還原，`renamedTitle`＋`MAX_TITLE_LENGTH`（測試對到 C# 常數）、`ConversationTitleEditor`。不需要 migration。截圖 `rename-*`（新腳本 `.loop/shots/rename.cjs`），SHOWCASE 亮點、demo 第 9 步、日誌。
+- **審查**（subagent，D-145）：無高風險。中——AI 命名期間改名會被蓋掉（存前 `ReloadAsync`，改過名／刪掉的不存）、輸入框開著時 AI 取好名，沒動就離開會寫回舊標題（比對打開時的標題）、在路上的列表請求蓋掉樂觀更新（存好後 invalidate）；低——Safari 中文選字的 Enter（`keyCode 229`）與選字中的 Escape。都已修並補測試（`ConversationTitleEditor.test`、titler 兩個競速測試）。
+- **中途巡檢**：`chat.cjs` 全部重拍（43 張），與 repo 比對沒有退化（差異都是第 23 輪後確認卡的剩餘時間、placeholder 的「/」提示等刻意改動），已更新 repo 裡既有的 41 張。
+- 驗證：前端 lint、test（154 檔 1656 個）、build 全過，審查修正後相關測試＋eslint＋build 過；cscheck 新診斷只有已知雜訊；CI 40390914576（D-144 後端）、40391542933（D-144 前端）綠；**40392318969（本輪最後一次含程式碼的 push 3dc9672f：D-145）綠**。
+- 問題：無阻礙。NEXT 裡「`?registry=` 第二次不換搜尋」其實早已修好（`AddMcpServerForm key={registrySearch}`），已從清單拿掉。
+
 ## 2026-10-27 01:42 – 第 36 輪（AI 替對話取名字、搜尋對話）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`gh` 沒登入，CI 用公開 API 看。
