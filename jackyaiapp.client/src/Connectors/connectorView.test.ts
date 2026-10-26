@@ -7,6 +7,8 @@ import {
   catalogEntries,
   connectAction,
   installedOrder,
+  installedServerUrls,
+  serverUrlKey,
   toolCounts,
 } from './connectorView';
 import { entry, installed } from './testData';
@@ -120,5 +122,29 @@ describe('canTryInStudio', () => {
 
   it("does not offer the site's own tools, which are always there", () => {
     expect(canTryInStudio(installed({ alwaysOn: true, id: null }))).toBe(false);
+  });
+});
+
+describe('serverUrlKey', () => {
+  it('writes an address the way the site stores one', () => {
+    expect(serverUrlKey('https://MCP.Example.com/mcp/')).toBe('https://mcp.example.com/mcp');
+    expect(serverUrlKey(' https://mcp.example.com/mcp#x ')).toBe('https://mcp.example.com/mcp');
+    expect(serverUrlKey('https://mcp.example.com/mcp?v=2')).toBe('https://mcp.example.com/mcp?v=2');
+  });
+
+  it('has nothing for no address, or one that is not an address', () => {
+    expect(serverUrlKey(null)).toBeNull();
+    expect(serverUrlKey('')).toBeNull();
+    expect(serverUrlKey('not a url')).toBeNull();
+  });
+});
+
+describe('installedServerUrls', () => {
+  it("lists the reader's servers by address, leaving out those without one", () => {
+    const urls = installedServerUrls([
+      installed({ serverUrl: 'https://mcp.deepwiki.com/mcp/' }),
+      installed({ alwaysOn: true, serverUrl: null }),
+    ]);
+    expect([...urls]).toEqual(['https://mcp.deepwiki.com/mcp']);
   });
 });

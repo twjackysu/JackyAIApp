@@ -303,7 +303,7 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 - Studio AI also finds MCP servers (`find_mcp_server`, `FindMcpServerTool`, Studio's own `IAiTool` beside `open_page`, not an
   `ISiteTool`, so not the site's MCP server's; D-124): a search of the official registry's list (`IMcpRegistry`, below) for the
   reader who asks for a server or for something neither the site's tools nor a page's assistant can do, shown as an
-  `mcp-servers` card (at most 6: name, title, host, what it needs, whether the catalog has it; `more` when there were more), whose
+  `mcp-servers` card (at most 6: name, title, host, what it needs, whether the catalog has it, and the address, for the client only to tell a server the reader has already added, D-127; `more` when there were more), whose
   rows send the reader to `/connectors?registry=<name>` to add it themselves; the AI never installs one. The registry's text is
   anyone's, so it is `OutsideText` (the conversation is tainted: no more navigation or handoff, writes ask first; the prompt has
   it hand off first), the model gets hosts, never URLs, and the site's own instructions before the publishers' words. It waits

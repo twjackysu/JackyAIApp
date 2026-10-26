@@ -123,3 +123,24 @@ export function canTryInStudio(connector: InstalledConnector): boolean {
     connector.tools.some((t) => t.permission !== 'disabled')
   );
 }
+
+/**
+ * A server address as the site stores one (https, no fragment, no trailing slash; the host in lower case), so a server
+ * the official MCP Registry lists can be told apart from one the reader has already added; null for no address.
+ */
+export function serverUrlKey(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url.trim());
+    return `${u.protocol}//${u.host}${u.pathname.replace(/\/+$/, '')}${u.search}`;
+  } catch {
+    return null;
+  }
+}
+
+/** The addresses of the MCP servers the reader has added, as `serverUrlKey` writes them. */
+export function installedServerUrls(installed: readonly InstalledConnector[]): Set<string> {
+  return new Set(
+    installed.map((c) => serverUrlKey(c.serverUrl)).filter((k): k is string => k !== null),
+  );
+}

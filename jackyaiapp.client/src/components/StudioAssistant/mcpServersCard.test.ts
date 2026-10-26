@@ -31,6 +31,7 @@ describe('parseMcpServersCard', () => {
           title: 'Weather',
           description: 'x'.repeat(200),
           host: 'weather.example.com',
+          url: null,
           needs: '需要 token',
           inCatalog: false,
         },
@@ -54,5 +55,14 @@ describe('parseMcpServersCard', () => {
   it('keeps at most ten', () => {
     const servers = Array.from({ length: 15 }, (_, i) => ({ name: `s${i}` }));
     expect(parseMcpServersCard(card({ search: 's', servers }))?.servers).toHaveLength(10);
+  });
+
+  it('keeps only an https address, to tell an added server (D-127)', () => {
+    const urls = (url: unknown) =>
+      parseMcpServersCard(card({ search: 'w', servers: [{ name: 'a/b', url }] }))!.servers[0].url;
+    expect(urls('https://mcp.example.com/mcp')).toBe('https://mcp.example.com/mcp');
+    expect(urls('javascript:alert(1)')).toBeNull();
+    expect(urls('http://mcp.example.com/mcp')).toBeNull();
+    expect(urls(42)).toBeNull();
   });
 });

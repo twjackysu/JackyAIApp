@@ -145,6 +145,8 @@ namespace JackyAIApp.Server.Services.Assistant.Studio
                     title = s.Title,
                     description = s.Description,
                     host = HostOf(s.Url),
+                    // For the client only, to tell a server the reader has already added (D-127); the model is given the host.
+                    url = s.Url,
                     needs = NeedsOf(s),
                     inCatalog = s.CatalogKey != null,
                 }).ToArray(),

@@ -13,6 +13,8 @@ import {
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 
+import { serverUrlKey } from '../connectorView';
+
 import {
   REGISTRY_SEARCH_DELAY_MS,
   registryHost,
@@ -34,7 +36,11 @@ interface RegistrySearchProps {
   autoFocus?: boolean;
   /** What the search starts with (Studio AI's card sends the reader here with a search, D-124). */
   initialSearch?: string;
+  /** The servers the reader has added (`installedServerUrls`): shown as added, not offered again. */
+  installedUrls?: ReadonlySet<string>;
 }
+
+const NONE: ReadonlySet<string> = new Set();
 
 /** Only an https link someone published is followed (the server keeps only those, too). */
 const safeLink = (url: string | null) => (url?.startsWith('https://') ? url : null);
@@ -49,6 +55,7 @@ export default function RegistrySearch({
   busy,
   autoFocus = false,
   initialSearch = '',
+  installedUrls = NONE,
 }: RegistrySearchProps) {
   const [typed, setTyped] = useState(initialSearch);
   const [search, setSearch] = useState(initialSearch.trim());
@@ -102,7 +109,13 @@ export default function RegistrySearch({
           sx={{ listStyle: 'none', p: 0, m: 0, maxHeight: 340, overflowY: 'auto' }}
         >
           {data.servers.map((s) => (
-            <RegistryRow key={s.url} server={s} busy={busy} onPick={onPick} />
+            <RegistryRow
+              key={s.url}
+              server={s}
+              busy={busy}
+              added={installedUrls.has(serverUrlKey(s.url) ?? '')}
+              onPick={onPick}
+            />
           ))}
         </Stack>
       )}
@@ -118,10 +131,12 @@ export default function RegistrySearch({
 function RegistryRow({
   server,
   busy,
+  added,
   onPick,
 }: {
   server: McpRegistryServer;
   busy: boolean;
+  added: boolean;
   onPick: (server: McpRegistryServer) => void;
 }) {
   const needs = registryNeeds(server);
@@ -179,6 +194,10 @@ function RegistryRow({
       {server.catalogKey ? (
         <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
           上方目錄已有，從那裡連線
+        </Typography>
+      ) : added ? (
+        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+          已經加入了
         </Typography>
       ) : (
         <Button

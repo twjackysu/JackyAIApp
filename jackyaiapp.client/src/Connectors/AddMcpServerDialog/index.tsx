@@ -57,6 +57,8 @@ interface AddMcpServerDialogProps {
   browseRegistry?: boolean;
   /** With `browseRegistry`: what the registry search starts with (`/connectors?registry=`, D-124). */
   registrySearch?: string;
+  /** The servers the reader has added (`installedServerUrls`), which the registry search shows as added. */
+  installedUrls?: ReadonlySet<string>;
   onClose: () => void;
   /** An OAuth server was added; the page sends the reader to sign in. */
   onAuthorize: (connector: InstalledConnector) => void;
@@ -95,6 +97,7 @@ function AddMcpServerForm({
   preset,
   browseRegistry = false,
   registrySearch,
+  installedUrls,
   onClose,
   onAuthorize,
 }: AddMcpServerDialogProps) {
@@ -216,6 +219,7 @@ function AddMcpServerForm({
                 busy={probing}
                 autoFocus={browseRegistry}
                 initialSearch={registrySearch}
+                installedUrls={installedUrls}
               />
             ) : (
               <Button

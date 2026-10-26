@@ -13,6 +13,8 @@ export interface McpServerFind {
   description: string | null;
   /** Where it lives, shown so the reader sees which site it goes to. */
   host: string | null;
+  /** Its https address, only to tell whether the reader has already added it (D-127); never a link. */
+  url: string | null;
   /** What adding it will ask for (需要 token), or null when the registry names nothing. */
   needs: string | null;
   /** The catalog on /connectors has it already, to connect from there. */
@@ -33,6 +35,11 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 const text = (v: unknown, max: number): string | null =>
   typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null;
 
+const httpsUrl = (v: unknown): string | null => {
+  const url = text(v, 2000);
+  return url?.startsWith('https://') ? url : null;
+};
+
 function parseServer(raw: unknown): McpServerFind | null {
   if (!isRecord(raw)) return null;
   const name = text(raw.name, 200);
@@ -43,6 +50,7 @@ function parseServer(raw: unknown): McpServerFind | null {
     title,
     description: text(raw.description, 200),
     host: text(raw.host, 253),
+    url: httpsUrl(raw.url),
     needs: text(raw.needs, 80),
     inCatalog: raw.inCatalog === true,
   };

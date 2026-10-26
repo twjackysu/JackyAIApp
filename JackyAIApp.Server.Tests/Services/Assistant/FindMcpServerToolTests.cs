@@ -60,7 +60,8 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
             Assert.Equal("需要 API key（X-API-Key）", first.GetProperty("needs").GetString());
             Assert.False(first.GetProperty("inCatalog").GetBoolean());
             Assert.True(data.GetProperty("servers")[2].GetProperty("inCatalog").GetBoolean());
-            Assert.False(first.TryGetProperty("url", out _));
+            // The client is given the address only to tell a server the reader has already added (D-127); the model never is.
+            Assert.Equal("https://weather.example.com/mcp?x=1", first.GetProperty("url").GetString());
         }
 
         [Fact]

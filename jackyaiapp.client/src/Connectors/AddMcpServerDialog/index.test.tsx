@@ -61,6 +61,7 @@ function render(
   preset = null as ReturnType<typeof entry> | null,
   browseRegistry = false,
   registrySearch?: string,
+  installedUrls?: ReadonlySet<string>,
 ) {
   act(() =>
     root.render(
@@ -69,6 +70,7 @@ function render(
         preset={preset}
         browseRegistry={browseRegistry}
         registrySearch={registrySearch}
+        installedUrls={installedUrls}
         onClose={onClose}
         onAuthorize={onAuthorize}
       />,
@@ -225,6 +227,27 @@ describe('AddMcpServerDialog', () => {
     expect(
       (document.body.querySelector('input[placeholder^="例如"]') as HTMLInputElement).value,
     ).toBe('io.example/weather');
+  });
+
+  it('shows a registry server the reader has already added as added, not offered again (D-127)', () => {
+    mocks.registry.mockReturnValue({
+      currentData: {
+        servers: [
+          registryServer({ title: 'Weather', url: 'https://mcp.weather.example/mcp/' }),
+          registryServer({
+            name: 'io.example/news',
+            title: 'News',
+            url: 'https://news.example/mcp',
+          }),
+        ],
+        more: false,
+      },
+      isFetching: false,
+    });
+    render(null, true, 'w', new Set(['https://mcp.weather.example/mcp']));
+    expect(text()).toContain('已經加入了');
+    expect(document.body.querySelector('[aria-label="使用 Weather"]')).toBeNull();
+    expect(document.body.querySelector('[aria-label="使用 News"]')).not.toBeNull();
   });
 
   it('checks a server picked from the registry, named by its title, with its header ready', async () => {

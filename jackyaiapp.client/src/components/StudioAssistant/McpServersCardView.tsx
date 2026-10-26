@@ -7,8 +7,10 @@ import { parseMcpServersCard, type McpServerFind } from './mcpServersCard';
 
 import type { CustomCard } from '@/components/aiChat/cards/toolCard';
 
+import { useGetConnectorCatalogQuery } from '@/apis/connectorsApis/connectorsApis';
 import { ACCENT } from '@/components/aiChat/style';
 import { connectorsRegistryPath } from '@/Connectors/AddMcpServerDialog/registryView';
+import { installedServerUrls, serverUrlKey } from '@/Connectors/connectorView';
 
 /**
  * Studio AI's finds in the official MCP Registry (`find_mcp_server`, D-124): each server's name, where it lives and
@@ -18,6 +20,9 @@ import { connectorsRegistryPath } from '@/Connectors/AddMcpServerDialog/registry
  */
 export default function McpServersCardView({ card }: { card: CustomCard }) {
   const found = useMemo(() => parseMcpServersCard(card), [card]);
+  // The reader's connectors, to show one already added as such (D-127); until they are read, every row offers 加入.
+  const { data: catalog } = useGetConnectorCatalogQuery();
+  const added = useMemo(() => installedServerUrls(catalog?.installed ?? []), [catalog]);
   if (!found) return null;
   return (
     <Box>
@@ -34,7 +39,7 @@ export default function McpServersCardView({ card }: { card: CustomCard }) {
         sx={{ listStyle: 'none', p: 0, m: 0 }}
       >
         {found.servers.map((s) => (
-          <ServerRow key={s.name} server={s} />
+          <ServerRow key={s.name} server={s} added={added.has(serverUrlKey(s.url) ?? '')} />
         ))}
       </Stack>
       <Stack
@@ -58,7 +63,7 @@ export default function McpServersCardView({ card }: { card: CustomCard }) {
   );
 }
 
-function ServerRow({ server }: { server: McpServerFind }) {
+function ServerRow({ server, added }: { server: McpServerFind; added: boolean }) {
   return (
     <Box
       component="li"
@@ -102,16 +107,28 @@ function ServerRow({ server }: { server: McpServerFind }) {
           </Box>
         )}
       </Stack>
-      <Button
-        component={RouterLink}
-        to={server.inCatalog ? '/connectors' : connectorsRegistryPath(server.name)}
-        size="small"
-        variant="outlined"
-        aria-label={`到 Connectors 加入 ${server.title}`}
-        sx={{ flexShrink: 0 }}
-      >
-        {server.inCatalog ? '從目錄連線' : '加入'}
-      </Button>
+      {added ? (
+        <Button
+          component={RouterLink}
+          to="/connectors"
+          size="small"
+          aria-label={`${server.title} 已經加入了，到 Connectors 查看`}
+          sx={{ flexShrink: 0 }}
+        >
+          已加入
+        </Button>
+      ) : (
+        <Button
+          component={RouterLink}
+          to={server.inCatalog ? '/connectors' : connectorsRegistryPath(server.name)}
+          size="small"
+          variant="outlined"
+          aria-label={`到 Connectors 加入 ${server.title}`}
+          sx={{ flexShrink: 0 }}
+        >
+          {server.inCatalog ? '從目錄連線' : '加入'}
+        </Button>
+      )}
     </Box>
   );
 }

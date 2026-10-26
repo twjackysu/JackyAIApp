@@ -1,9 +1,17 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import McpServersCardView from './McpServersCardView';
+
+import { installed } from '@/Connectors/testData';
+
+const mocks = vi.hoisted(() => ({ catalog: vi.fn() }));
+
+vi.mock('@/apis/connectorsApis/connectorsApis', () => ({
+  useGetConnectorCatalogQuery: () => mocks.catalog(),
+}));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -11,6 +19,7 @@ let container: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
+  mocks.catalog.mockReturnValue({ data: undefined });
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -68,5 +77,31 @@ describe('McpServersCardView', () => {
   it('draws nothing for a card that does not add up', () => {
     render({ search: 'x', servers: [] });
     expect(container.textContent).toBe('');
+  });
+
+  it('shows a server the reader has already added as added (D-127)', () => {
+    mocks.catalog.mockReturnValue({
+      data: {
+        entries: [],
+        customLimit: 10,
+        installed: [
+          installed({ definitionKey: 'custom', serverUrl: 'https://weather.example.dev/mcp' }),
+        ],
+      },
+    });
+    render({
+      search: 'weather',
+      servers: [
+        { name: 'io.example/weather', title: 'Weather', url: 'https://Weather.example.dev/mcp/' },
+        { name: 'io.example/other', title: 'Other', url: 'https://weather.example.dev/other' },
+        { name: 'io.example/plain', title: 'Plain', url: 'http://weather.example.dev/mcp' },
+      ],
+    });
+    expect(links()).toEqual([
+      ['已加入', '/connectors'],
+      ['加入', '/connectors?registry=io.example%2Fother'],
+      ['加入', '/connectors?registry=io.example%2Fplain'],
+      ['在 Connectors 搜尋', '/connectors?registry=weather'],
+    ]);
   });
 });

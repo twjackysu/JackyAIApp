@@ -7,7 +7,7 @@ import AddMcpServerDialog from './AddMcpServerDialog';
 import { REGISTRY_PARAM, registrySearchOf } from './AddMcpServerDialog/registryView';
 import CatalogSection from './CatalogSection';
 import ConnectorDetailDrawer from './ConnectorDetailDrawer';
-import { connectAction } from './connectorView';
+import { connectAction, installedServerUrls } from './connectorView';
 import InstalledSection from './InstalledSection';
 
 import type { CatalogEntry, InstalledConnector } from '@/apis/connectorsApis/types';
@@ -218,6 +218,7 @@ export default function AiConnectorsSection({
         preset={dialog.preset}
         browseRegistry={dialog.browseRegistry}
         registrySearch={dialog.registrySearch}
+        installedUrls={installedServerUrls(catalog.installed)}
         onClose={() => setDialog({ open: false, preset: null })}
         onAuthorize={(c) => {
           setDialog({ open: false, preset: null });

@@ -174,7 +174,9 @@ sent or stored, so a reopened conversation shows a plain message. A site tool's 
   `/connectors?registry=<search>` (`connectorsRegistryPath`, `registrySearchOf`, D-124) opens that dialog with the search filled in,
   once, and drops the parameter (at the custom-server limit it says so instead): Studio AI's `find_mcp_server` answers with an
   `mcp-servers` card (`McpServersCardView`, `mcpServersCard.parseMcpServersCard`, Studio's own renderer beside `quiz`) whose rows'
-  加入 go there with the server's name, and Studio AI's drawer steps aside on such an address, keeping the conversation. A connector the reader has added, working and with a tool the AI may see (`connectorView.canTryInStudio`), offers
+  加入 go there with the server's name, and Studio AI's drawer steps aside on such an address, keeping the conversation. A server the reader has
+  already added (its address, `connectorView.serverUrlKey`, among `installedServerUrls`) shows as added there and in the dialog's registry
+  search, not offered again (D-127). A connector the reader has added, working and with a tool the AI may see (`connectorView.canTryInStudio`), offers
   「在 Studio AI 試試看」 on the dialog's last step and in its detail drawer (D-126): the dialog or drawer closes, then
   `askStudio(tryConnectorPrompt(name), { fresh: true })` asks Studio AI, in a conversation of its own (whose tools are read anew,
   the new connector's among them), to use one of its reading tools once and say what else it can do; the name, possibly a
