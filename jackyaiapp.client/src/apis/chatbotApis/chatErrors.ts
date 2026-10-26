@@ -32,7 +32,7 @@ export const isRetryableChatError = (code: string | undefined): boolean =>
   code === 'busy' ||
   code === 'no_answer' ||
   code === 'failed' ||
-  !(code in CHAT_ERROR_MESSAGES);
+  !Object.prototype.hasOwnProperty.call(CHAT_ERROR_MESSAGES, code);
 
 /** Shown under an answer that ran into the length limit. */
 export const TRUNCATED_NOTE = '回覆因長度上限被截斷，內容可能不完整。';

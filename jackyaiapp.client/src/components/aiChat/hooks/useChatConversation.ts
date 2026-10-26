@@ -172,6 +172,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
       attachments: attachments.length > 0 ? attachments : undefined,
       ...(handedOverBy && { handedOverBy }),
       ...(quotesPageText && { quotesPageText }),
+      ...(edited?.serverId && { replacesServerId: edited.serverId }),
     };
     // 創建初始的 bot 訊息
     const botMessage: Message = {
@@ -307,12 +308,25 @@ export function useChatConversation(options?: ChatConversationOptions) {
       // block list is what a reply that never started looks like, and it draws nothing.
       // A failed turn shows only its error, as the server keeps nothing of it: its thinking goes too.
       onError: (error, retryable) => {
-        updateBot({
-          content: `錯誤: ${error}`,
-          parsedBlocks: undefined,
-          thinking: undefined,
-          ...(retryable && { retryable }),
-        });
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === botMessage.id
+              ? {
+                  ...msg,
+                  content: `錯誤: ${error}`,
+                  parsedBlocks: undefined,
+                  thinking: undefined,
+                  // Not after one of the site's or a connector's tools ran (they carry an id; tw-stock's hosted
+                  // ones do not): a failed turn is not stored, so asked again the model would not know a write
+                  // already happened, and could make it twice (D-139).
+                  ...(retryable &&
+                    !msg.toolSteps?.some((step) => step.id && step.status === 'done') && {
+                      retryable,
+                    }),
+                }
+              : msg,
+          ),
+        );
         settleSteps(false);
         closeApproval();
       },
@@ -381,7 +395,9 @@ export function useChatConversation(options?: ChatConversationOptions) {
     const index = messages.findIndex((m) => m.id === answer.id);
     const question = messages[index - 1];
     if (index !== messages.length - 1 || !question?.isUser) return;
-    void sendTurn(question.content, question.attachments ?? [], question, {
+    // An edit the server never got is still that edit: of the message it was to replace.
+    const target = { ...question, serverId: question.serverId ?? question.replacesServerId };
+    void sendTurn(question.content, question.attachments ?? [], target, {
       quotesPageText: question.quotesPageText === true,
       handedOverBy: question.handedOverBy,
       readAloud: answer.readAloud === true,

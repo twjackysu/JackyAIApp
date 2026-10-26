@@ -64,6 +64,9 @@ export interface Message {
   readAloud?: boolean;
   /** A user message sent as quoting page text (`SendOptions.quotesPageText`): asked again, it goes so again. */
   quotesPageText?: boolean;
+  /** A user message sent in place of this stored one (an edit) before the server had stored it in turn: asked again,
+   *  it is still that edit (D-139). */
+  replacesServerId?: number;
   /** A failed answer that may well work asked again (the service busy, the network, a cut stream), D-139. */
   retryable?: boolean;
 }

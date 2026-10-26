@@ -99,11 +99,15 @@ jackyaiapp.client/src/
   only the message that changed is drawn again; the page's callbacks reach the messages through one `handlers` object
   `MessageArea` keeps for the conversation's life (calling the latest ones). A new `MessageItem` prop must not be an
   object or function made anew each render, or every earlier answer's Markdown and charts are drawn again with it
-  A failed last answer that asking again may fix (`Message.retryable`: the service busy, no answer, a cut stream, the network,
-  a 5xx; `isRetryableChatError` — not a conversation too long, a request too large, a decline or the assistant switched off,
-  nor a 4xx such as the daily limit) offers 重試 under it (D-139, `useChatConversation`'s `retry`): its question goes again in
-  its place, as an edit of itself when the server stored it (`serverId`, the server re-attaching its files), otherwise sent
-  anew with its files, its quoting of page text (`Message.quotesPageText`), its handed-over mark and its asking to be read aloud
+  A failed last answer that asking again may fix offers 重試 under it (D-139, D-140; `Message.retryable`, `useChatConversation`'s
+  `retry`): a failure `isRetryableChatError` counts so (the service busy, no answer, a cut stream — not a conversation too long, a
+  request too large, a decline or the assistant switched off), only once the server said `start` (it stored the question) or when
+  the request never reached it (fetch rejected): a refused request or one cut before `start` may have been stored with its files
+  unannounced, and sending it again would leave a second copy and lose the files. Never after one of the site's or a connector's
+  tools ran in it (a step with an `id`): a failed turn is not stored, so the model asked again would not know a write happened.
+  Its question goes again in its place: as an edit of itself when the server stored it (the server re-attaching its files), as the
+  edit it was when it was one the server never got (`Message.replacesServerId`), otherwise anew with its files, its quoting of page
+  text (`Message.quotesPageText`), its handed-over mark and its asking to be read aloud
 - Studio AI (`components/StudioAssistant`, mounted once in `App.tsx`) is the same chat as a sheet: a button
   in the lower right, or ⌘K / Ctrl+K, opens `AiAssistantPanel` with `variant="sheet"` (fills a right-hand
   drawer, the history behind its button, the header's last action closes) under the `studio` profile, with

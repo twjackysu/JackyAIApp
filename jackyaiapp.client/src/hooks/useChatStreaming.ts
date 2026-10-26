@@ -103,7 +103,12 @@ export interface ChatTurn {
   onComplete: (conversationId?: string, truncated?: boolean, assistantMessageId?: number) => void;
   /** The reader stopped the turn; `partial` is what had been written by then (the server keeps it). */
   onStopped: (partial: string, assistantMessageId?: number) => void;
-  /** The turn failed: the words to show, and whether asking again may work (`isRetryableChatError`, D-139). */
+  /**
+   * The turn failed: the words to show, and whether asking again may work (D-139): a failure `isRetryableChatError`
+   * counts so, once the server had started the turn (it stored the question: `start`), or a request that never reached
+   * it (fetch rejected). A refused request, or one cut before `start`, may have been stored with its files without the
+   * client knowing, so sending it again would leave a second copy and lose the files: not offered.
+   */
   onError: (error: string, retryable: boolean) => void;
   /** A tool call started or finished. */
   onToolEvent?: (event: ToolEvent) => void;
@@ -117,16 +122,6 @@ export const STOPPED_NOTE = '（已中斷）';
 /** A stopped answer as the server stores it, so the bubble reads the same before and after a reload. */
 export const stoppedContent = (partial: string) =>
   partial.trim() ? `${partial.trimEnd()}\n\n${STOPPED_NOTE}` : STOPPED_NOTE;
-
-/** A request the server answered with an error status, and whether asking again may work. */
-class ChatRequestError extends Error {
-  readonly retryable: boolean;
-
-  constructor(message: string, retryable: boolean) {
-    super(message);
-    this.retryable = retryable;
-  }
-}
 
 const stopOnServer = (conversationId: string) =>
   fetch(`/api/chatbot/conversations/${encodeURIComponent(conversationId)}/stop`, {
@@ -206,6 +201,8 @@ export const useChatStreaming = ({
       turnRef.current = turn;
       setStreamingStatus({ isLoading: true, currentEvent: null, statusText: '正在連接...' });
       let accumulatedContent = '';
+      // The server sent `start`: it has stored the question (D-139).
+      let started = false;
 
       try {
         const response = await fetch('/api/chatbot/chat', {
@@ -240,11 +237,7 @@ export const useChatStreaming = ({
           if (response.status === 429) {
             dispatch(openUsageLimitModal());
           }
-          // A server error or a timeout may pass; a refusal (signed out, the daily limit, a bad request) will not.
-          throw new ChatRequestError(
-            getApiErrorMessage({ status: response.status, data: parsedBody }),
-            response.status >= 500 || response.status === 408,
-          );
+          throw new Error(getApiErrorMessage({ status: response.status, data: parsedBody }));
         }
 
         if (!response.body) throw new Error('No response body');
@@ -261,6 +254,7 @@ export const useChatStreaming = ({
 
             switch (event.type) {
               case 'start':
+                started = true;
                 turn.conversationId = event.conversationId;
                 onStart?.(event.conversationId, event.userMessageId);
                 // Stop was pressed before the server had named the conversation.
@@ -314,7 +308,7 @@ export const useChatStreaming = ({
                 onError(
                   (event.code && errorMessages?.[event.code as ChatErrorCode]) ||
                     chatErrorMessage(event.code),
-                  isRetryableChatError(event.code),
+                  started && isRetryableChatError(event.code),
                 );
                 return true;
             }
@@ -339,7 +333,7 @@ export const useChatStreaming = ({
         // Every turn the server finishes ends with `done` or `error`: a stream that just stops was cut
         // (a proxy, the network), so it is not an answer, however much of one arrived.
         if (turn.stopRequested) onStopped(accumulatedContent);
-        else onError(chatErrorMessage('failed'), true);
+        else onError(chatErrorMessage('failed'), started);
       } catch (error) {
         if (turn.stopRequested) {
           onStopped(accumulatedContent);
@@ -354,7 +348,7 @@ export const useChatStreaming = ({
             : error instanceof Error
               ? error.message
               : chatErrorMessage('failed'),
-          !(error instanceof ChatRequestError) || error.retryable,
+          started || error instanceof TypeError,
         );
       } finally {
         if (turnRef.current === turn) turnRef.current = null;

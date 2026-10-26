@@ -1215,14 +1215,15 @@ describe('AiAssistantPanel', () => {
       expect(userBubbles()).toBe(1);
     });
 
-    it('offers 重試 for a server error, not for a refusal the same question would meet again', async () => {
+    it('offers no 重試 for a refusal the same question would meet again', async () => {
       await mount();
-      chatReplies.push(() => errorEnvelope(503, 'ServiceUnavailable'));
-      await send('hi');
-      await waitFor(() => expect(retryButton()).toBeDefined());
-
       for (const code of ['context_too_long', 'request_too_large', 'refused', 'unavailable']) {
-        chatReplies.push(() => sseReply({ type: 'error', code }));
+        chatReplies.push(() =>
+          sseReply(
+            { type: 'start', conversationId: 'conv-1', userMessageId: 7 },
+            { type: 'error', code },
+          ),
+        );
         await send(code);
         await waitForText(`錯誤:`);
         await waitFor(() => expect(chatBodies[chatBodies.length - 1]?.message).toBe(code));
@@ -1241,9 +1242,53 @@ describe('AiAssistantPanel', () => {
       expect(retryButton()).toBeUndefined();
     });
 
+    // The server may have stored the question (and taken its files) without the client hearing so: sending it
+    // again would leave a second copy and lose the files.
+    it('offers no 重試 when the server may have stored the question unannounced', async () => {
+      await mount();
+      chatReplies.push(() => errorEnvelope(500, 'InternalError'));
+      await send('first');
+      await waitFor(() => expect(chatBodies).toHaveLength(1));
+      await waitFor(() =>
+        expect(container.querySelector('[aria-label="AI 助手思考中"]')).toBeNull(),
+      );
+      expect(retryButton()).toBeUndefined();
+
+      chatReplies.push(() => sseReply({ type: 'delta', text: '說到一半' }));
+      await send('second');
+      await waitForText('錯誤:');
+      await waitFor(() =>
+        expect(container.querySelector('[aria-label="AI 助手思考中"]')).toBeNull(),
+      );
+      expect(retryButton()).toBeUndefined();
+    });
+
+    it("offers no 重試 once one of the site's tools ran: asked again, a write could happen twice", async () => {
+      await mount();
+      chatReplies.push(() =>
+        sseReply(
+          { type: 'start', conversationId: 'conv-1', userMessageId: 7 },
+          { type: 'tool_use', id: 't1', name: 'update_holding', displayName: '更新持倉' },
+          { type: 'tool_result', id: 't1', name: 'update_holding', ok: true },
+          { type: 'error', code: 'busy' },
+        ),
+      );
+      await send('我今天加碼 0050 兩張');
+      await waitForText('錯誤:');
+      await waitFor(() =>
+        expect(container.querySelector('[aria-label="AI 助手思考中"]')).toBeNull(),
+      );
+      expect(retryButton()).toBeUndefined();
+    });
+
     it('offers 重試 under the last answer only', async () => {
       await mount();
-      chatReplies.push(() => sseReply({ type: 'error', code: 'no_answer' }));
+      chatReplies.push(() =>
+        sseReply(
+          { type: 'start', conversationId: 'conv-1', userMessageId: 7 },
+          { type: 'error', code: 'no_answer' },
+        ),
+      );
       await send('first');
       await waitFor(() => expect(retryButton()).toBeDefined());
 
@@ -2076,6 +2121,44 @@ describe('AiAssistantPanel — copy and edit', () => {
     // The edited message and everything after it are gone; the new turn is all that follows.
     for (const gone of ['台積電？', '收 1,050', '那鴻海？', '收 210'])
       expect(container.textContent).not.toContain(gone);
+  });
+
+  it('an edit the server never got, asked again (重試), is still that edit (D-139)', async () => {
+    conversations = [conversation('c1', '台積電')];
+    messagesOf = { c1: [turn(1, 'user', '台積電？'), turn(2, 'assistant', '收 1,050')] };
+    await mount();
+    await openConversation('台積電');
+    await waitForText('收 1,050');
+
+    await act(async () => actionOf('user-message', '台積電？', '編輯')!.click());
+    typeInEditor('聯發科？');
+    chatReplies.push(() => Promise.reject(new TypeError('Failed to fetch')));
+    await act(async () => {
+      [...container.querySelectorAll('button')].find((b) => b.textContent === '送出')!.click();
+    });
+    const retry = () =>
+      [...container.querySelectorAll<HTMLButtonElement>('button')].find(
+        (b) => b.textContent === '重試',
+      );
+    await waitFor(() => expect(retry()).toBeDefined());
+
+    chatReplies.push(() =>
+      sseReply(
+        { type: 'start', conversationId: 'c1', userMessageId: 3 },
+        { type: 'delta', text: '收 1,400' },
+        { type: 'done', conversationId: 'c1', assistantMessageId: 4 },
+      ),
+    );
+    await act(async () => retry()!.click());
+
+    await waitForText('收 1,400');
+    expect(chatBodies[1]).toEqual({
+      message: '聯發科？',
+      conversationId: 'c1',
+      attachmentIds: [],
+      editMessageId: 1,
+      profile: 'finance',
+    });
   });
 
   it('a message sent in this visit can be edited too, once the server has named it', async () => {
