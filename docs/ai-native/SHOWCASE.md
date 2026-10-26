@@ -23,7 +23,7 @@
 | 「查 serendipity，加入我的單字庫」→ 單字卡 → **確認卡** → 加入 | `look_up_word`（讀）、`add_word_to_repository`（寫，先確認） | Agent 會動手，所以 human-in-the-loop |
 | 「我的投資組合現在怎麼樣？」→ **持倉表格卡片** + 重點分析 | `portfolio_summary`，照 /portfolio 的估值 | 結果是 UI，不是一坨文字（generative UI） |
 | 「我今天加碼 0050 兩張，均價 185，幫我記下來」（或**貼一張券商成交回報的截圖**）→ **確認卡**「『0050』加 2,000（成交價 185）（存成今天的快照）」→ 允許 → 投資組合更新 | `update_holding`（寫入，先確認）：最新快照改那一筆、存成今天的快照，成本照平均成本法（買進加上付出的錢、賣出保留平均成本）；買進沒說價格就先問、對到兩筆就不猜 | 跨 app 的「用說的記帳」：AI 不只讀你的資料，也幫你維護它 |
-| 「我今天有什麼行程？」→ **Google 日曆表格卡片** + 空檔建議 | 原生 connector `google_calendar_events`：用既有 Google 帳號連線（唯讀），行程標題視為外部文字 | 不只 MCP：自家程式呼叫 API 也是同一套工具抽象 |
+| 「我今天有什麼行程？」→ **Google 日曆／Outlook 行事曆表格卡片** + 空檔建議 | 原生 connector `google_calendar_events`、`outlook_calendar_events`：用既有 Google／Microsoft 帳號連線（唯讀），兩家共用同一套資料型別與卡片，行程標題視為外部文字；今日簡報兩個都讀、只講有連線的 | 不只 MCP：自家程式呼叫 API 也是同一套工具抽象 |
 | 「我手上有哪些 Jira 票？」（或打 **`/jira`**）→ **Jira 表格卡片** + 先處理哪張的建議，每張票的 key 直接連到 Jira | 原生 connector `jira_issues`：用既有 Atlassian 帳號連線（唯讀、不用新 scope），先找到你的 Jira 網站再用 JQL 搜尋；問特定專案或狀態時 AI 自己寫 JQL，寫錯會照 Jira 的說明自己修正 | 既有的帳號連線不用重連，就變成 AI 的工具；Claude Desktop 透過本站 MCP server 也查得到 |
 | 「在 WEB-120 留言：今天先量 LCP…」→ **確認卡寫出票號與整則留言** → 允許 → 連到那則留言的卡片 | `jira_add_comment`：第一個會寫入外部服務的原生 connector（既有連線的 `write:jira-work`）；留言超過 2000 字拒絕、不截斷，確認的就是送出的；讀過 Jira 的對話一定先問 | AI 不只讀你的工作系統，也能替你動手——但每一次都經你確認 |
 | /data-analysis 最上方的 AI 對話：問問題 → **互動圖表**（卡片上直接換成長條、圓餅…，不再問 AI）→ 「存到業績追蹤 dashboard」→ 確認 → 完成 | `ask_data`（沿用 問 AI 的檢查過的查詢管線）、`describe_data`、`save_to_dashboard` | AI 只用經過驗證的查詢，不自己寫 SQL |
@@ -45,7 +45,7 @@
 
 前置：production（或本機）已有 `Settings:AnthropicApiKey`；用一般帳號登入；Portfolio 有一份快照；/data-analysis 的預設資料源可用（見 FOR_JACKY 2）。
 
-1. **開場：AI 今日簡報（1 分鐘）**：首頁最上方「AI 今日簡報」→ 右側滑出 Studio AI，一次呼叫 Google 日曆、學習進度、投資組合三個工具（回答上方三個工具 chip）→ 行程表格、「12 個單字待複習」卡片、三段重點與「建議先做的事」。之後任何頁面按 ⌘K 都叫得出它，建議問題依目前頁面變化；按輸入框的麥克風可以用說的。
+1. **開場：AI 今日簡報（1 分鐘）**：首頁最上方「AI 今日簡報」→ 右側滑出 Studio AI，一次呼叫 Google 日曆（與 Outlook 行事曆）、學習進度、投資組合（回答上方三個工具 chip）→ 行程表格、「12 個單字待複習」卡片、三段重點與「建議先做的事」。之後任何頁面按 ⌘K 都叫得出它，建議問題依目前頁面變化；按輸入框的麥克風可以用說的。
    ![首頁的 AI 今日簡報](screenshots/home-briefing-card-desktop.png)
    ![Studio 的今日簡報](screenshots/studio-briefing-desktop.png)
    ![語音輸入](screenshots/studio-voice-desktop.png)
@@ -93,7 +93,7 @@
    ![允許之後：已更新與接著問](screenshots/studio-trade-done-desktop.png)
    **或直接貼券商的成交回報截圖**（按輸入框的 +）：「幫我把這兩筆記進投資組合」→ Studio AI 先列出讀到的每一筆（代號、買賣、數量、均價）→ 兩筆更新一起出現在確認卡，逐筆允許或拒絕。
    ![貼成交回報截圖記帳](screenshots/studio-trade-image-desktop.png)
-   接著問「我今天有什麼行程？」（需先在 /connectors 的帳號連線連上 Google）→ Google 日曆表格卡片與空檔。
+   接著問「我今天有什麼行程？」（需先在 /connectors 的帳號連線連上 Google 或 Microsoft）→ 行事曆表格卡片與空檔（工作行程在 Outlook 的人一樣看得到，D-134）。
    ![Studio 讀 Google 日曆](screenshots/studio-calendar-desktop.png)
    打 **`/jira`** →「我的工作待辦」→ Studio 用 Atlassian 帳號連線讀 Jira，表格列出手上還沒完成的票，再建議先處理哪張（每個 key 連到 Jira）；接著問「只看優先度高的」，AI 自己寫 JQL 再查一次（D-130）。
    ![Studio 讀 Jira](screenshots/studio-jira-desktop.png)
@@ -157,7 +157,7 @@ flowchart LR
   subgraph Server["ASP.NET Core"]
     Chat["Chat 引擎（Services.Chatbot）<br/>agent loop・SSE・確認・usage 計費"]
     Profiles["IChatProfile<br/>studio / data-analysis / finance"]
-    Site["本站工具 ISiteTool<br/>字典・單字庫・Portfolio・Google 日曆・Jira・open_page"]
+    Site["本站工具 ISiteTool<br/>字典・單字庫・Portfolio・Google 日曆・Outlook・Jira・open_page"]
     DATools["ask_data・describe_data・save_to_dashboard"]
     CTS["ConnectorToolSource<br/>使用者的 MCP connector"]
     OAuth["MCP OAuth<br/>PRM・AS metadata・CIMD/DCR・PKCE・refresh"]
@@ -248,6 +248,6 @@ flowchart LR
 | 10/26 | 30 | **Studio AI 幫你找 MCP server**（`find_mcp_server`：卡片按「加入」到 /connectors，對話框已搜好；安裝仍由你按；D-124、D-125） |
 | 10/26 | 31 | **接上就試**（「在 Studio AI 試試看」：新增 MCP server 的最後一步與 connector 詳情，Studio 開新對話用一個讀取工具示範；D-126） |
 | 10/26 | 32 | **Jira 原生 connector**（`jira_issues`：既有 Atlassian 連線變成 AI 工具，JQL 搜尋、表格卡片、Studio「/jira」；D-130）；改用打字後不再自動朗讀、Studio 第二次「加入」換新搜尋（D-129） |
-| 10/26 | 33 | **在 Jira 留言**（`jira_add_comment`：第一個寫入外部服務的原生 connector，確認卡寫出整則留言；D-132）；審查修正：確認卡的說明不再截到 200 字、讀與寫用同一個 Jira 網站（D-133） |
+| 10/26 | 33 | **在 Jira 留言**（`jira_add_comment`：第一個寫入外部服務的原生 connector，確認卡寫出整則留言；D-132）；審查修正：確認卡的說明不再截到 200 字、讀與寫用同一個 Jira 網站（D-133）；**Outlook 行事曆原生 connector**（`outlook_calendar_events`，今日簡報兩個行事曆都讀、不再叫人去連另一個；D-134、D-135） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

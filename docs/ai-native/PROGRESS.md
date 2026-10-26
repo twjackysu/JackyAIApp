@@ -1,5 +1,15 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-26 19:42 – 第 33 輪（Jira 留言、Outlook 行事曆）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。clone 是 shallow，先 `--unshallow`；`gh` CLI 沒有登入，CI 改用 GitHub MCP（`actions_list`／`actions_get`）看。
+- **Jira 留言**（D-132）：`jira_add_comment`（`Services/Connectors/Atlassian/JiraAddCommentTool`），第一個會寫入外部服務的原生 connector：既有連線的 `write:jira-work`、`ToolEffect.Write`＋`IDescribesCall`（確認卡寫出票號與整則留言）、最多 2000 字超過就拒絕不截斷、ADF 一行一段、POST 用預設 client（不重試）、5xx／逾時說「可能沒有留上」。Studio prompt、接著問「在最新那張留言：我今天會處理」、token／同意頁的寫入範例。截圖 `studio-jira-comment-*`（新腳本 `.loop/shots/jira-comment.cjs`），SHOWCASE 亮點、demo、日誌。
+- **審查**（subagent，D-133）：高——`ClientToolRunner.Summary` 把確認卡的說明截到 200 字，長留言只看得到開頭 → `MaxSummary` 2200（也修好 `remember` 筆記被截）；中——讀和寫可能是不同 Jira 網站 → 都用讀取的網站（`JiraSite.CanWrite`）；低——403 說成專案權限、送出前／後的失敗分開說、201 讀不懂仍算已留言。
+- **Outlook 行事曆原生 connector**（D-134）：`outlook_calendar_events`（`Services/Connectors/Outlook`；不能叫 `.Microsoft`），Graph `me/calendarView`、台北時區，與 Google 日曆共用 `CalendarRange`／`CalendarEvent`／卡片；今日簡報兩個行事曆都讀。
+- **審查**（subagent，D-135）：中——今日簡報每天對只連一個的人出「連線另一個」的卡片 → `ifConnected`（簡報用，沒連線只回一句、不給卡）；低——全天行程用最近的午夜（`DayOf`）、測試時鐘改台北 00:30。
+- 驗證：cscheck 每次新診斷 0；前端 lint、test（150 檔 1621 個）、build 全過，Outlook 之後全套 test（150 檔 1622 個）、eslint、build 過；CI 40318532123（D-132）、40319052286（D-133）、40319749027（D-134）綠；**40320332432（本輪最後一次含程式碼的 push 1b579275：D-135）綠**。
+- 問題：無阻礙。
+
 ## 2026-10-26 17:42 – 第 32 輪（Jira 原生 connector、朗讀與 Registry 的小修）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。
