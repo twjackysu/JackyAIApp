@@ -56,7 +56,11 @@ jackyaiapp.client/src/
   panel's `draftSpoken`, reset when the box is emptied), or an ask with `readAloud` (`askStudio`, `ChatAsk`), goes with
   `SendOptions.readAloud`, and its answer (`Message.readAloud`) reads itself aloud once it is `answered` — never a stopped or
   failed one, nor a reopened conversation; once per message id (`useSpeechOutput`'s `autoReadKey`, started a tick later so
-  StrictMode's second mount reads it once), its buttons kept shown while it reads so 停止朗讀 is there. Nothing of it reaches the server.
+  StrictMode's second mount reads it once), its buttons kept shown while it reads so 停止朗讀 is there; only while the panel is
+  `active` (folding it or closing the drawer stops a reading), never over a reading the reader started nor into a listening
+  microphone (`isListening`), and pressing the microphone stops the answer being read (`stopReading`, D-121). The presses that ask
+  for a reading later (the microphone, 用聽的) first say an empty utterance, `unlockSpeech`, since iOS Safari only speaks after a
+  start in a gesture. Nothing of it reaches the server.
   What differs between apps' assistants (greeting, example questions, suggestions,
   placeholders, the server profile, error wording, words for tools the server names no display name for,
   `toolLabels`: Finance's hosted tw-stock tools, `FINANCE_TOOL_LABELS`, so its chips and header read 「個股歷史股價」

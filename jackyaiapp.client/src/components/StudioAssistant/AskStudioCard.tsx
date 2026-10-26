@@ -9,7 +9,7 @@ import { askStudio } from './askStudio';
 
 import type { ReactNode } from 'react';
 
-import { synthesisOf } from '@/components/aiChat/hooks/useSpeechOutput';
+import { synthesisOf, unlockSpeech } from '@/components/aiChat/hooks/useSpeechOutput';
 import { ACCENT_GRADIENT } from '@/components/aiChat/style';
 
 export interface AskStudioCardProps {
@@ -101,7 +101,11 @@ export default function AskStudioCard({
             color="inherit"
             startIcon={<HeadphonesIcon />}
             aria-label={`${title}（用聽的）`}
-            onClick={() => askStudio(ask, { fresh: true, readAloud: true })}
+            onClick={() => {
+              // The answer is read seconds from now: the press itself starts the speech (iOS Safari).
+              unlockSpeech();
+              askStudio(ask, { fresh: true, readAloud: true });
+            }}
             sx={{
               flexShrink: 0,
               mr: { xs: 1.5, sm: 2.5 },

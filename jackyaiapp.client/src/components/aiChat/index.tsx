@@ -15,6 +15,7 @@ import { useChatConversation } from './hooks/useChatConversation';
 import { useKeepPasteFormatting } from './hooks/useKeepPasteFormatting';
 import { usePendingAttachments } from './hooks/usePendingAttachments';
 import { usePreview } from './hooks/usePreview';
+import { stopReading } from './hooks/useSpeechOutput';
 import { useWaitingTitle } from './hooks/useWaitingTitle';
 import { useWarnBeforeLeaving } from './hooks/useWarnBeforeLeaving';
 import { ACCENT, ACCENT_GRADIENT, hairline, panelSurface } from './style';
@@ -110,6 +111,13 @@ function AiAssistantPanel({
   const attachments = usePendingAttachments();
   const [keepFormatting, setKeepFormatting] = useKeepPasteFormatting();
   const { statusText } = useAgentStatus(conversation.streamingStatus);
+
+  // Folded away (or the drawer closed): an answer being read stops with it, as one leaving the screen does.
+  const wasActive = useRef(active);
+  useEffect(() => {
+    if (wasActive.current && !active) stopReading();
+    wasActive.current = active;
+  }, [active]);
 
   // Some of the draft was spoken (the box's microphone): its answer is read aloud once done (D-120). Until the box
   // is emptied — sent, or cleared by the reader.

@@ -2,7 +2,8 @@ import { StrictMode, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { synthesisOf, useSpeechOutput } from './useSpeechOutput';
+import { isListening, useSpeechInput } from './useSpeechInput';
+import { stopReading, synthesisOf, unlockSpeech, useSpeechOutput } from './useSpeechOutput';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -153,6 +154,52 @@ describe('useSpeechOutput', () => {
       act(() => vi.runAllTimers());
       expect(result.current.speaking).toBe(true);
       expect(spoken.map((u) => u.text)).toEqual(['Twice mounted.']);
+      unmount();
+    });
+
+    it('does not cut into a reading the reader started, nor read into a listening microphone', () => {
+      const pressed = renderHook('Read by hand.');
+      act(() => pressed.result.current.toggle());
+      const auto = renderHook('Done later.', 'answer-auto-over');
+      act(() => vi.runAllTimers());
+      expect(pressed.result.current.speaking).toBe(true);
+      expect(auto.result.current.speaking).toBe(false);
+      pressed.unmount();
+      auto.unmount();
+
+      vi.stubGlobal(
+        'webkitSpeechRecognition',
+        class {
+          start() {}
+          stop() {}
+          abort() {}
+        },
+      );
+      const mic = {} as { current: ReturnType<typeof useSpeechInput> };
+      function Mic() {
+        mic.current = useSpeechInput(() => {});
+        return null;
+      }
+      const micRoot: Root = createRoot(document.createElement('div'));
+      act(() => micRoot.render(<Mic />));
+      act(() => mic.current.toggle());
+      expect(isListening()).toBe(true);
+      const heard = renderHook('Not over the mic.', 'answer-auto-mic');
+      act(() => vi.runAllTimers());
+      expect(heard.result.current.speaking).toBe(false);
+      heard.unmount();
+      act(() => micRoot.unmount());
+    });
+
+    it('stopReading stops the reading under way; unlockSpeech says an empty utterance', () => {
+      const { result, unmount } = renderHook('Stop me.');
+      act(() => result.current.toggle());
+      act(() => stopReading());
+      expect(result.current.speaking).toBe(false);
+      expect(synthesis.cancel).toHaveBeenCalled();
+      spoken = [];
+      unlockSpeech();
+      expect(spoken.map((u) => u.text)).toEqual(['']);
       unmount();
     });
 

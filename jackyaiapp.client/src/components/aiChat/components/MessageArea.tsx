@@ -409,7 +409,11 @@ function MessageArea({
                     text={message.content}
                     align="left"
                     readAloud
-                    autoReadKey={message.readAloud && message.answered ? message.id : undefined}
+                    // Only on screen: an answer done while the drawer is closed or the panel folded is not
+                    // read out of sight, with no stop button to press (D-120).
+                    autoReadKey={
+                      active && message.readAloud && message.answered ? message.id : undefined
+                    }
                   />
                 )}
                 {message === last && onFollowUp && (

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { speechSegmentsOf } from '../utils/speechText';
 
+import { isListening } from './useSpeechInput';
+
 /**
  * Reading an answer aloud with the browser's own speech synthesis (the Web Speech API, which every current
  * browser has): nothing goes to this site's server or costs usage, like speaking a message in
@@ -36,6 +38,24 @@ export function synthesisOf(
  * never stops another's, and a late event of an old reading never resets a new one.
  */
 let current: { token: symbol; reset: () => void } | null = null;
+
+/** Stops whatever answer is being read (the reader starts speaking, or the panel is folded away). */
+export function stopReading(): void {
+  if (!current) return;
+  current.reset();
+  current = null;
+  synthesisOf()?.synthesis.cancel();
+}
+
+/**
+ * Lets this page speak later, from a press now: some browsers (iOS Safari) stay silent for speech that was not first
+ * started in a user's gesture, and an answer read once done starts seconds after the press that asked for it. An
+ * empty utterance, said at once, is that start.
+ */
+export function unlockSpeech(): void {
+  const found = synthesisOf();
+  if (found) found.synthesis.speak(new found.Utterance(''));
+}
 
 /**
  * The answers already read on their own (`autoReadKey`), by key: each is read once, so drawing it again (another
@@ -107,6 +127,9 @@ export function useSpeechOutput(text: string, autoReadKey?: string) {
     if (!autoReadKey || autoRead.has(autoReadKey) || !synthesisOf()) return;
     const timer = setTimeout(() => {
       autoRead.add(autoReadKey);
+      // Not over another reading the reader started, nor into a microphone that is listening: that answer is
+      // left for its 朗讀 button.
+      if (current || isListening()) return;
       start();
     }, 0);
     return () => clearTimeout(timer);

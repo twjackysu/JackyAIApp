@@ -478,7 +478,8 @@ describe('AiAssistantPanel', () => {
     beforeEach(() => {
       spoken = [];
       vi.stubGlobal('speechSynthesis', {
-        speak: (u: { text: string }) => spoken.push(u.text),
+        // The microphone's press says an empty utterance (unlockSpeech): not a reading.
+        speak: (u: { text: string }) => u.text && spoken.push(u.text),
         cancel: () => {},
       });
       vi.stubGlobal(

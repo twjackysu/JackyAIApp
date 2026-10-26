@@ -24,6 +24,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useAiChatConfig } from '../config';
 import { joinSpeech, useSpeechInput } from '../hooks/useSpeechInput';
+import { stopReading, unlockSpeech } from '../hooks/useSpeechOutput';
 import { ACCENT, ACCENT_GRADIENT, hairline } from '../style';
 import { PendingAttachment, QueuedMessage } from '../types';
 
@@ -294,7 +295,13 @@ const ChatInput = ({
                   aria-pressed={speech.listening}
                   size="small"
                   onClick={() => {
-                    if (!speech.listening) typedBeforeSpeaking.current = value;
+                    if (!speech.listening) {
+                      typedBeforeSpeaking.current = value;
+                      // The reader speaks: an answer being read stops, so the microphone does not hear it, and the
+                      // press lets the answer to come be read (D-120).
+                      stopReading();
+                      unlockSpeech();
+                    }
                     speech.toggle();
                   }}
                   sx={{

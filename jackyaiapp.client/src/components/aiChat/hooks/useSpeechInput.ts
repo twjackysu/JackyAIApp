@@ -82,6 +82,13 @@ export interface SpeechInput {
   cancel: () => void;
 }
 
+/** How many microphones on the page are listening now: an answer is not read aloud over one (D-120), or the
+ *  microphone would write the browser's own voice into the box. */
+let listeningNow = 0;
+
+/** Whether a microphone on the page is listening (`useSpeechInput`). */
+export const isListening = () => listeningNow > 0;
+
 /**
  * Listens in Traditional Chinese (it also takes English words) until the reader pauses, giving what it
  * heard so far as it goes (`onHeard`, interim results included, so the words appear while they speak).
@@ -96,8 +103,18 @@ export function useSpeechInput(onHeard: (transcript: string) => void, lang = 'zh
     heard.current = onHeard;
   }, [onHeard]);
 
+  // Takes this session's microphone out of `isListening` (once): on its end, and on an abort, which a browser may
+  // not follow with an end event.
+  const uncount = useRef<() => void>(() => {});
+
   // Leaving the page (or the panel) stops the microphone.
-  useEffect(() => () => recognition.current?.abort(), []);
+  useEffect(
+    () => () => {
+      recognition.current?.abort();
+      uncount.current();
+    },
+    [],
+  );
 
   const toggle = useCallback(() => {
     if (recognition.current) {
@@ -112,7 +129,15 @@ export function useSpeechInput(onHeard: (transcript: string) => void, lang = 'zh
     r.continuous = false;
     r.onresult = (event) => heard.current(transcriptOf(event));
     r.onerror = (event) => setError(speechErrorMessage(event.error));
+    let counted = true;
+    listeningNow += 1;
+    const release = () => {
+      if (counted) listeningNow -= 1;
+      counted = false;
+    };
+    uncount.current = release;
     r.onend = () => {
+      release();
       recognition.current = null;
       setListening(false);
     };
@@ -122,13 +147,17 @@ export function useSpeechInput(onHeard: (transcript: string) => void, lang = 'zh
     try {
       r.start();
     } catch {
+      release();
       recognition.current = null;
       setListening(false);
       setError(speechErrorMessage(''));
     }
   }, [lang]);
 
-  const cancel = useCallback(() => recognition.current?.abort(), []);
+  const cancel = useCallback(() => {
+    recognition.current?.abort();
+    uncount.current();
+  }, []);
 
   return { supported, listening, error, toggle, cancel };
 }
