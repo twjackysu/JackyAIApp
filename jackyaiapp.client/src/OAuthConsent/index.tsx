@@ -94,7 +94,7 @@ function Consent({ request }: { request: ReturnType<typeof authorizeRequestOf> }
         <strong>{consent.redirectHost}</strong>。
       </Typography>
       <Box component="ul" sx={{ pl: 2.5, mt: 0, mb: 2, '& li': { mb: 0.5 } }}>
-        <li>查字典、讀你的學習進度、投資組合摘要、Google 日曆</li>
+        <li>查字典、讀你的學習進度、投資組合摘要、Google 日曆、Jira</li>
         <li>你在 Connectors 頁停用的本站工具不會提供</li>
         <li>隨時可以在 Connectors 頁的「讓其他 AI 使用本站」撤銷</li>
       </Box>

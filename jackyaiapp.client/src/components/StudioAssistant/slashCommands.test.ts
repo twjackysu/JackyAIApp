@@ -25,6 +25,8 @@ describe('slashCommandsFor', () => {
     expect(keys('/健檢')).toEqual(['portfolio_checkup']);
     expect(keys('/短文')).toEqual(['write_with_my_words']);
     expect(keys('/記得')).toEqual(['memories']);
+    expect(keys('/jira')).toEqual(['my_jira_issues']);
+    expect(keys('/待辦')).toEqual(['my_jira_issues']);
     expect(keys('/弱點')).toEqual(['my_weak_spots']);
     expect(keys('/weak')).toEqual(['my_weak_spots']);
     expect(keys('/mcp')).toEqual(['find_mcp_server']);

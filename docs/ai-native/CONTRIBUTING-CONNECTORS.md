@@ -72,7 +72,7 @@ services.AddSingleton(new SiteToolSet("功能名稱", [MyTool.Definition]));   /
 
 ### 原生 connector（以 Google 日曆為例）
 
-`Services/Connectors/Google/GoogleCalendarTool.cs` 是範本：
+`Services/Connectors/Google/GoogleCalendarTool.cs` 是範本（第二個例子 `Services/Connectors/Atlassian/JiraIssuesTool.cs`：先問 accessible resources 找到使用者的 Jira 網站、再用 JQL 搜尋，模型寫的查詢字串壓成一行、截長度，對方說查詢寫錯（400）時把對方的錯誤訊息截短交給模型修正）：
 
 - token 用 `IConnectorService.GetAccessTokenAsync(context.UserId, ConnectorProviders.Google)` 拿（既有帳號連線，過期會自己 refresh）；scope 是 `Connectors:Providers:<Provider>:Scopes`，需要新 scope 時寫進 FOR_JACKY（已連線的人要重新連線）。
 - **沒連線不是錯誤**：回一句請使用者到 Connectors 連線的話，加一張 `href = "/connectors"` 的連結卡。對方回 401／403 也一樣（多半是 scope 不夠或過期）。其他失敗回 `AiToolResult.Error`，不帶對方的原文。

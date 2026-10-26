@@ -59,6 +59,14 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     words: ['進度', '學習', 'progress', 'streak'],
   },
   {
+    // A native connector's read (`jira_issues`, D-130), not one of the site MCP server's prompts.
+    key: 'my_jira_issues',
+    label: '我的工作待辦',
+    ask: '我手上有哪些還沒完成的 Jira 票？先講最該處理的',
+    kind: 'command',
+    words: ['jira', 'issue', '待辦', '票', 'ticket'],
+  },
+  {
     // Studio AI's own tool, not one of the site MCP server's prompts (D-124): the model asks what the server is for.
     key: 'find_mcp_server',
     label: '找 MCP server',

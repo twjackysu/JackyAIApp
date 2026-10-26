@@ -162,7 +162,7 @@ export default function CreateTokenDialog({ open, serverUrl, onClose }: CreateTo
               <Typography variant="caption" color="text.secondary" component="p" sx={{ pl: 4 }}>
                 {allowWrites
                   ? '本站不會再跳出確認卡：由那個 AI 自己的確認機制把關（Claude、Cursor 預設每次都會問你）。無法復原的動作一律不開放。'
-                  : '只開放讀取：查字典、學習進度、投資組合、Google 日曆。'}
+                  : '只開放讀取：查字典、學習進度、投資組合、Google 日曆、Jira。'}
               </Typography>
             </Box>
             {error && <Alert severity="error">{error}</Alert>}
