@@ -279,11 +279,13 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   the reader's due words, else those due soonest (`IReviewQuizService`, `Services/SpacedRepetition`: the daily challenge's
   generator, `GenerateFor`, no AI; the wrong options from the reader's other saved words, topped up from the dictionary by
   id), shown as a `quiz` card the reader answers on, which sends the answers to the review schedule itself when the words
-  are due; a read, since making it changes nothing; the model is told the words, and the questions and answers only
+  are due; with `words` (「考我最常錯的這幾個字」 after `weak_spots`, `IReviewQuizService.CreateForAsync`) it asks those words, in
+  their order, only those among the reader's saved words, and records the answers only when every one is due (one not yet due
+  makes it practice); none saved, a link card to the repository; a read, since making it changes nothing; the model is told the words, and the questions and answers only
   for a client that cannot draw the card; and `weak_spots`, where the reader went wrong lately: their own exam attempts of
   the last 7–90 days (default 30; `IStatsService.GetWeakSpotsAsync`, the most recent 2000 at most), each exam type's right
   answers and the words answered wrong most (at most 10, those still wrong at the latest attempt first, then by misses), as a
-  table card, so the model names what to work on and offers a `review_quiz`; with no attempts, a link card to the exams:
+  table card, so the model names what to work on and offers a `review_quiz` on those words; with no attempts, a link card to the exams:
   `Services/Dictionary/Assistant`; Portfolio's `portfolio_summary`, the reader's own portfolio as
   /portfolio values it, a table card of the positions, and `update_holding`, a write, so asked first: one holding already in
   the latest snapshot gets a new quantity (`quantity`, or `change` for a trade), the snapshot saved again as today's in

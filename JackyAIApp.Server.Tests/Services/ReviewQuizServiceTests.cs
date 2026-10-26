@@ -84,15 +84,51 @@ namespace JackyAIApp.Server.Tests.Services
             return saved.Id;
         }
 
-        private async Task<ReviewQuiz> CreateAsync(int count)
+        private async Task<ReviewQuiz> CreateAsync(int count) => await WithService(s => s.CreateAsync(count, default));
+
+        private async Task<ReviewQuiz> CreateForAsync(params string[] words) => await WithService(s => s.CreateForAsync(words, default));
+
+        private async Task<ReviewQuiz> WithService(Func<ReviewQuizService, Task<JackyAIApp.Server.Common.ServiceResult<ReviewQuiz>>> make)
         {
             await using var db = new AzureSQLDBContext(_options);
             var user = new Mock<ICurrentUser>();
             user.Setup(u => u.Id).Returns(UserId);
             var service = new ReviewQuizService(db, user.Object, new DailyChallengeQuestionGenerator(), new TestClock(Now));
-            var result = await service.CreateAsync(count, default);
+            var result = await make(service);
             Assert.True(result.IsSuccess);
             return result.Data!;
+        }
+
+        [Fact]
+        public async Task WordsNamed_AreAskedInTheirOrder_OnlyTheReadersOwn_AndRecordedOnlyWhenAllAreDue()
+        {
+            var due = await SaveAsync(UserId, "w-0001", Today.AddDays(-1));
+            var later = await SaveAsync(UserId, "w-0002", Today.AddDays(3));
+            await SaveAsync(OtherUserId, "w-0003", null); // someone else's
+
+            var quiz = await CreateForAsync(" VOCAB0002 ", "vocab0003", "vocab0001", "vocab0001", "nosuchword");
+
+            Assert.Equal(new[] { later, due }, quiz.Questions.Select(q => q.UserWordId));
+            Assert.Equal(new[] { "vocab0002", "vocab0003", "vocab0001", "nosuchword" }, quiz.Asked);
+            Assert.False(quiz.FromDue); // vocab0002 is not due yet: practice
+            Assert.Equal(1, quiz.TotalDueCount);
+            Assert.All(quiz.Questions, q => Assert.Equal(4, q.Options.Distinct().Count()));
+
+            var allDue = await CreateForAsync("vocab0001");
+            Assert.True(allDue.FromDue);
+            Assert.Equal(new[] { due }, allDue.Questions.Select(q => q.UserWordId));
+        }
+
+        [Fact]
+        public async Task WordsNamed_NoneSaved_AskNothing()
+        {
+            await SaveAsync(UserId, "w-0001", null);
+
+            var quiz = await CreateForAsync("vocab0005", "", new string('x', 51));
+
+            Assert.Empty(quiz.Questions);
+            Assert.Equal(new[] { "vocab0005" }, quiz.Asked);
+            Assert.False(quiz.FromDue);
         }
 
         [Fact]

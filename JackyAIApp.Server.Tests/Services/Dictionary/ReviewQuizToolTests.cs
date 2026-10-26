@@ -97,6 +97,47 @@ namespace JackyAIApp.Server.Tests.Services.Dictionary
         }
 
         [Fact]
+        public async Task WordsNamed_AreAskedAbout_AndThoseLeftOutAreSaid()
+        {
+            _quizzes.Setup(q => q.CreateForAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ServiceResult.Ok(TwoQuestions with { FromDue = false, Asked = ["serendipity", "ephemeral", "candid"] }));
+
+            var result = await RunAsync(new { words = new object[] { "serendipity", "ephemeral", 3, "candid" }, count = 2 });
+
+            _quizzes.Verify(q => q.CreateForAsync(
+                It.Is<IReadOnlyList<string>>(w => w.SequenceEqual(new[] { "serendipity", "ephemeral", "candid" })),
+                It.IsAny<CancellationToken>()), Times.Once);
+            _quizzes.Verify(q => q.CreateAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+            Assert.Contains("使用者指定的字", result.Content);
+            Assert.Contains("沒有出題的字：candid", result.Content);
+            Assert.Contains("有的字還沒到期，這次是練習", result.Content);
+            Assert.Equal("quiz", Card(result).GetProperty("kind").GetString());
+        }
+
+        [Fact]
+        public async Task WordsNamed_NoneSaved_PointsToTheRepository()
+        {
+            _quizzes.Setup(q => q.CreateForAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ServiceResult.Ok(new ReviewQuiz([], FromDue: false, TotalDueCount: 4, Asked: ["zeitgeist"])));
+
+            var result = await RunAsync(new { words = new[] { "zeitgeist" } });
+
+            Assert.False(result.IsError);
+            Assert.Contains("zeitgeist", result.Content);
+            Assert.Contains("add_word_to_repository", result.Content);
+            Assert.Equal("/english/repository", Card(result).GetProperty("href").GetString());
+        }
+
+        [Fact]
+        public async Task AnEmptyListOfWords_IsTheUsualQuiz()
+        {
+            _quizzes.Setup(q => q.CreateAsync(ReviewQuizTool.DefaultCount, It.IsAny<CancellationToken>())).ReturnsAsync(ServiceResult.Ok(TwoQuestions));
+
+            Assert.False((await RunAsync(new { words = Array.Empty<string>() })).IsError);
+            _quizzes.Verify(q => q.CreateForAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
         public async Task AFailure_IsReportedWithoutItsDetail()
         {
             _quizzes.Setup(q => q.CreateAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))

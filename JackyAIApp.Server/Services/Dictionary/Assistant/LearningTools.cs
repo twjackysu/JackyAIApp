@@ -138,7 +138,7 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
                     text.AppendLine($"- {w.Word}：{w.Wrong}/{w.Attempts}；最近一次{(w.LatestCorrect ? "答對了" : "還是錯")}");
             }
             text.AppendLine("請先用一兩句話點出最需要加強的地方（答對率最低的測驗、還是錯的字），數字照上面，不要自己估算；" +
-                            "再給一個具體的下一步，例如用 review_quiz 考幾題、用 look_up_word 解釋最常錯的字，或去做答對率最低的那種測驗。");
+                            "再給一個具體的下一步，例如用 review_quiz 考最常錯的幾個字（words 傳那幾個字）、用 look_up_word 解釋最常錯的字，或去做答對率最低的那種測驗。");
 
             return new AiToolResult(text.ToString().TrimEnd(), Card: spots.Words.Count > 0 ? WordsCard(spots) : TypesCard(spots));
         }
@@ -203,7 +203,8 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
             "複習小測驗",
             "從使用者到期該複習的單字（沒有到期的，就用單字庫裡最快要複習的）出幾題選擇題，" +
             "在對話裡顯示成可以直接作答的卡片；使用者在卡片上作答，答案會記進他的複習排程。" +
-            "使用者說「考我」「出題」「測驗我今天的單字」或想在這裡複習時使用。",
+            "使用者說「考我」「出題」「測驗我今天的單字」或想在這裡複習時使用；要考特定的字（例如 weak_spots 列出最常錯的字，" +
+            "使用者說「考我這幾個字」）時，把那幾個字放在 words。",
             JsonSerializer.SerializeToElement(new
             {
                 type = "object",
@@ -214,7 +215,14 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
                         type = "integer",
                         minimum = 1,
                         maximum = ReviewQuizService.MaxQuestions,
-                        description = $"題數，預設 {DefaultCount}",
+                        description = $"題數，預設 {DefaultCount}；有 words 時不用",
+                    },
+                    words = new
+                    {
+                        type = "array",
+                        items = new { type = "string" },
+                        maxItems = ReviewQuizService.MaxQuestions,
+                        description = "只考這幾個英文單字（使用者單字庫裡的字），每個字一題；不傳就考到期該複習的字",
                     },
                 },
             }),
@@ -228,10 +236,16 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
                         given.ValueKind == JsonValueKind.Number && given.TryGetInt32(out var n)
                 ? n
                 : DefaultCount;
-            var made = await quizzes.CreateAsync(count, ct);
+            var words = WordsOf(input);
+            var made = words.Count > 0 ? await quizzes.CreateForAsync(words, ct) : await quizzes.CreateAsync(count, ct);
             if (!made.IsSuccess) return AiToolResult.Error("現在出不了題，請告訴使用者稍後再試。");
 
             var quiz = made.Data!;
+            if (quiz.Asked != null && quiz.Questions.Count == 0)
+                return new AiToolResult(
+                    $"指定的字（{string.Join("、", quiz.Asked)}）都不在使用者的單字庫裡（或字典裡沒有釋義），沒有出題。" +
+                    "可以問他要不要先把它們加入單字庫（add_word_to_repository），或改考到期該複習的字（review_quiz 不傳 words）。",
+                    Card: new { kind = "link", title = "單字庫", href = "/english/repository", description = "加入單字庫的字才能出題考你", actionLabel = "看我的單字庫" });
             if (quiz.Questions.Count == 0)
                 return new AiToolResult(
                     "使用者的單字庫還沒有可以出題的單字。建議他先查幾個字並加入單字庫（可以用 look_up_word、add_word_to_repository）。",
@@ -239,10 +253,9 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
 
             var letters = "ABCDEFGH";
             var text = new StringBuilder();
-            text.AppendLine($"已出 {quiz.Questions.Count} 題小測驗，考的字：{string.Join("、", quiz.Questions.Select(q => q.Word))}" +
-                            (quiz.FromDue ? $"（到期該複習的共 {quiz.TotalDueCount} 個）。" : "（今天沒有到期的字，挑的是最快要複習的）。"));
+            text.AppendLine($"已出 {quiz.Questions.Count} 題小測驗，考的字：{string.Join("、", quiz.Questions.Select(q => q.Word))}" + WhichWords(quiz));
             text.AppendLine("題目已經顯示在使用者畫面上的卡片裡，他會直接在卡片上作答" +
-                            (quiz.FromDue ? "，答案會記進複習排程。" : "；這些字還沒到期，這次是練習，不會記進複習排程。") +
+                            (quiz.FromDue ? "，答案會記進複習排程。" : $"；{(quiz.Asked == null ? "這些" : "有的")}字還沒到期，這次是練習，不會記進複習排程。") +
                             "請用一兩句話請他作答；不要在回答中重複題目，也不要說出答案。");
             text.AppendLine();
             text.AppendLine("以下只供看不到卡片的情況使用（例如在其他 AI 裡）：一次問一題，等使用者作答後再公布那一題的答案。");
@@ -272,6 +285,21 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
                     }),
                 },
             });
+        }
+
+        /// <summary>The words the quiz was asked about, as given (strings only), else none.</summary>
+        private static List<string> WordsOf(JsonElement input) =>
+            input.ValueKind == JsonValueKind.Object && input.TryGetProperty("words", out var words) && words.ValueKind == JsonValueKind.Array
+                ? [.. words.EnumerateArray().Where(w => w.ValueKind == JsonValueKind.String).Select(w => w.GetString()!)]
+                : [];
+
+        /// <summary>Which words these are, for the model: the ones asked for (and those left out), the due ones, or the soonest.</summary>
+        private static string WhichWords(ReviewQuiz quiz)
+        {
+            if (quiz.Asked == null)
+                return quiz.FromDue ? $"（到期該複習的共 {quiz.TotalDueCount} 個）。" : "（今天沒有到期的字，挑的是最快要複習的）。";
+            var left = quiz.Asked.Where(a => !quiz.Questions.Any(q => string.Equals(q.Word, a, StringComparison.OrdinalIgnoreCase))).ToList();
+            return "（使用者指定的字）。" + (left.Count > 0 ? $"不在他單字庫裡、沒有出題的字：{string.Join("、", left)}。" : "");
         }
     }
 }

@@ -134,7 +134,7 @@ describe('studioFollowUpsFor', () => {
 
   it('after reading the weak spots, offers a quiz, an explanation and the review, but not on the review', () => {
     const rule = followUpsOn('/english/stats').find((r) => r.tools?.includes('weak_spots'))!;
-    expect(rule.texts).toEqual(['考我幾題', '解釋我最常錯的那個字', '帶我去複習']);
+    expect(rule.texts).toEqual(['考我最常錯的這幾個字', '解釋我最常錯的那個字', '帶我去複習']);
     const onReview = followUpsOn('/english/review').find((r) => r.tools?.includes('weak_spots'))!;
     expect(onReview.texts).not.toContain('帶我去複習');
   });

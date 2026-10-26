@@ -162,7 +162,7 @@ const STUDIO_FOLLOW_UPS: NonNullable<AiChatConfig['followUps']> = [
   { tools: ['learning_progress'], texts: ['考我幾題', '帶我去複習', '帶我去每日挑戰'] },
   { tools: ['review_quiz'], texts: ['再考我 3 題', '帶我去複習'] },
   { tools: ['saved_words'], texts: ['換個主題再寫一段', '考我幾題'] },
-  { tools: ['weak_spots'], texts: ['考我幾題', '解釋我最常錯的那個字', '帶我去複習'] },
+  { tools: ['weak_spots'], texts: ['考我最常錯的這幾個字', '解釋我最常錯的那個字', '帶我去複習'] },
   {
     tools: ['portfolio_summary'],
     texts: ['哪一檔佔比最高？風險集中嗎？', MY_HOLDINGS_MARKET, '我的資產配置偏重哪裡？'],

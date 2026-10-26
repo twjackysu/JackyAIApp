@@ -52,7 +52,7 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
             _ =>
                 $"用 jacky-studio 的 {WeakSpotsTool.Name} 讀我最近 30 天的測驗紀錄，用繁體中文告訴我最需要加強的一兩件事" +
                 "（答對率最低的測驗、最常答錯而且最近還是錯的字），數字照工具結果；" +
-                $"再用 {ReviewQuizTool.Name} 出 3 題，一次只給我一題，等我回答後再說對錯。");
+                $"再用 {ReviewQuizTool.Name} 考最常錯的 3 個字（words 傳那 3 個字），一次只給我一題，等我回答後再說對錯。");
 
         /// <summary>The quiz's number of questions when the reader gave a number (kept within what the tool asks), else null.</summary>
         internal static int? CountOf(IReadOnlyDictionary<string, string> args) =>
