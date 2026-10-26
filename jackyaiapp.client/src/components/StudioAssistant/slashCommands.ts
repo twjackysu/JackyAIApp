@@ -59,6 +59,14 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     words: ['進度', '學習', 'progress', 'streak'],
   },
   {
+    // Studio AI's own tool, not one of the site MCP server's prompts (D-124): the model asks what the server is for.
+    key: 'find_mcp_server',
+    label: '找 MCP server',
+    ask: '幫我在 MCP 官方目錄找一個 MCP server，讓你能做更多事',
+    kind: 'command',
+    words: ['mcp', 'server', 'connector', '外掛', '擴充'],
+  },
+  {
     key: 'memories',
     label: '你記得我什麼？',
     ask: '你記得我什麼？',

@@ -174,9 +174,10 @@ sequenceDiagram
 目錄只放少數幾個本站挑過的 server；其他的，使用者原本得自己知道網址。官方 MCP Registry（registry.modelcontextprotocol.io，MCP 專案營運、`GET /v0.1/servers`）是 2026 年各家客戶端共用的「server 黃頁」，所以 /connectors 直接搜尋它：
 
 - `GET api/connectors/registry?search=`（`IMcpRegistry`）→ `{ servers, more }`。伺服器把 Registry（`version=latest`）**整份**依 `nextCursor` 讀完（最多 40 頁、60 秒），只留 `active`、有 **Streamable HTTP** remote 且網址沒有 `{變數}`、https 的，同一個網址只留一個，存成全站共用的一份清單（1 小時）；搜尋是在這份清單裡比對名稱、標題、說明（每個字都要有、不分大小寫，名稱或標題符合的排前面，最多 30 個）。所以使用者打字不會打到 Registry、也不會讓快取變大（審查 D-123）。
-- 每筆是**指標，不是安裝**：前端把網址放進新增對話框、照貼上網址的流程 probe → 認證 → 工具，所以 SSRF（`SafeHttp`）、OAuth、權限預設全部沿用；Registry 的內容不進 AI 的 prompt。
+- 每筆是**指標，不是安裝**：前端把網址放進新增對話框、照貼上網址的流程 probe → 認證 → 工具，所以 SSRF（`SafeHttp`）、OAuth、權限預設全部沿用；Registry 的內容不進 /connectors 這條路的任何 prompt（Studio AI 的搜尋見下）。
 - 內容是任何人發布的：名稱、說明一行純文字、截斷；連結只留 https；必填 header 只留合法名稱（最多 3 個），用來預填 API key 的 header；跟本站目錄同一個網址的標 `catalogKey`，請使用者從目錄連線（不會加兩次）。
 - 不計 usage（沒有 AI）；Registry 的搜尋只比對英文名稱，畫面上說明。
+- **Studio AI 也能搜**（第 30 輪，D-124／D-125）：`find_mcp_server`（Studio 專用，`Services/Assistant/Studio/FindMcpServerTool`）用同一份清單，回 `mcp-servers` 卡片（名稱、主機、需要什麼，最多 6 個）。這是 Registry 的字唯一進到 AI 的地方：當不可信資料（`OutsideText`，對話因此 taint），只給主機名稱，本站的說明放在前面。卡片的「加入」連到 `/connectors?registry=<名稱>`，打開新增對話框並填好搜尋（名稱完全相同的排第一）；安裝仍是使用者自己在 /connectors 按，AI 不能安裝。
 
 ## 7. 端點（前端已照這份實作，第 3 輪定稿；型別見 `jackyaiapp.client/src/apis/connectorsApis/types.ts`）
 

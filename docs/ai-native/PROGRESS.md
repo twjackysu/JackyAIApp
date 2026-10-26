@@ -1,5 +1,15 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-26 13:42 – 第 30 輪（Studio AI 幫你找 MCP server）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。
+- **Studio AI 的 `find_mcp_server`**（D-124）：Studio 專用、唯讀、`OutsideText`，搜 D-122 的全站 Registry 清單，回 `mcp-servers` 卡片（名稱、主機、需要 token／API key、目錄已有；最多 6 個）。卡片每列「加入」→ `/connectors?registry=<名稱>`：/connectors 打開新增對話框、目錄搜尋已填好（一次，網址隨即拿掉；自訂已滿就提示）。安裝仍是使用者自己按。/connectors 的 Studio 建議第一個「幫我找一個能查天氣的 MCP server」。三份 CLAUDE.md、design/03 §6.1、SHOWCASE（亮點、demo 第 6 步、日誌）。
+- Studio「/」加「找 MCP server」（`find_mcp_server` key，`/mcp`、`/外掛` 叫得出來）。
+- **審查**（subagent，D-125）：無高風險；中——`more` 少算、第一次讀 Registry 可能超過 30 秒工具上限（改成等 20 秒就回「正在載入」）、taint 讓交棒失效（prompt 收窄、要先交棒）、手機上「加入」被抽屜蓋住（`/connectors?registry=` 時抽屜自己收起）；低——自訂已滿提示、名稱完全相同排第一、本站說明放在發布者文字前。都已修。
+- 截圖：`studio-find-mcp-*`、`studio-find-mcp-added-*`（新腳本 `.loop/shots/find-mcp.cjs`）。
+- 驗證：cscheck 新診斷 0（第二次抓到少了 `using JackyAIApp.Server.Common;`，已補）；前端 lint、test（149 檔 1593 個）、build 全過，審查修正後 StudioAssistant＋Connectors 測試 25 檔 222 個、tsc、eslint 過；CI 40276686274（D-124）、40277894340（審查修正）綠；CI_RESULT_PLACEHOLDER
+- 問題：無阻礙。
+
 ## 2026-10-26 11:42 – 第 29 輪（/connectors 搜尋 MCP 官方目錄）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。

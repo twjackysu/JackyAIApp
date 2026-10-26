@@ -300,6 +300,14 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   `portfolio_summary` in one reply, three short parts, and with words due, an offer of a `review_quiz`; `StudioChatProfileTests` pins the tool names it uses). On a
   dashboard's page (`/dashboards/{id}`, `StudioChatProfile.DashboardOf`, an id that parses or nothing) the prompt names that
   dashboard, so "this dashboard" is the one on screen
+- Studio AI also finds MCP servers (`find_mcp_server`, `FindMcpServerTool`, Studio's own `IAiTool` beside `open_page`, not an
+  `ISiteTool`, so not the site's MCP server's; D-124): a search of the official registry's list (`IMcpRegistry`, below) for the
+  reader who asks for a server or for something neither the site's tools nor a page's assistant can do, shown as an
+  `mcp-servers` card (at most 6: name, title, host, what it needs, whether the catalog has it; `more` when there were more), whose
+  rows send the reader to `/connectors?registry=<name>` to add it themselves; the AI never installs one. The registry's text is
+  anyone's, so it is `OutsideText` (the conversation is tainted: no more navigation or handoff, writes ask first; the prompt has
+  it hand off first), the model gets hosts, never URLs, and the site's own instructions before the publishers' words. It waits
+  20s for the registry (a first walk can take longer) and then tells the model the directory is still loading (D-125)
 - Studio AI remembers what the reader asked it to (docs/ai-native/design/08, `Services/Assistant/Memory`): short notes in
   their words, `AssistantMemories` (module Assistant), one line each, at most 200 characters and 30 a reader, the same words
   kept once (`AssistantMemoryService`). Every note is in each Studio prompt (`StudioChatProfile.MemoryPrompt`), inside
@@ -364,8 +372,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   Only an active entry with a Streamable HTTP remote at a fixed https URL is listed (canonical as `McpServerUrl` keeps it,
   once an address), with the headers it says are required and the catalog entry at the same address if there is one;
   what was published is read leniently and kept plain (one line, cut, https links only). It is only a pointer: the
-  client puts the URL in the add dialog, which probes and adds it like a typed one, so the same `SafeHttp` rules apply,
-  and nothing of an entry reaches the AI. No usage charge
+  client puts the URL in the add dialog, which probes and adds it like a typed one, so the same `SafeHttp` rules apply.
+  A search for a server's whole name puts that server first (Studio AI's card searches by name). The only way an entry reaches
+  an AI is Studio AI's `find_mcp_server` (above), as outside text. No usage charge
 - Signing in to an MCP server (MCP authorization, design/03 §5.2) is three units. `McpOAuthDiscovery` asks the
   server without credentials and follows its 401 (`WWW-Authenticate` `resource_metadata`, `scope`) to its
   protected resource metadata (RFC 9728; its `resource` must be the server's origin and a path the server is

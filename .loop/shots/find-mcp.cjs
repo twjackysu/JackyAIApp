@@ -151,8 +151,7 @@ const find = [
     await page.screenshot({ path: path.join(out, `studio-find-mcp-${name}.png`) });
     await page.getByRole('link', { name: '到 Connectors 加入 Weather' }).click();
     await page.waitForTimeout(1500);
-    // On a phone the drawer covers the page: close it to see the dialog.
-    if (name === 'phone') { await page.keyboard.press('Escape'); await page.waitForTimeout(500); }
+    // The drawer steps aside by itself on /connectors?registry= (D-125), so the dialog is in front on a phone too.
     console.log(name, page.url());
     await page.screenshot({ path: path.join(out, `studio-find-mcp-added-${name}.png`) });
     await page.close();

@@ -170,7 +170,11 @@ sent or stored, so a reopened conversation shows a plain message. A site tool's 
   `ToolPermissionToggle`), the catalog (`CatalogSection`) and adding an MCP server of their own
   (`AddMcpServerDialog`: URL → credentials → tools; a reader without a URL searches the official MCP Registry right there,
   `RegistrySearch`, folded until asked or opened from the catalog's last card 找更多 MCP server, D-122: picking one checks its URL as if
-  pasted, named by its title, an API key's header filled in, `registryView`; one the catalog has is connected from the catalog). Which entries show, in what order, and what
+  pasted, named by its title, an API key's header filled in, `registryView`; one the catalog has is connected from the catalog).
+  `/connectors?registry=<search>` (`connectorsRegistryPath`, `registrySearchOf`, D-124) opens that dialog with the search filled in,
+  once, and drops the parameter (at the custom-server limit it says so instead): Studio AI's `find_mcp_server` answers with an
+  `mcp-servers` card (`McpServersCardView`, `mcpServersCard.parseMcpServersCard`, Studio's own renderer beside `quiz`) whose rows'
+  加入 go there with the server's name, and Studio AI's drawer steps aside on such an address, keeping the conversation. Which entries show, in what order, and what
   「連線」does for one are `connectorView`; the dialog's checks and the request it sends are
   `AddMcpServerDialog/addMcpServer`. The catalog failing to load leaves the account connections working.
   Below it, `MemorySection` lists what the reader asked Studio AI to remember (`assistantMemoryApis`, in the shared API,

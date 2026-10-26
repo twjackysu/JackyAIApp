@@ -27,6 +27,8 @@ describe('slashCommandsFor', () => {
     expect(keys('/記得')).toEqual(['memories']);
     expect(keys('/弱點')).toEqual(['my_weak_spots']);
     expect(keys('/weak')).toEqual(['my_weak_spots']);
+    expect(keys('/mcp')).toEqual(['find_mcp_server']);
+    expect(keys('/外掛')).toEqual(['find_mcp_server']);
   });
 
   it('offers nothing without a leading slash, for no match, or for a sentence', () => {
