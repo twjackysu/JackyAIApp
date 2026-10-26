@@ -355,6 +355,14 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   `ConnectorToolSource` (named `m1__…` per turn, their connector the installation's id; the reader's permission for one is
   kept and looked up under the server's own name, `AiToolDescriptor.PermissionName`; two that come to one name are offered once). A call the server
   refuses for its credentials marks the connector NeedsAuth
+- A reader who does not know a server's URL finds it in the official MCP Registry (`IMcpRegistry`, `McpRegistry`;
+  `GET api/connectors/registry?search=`, D-122): the registry's `GET /v0.1/servers?version=latest` (its search matches names
+  only), cached 30 minutes per search for every reader (single flight; one that cannot be read is 502 and asked again).
+  Only an active entry with a Streamable HTTP remote at a fixed https URL is listed (canonical as `McpServerUrl` keeps it,
+  once an address), with the headers it says are required and the catalog entry at the same address if there is one;
+  what was published is read leniently and kept plain (one line, cut, https links only). It is only a pointer: the
+  client puts the URL in the add dialog, which probes and adds it like a typed one, so the same `SafeHttp` rules apply,
+  and nothing of an entry reaches the AI. No usage charge
 - Signing in to an MCP server (MCP authorization, design/03 §5.2) is three units. `McpOAuthDiscovery` asks the
   server without credentials and follows its 401 (`WWW-Authenticate` `resource_metadata`, `scope`) to its
   protected resource metadata (RFC 9728; its `resource` must be the server's origin and a path the server is

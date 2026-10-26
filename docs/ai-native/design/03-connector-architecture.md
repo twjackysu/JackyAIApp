@@ -169,6 +169,15 @@ sequenceDiagram
 - **加一個原生 connector**：新增一個資料夾 `Services/Connectors/Native/<Name>/`，實作 `INativeConnector` 與數個 `IAiTool`，在 `ConnectorServiceExtensions` 一行 `services.AddNativeConnector<GoogleCalendarConnector>()`。測試樣板：`NativeConnectorTestKit`（假的 token、假的 HttpMessageHandler、驗 schema 是合法 JSON Schema、驗每個工具都有 Effect）。
 - **加一個本站工具**：在該功能模組實作 `IAiTool`，`services.AddSiteTool<T>()`。同一個 TestKit。
 
+### 6.1 從 MCP 官方目錄找（第 29 輪，D-122）
+
+目錄只放少數幾個本站挑過的 server；其他的，使用者原本得自己知道網址。官方 MCP Registry（registry.modelcontextprotocol.io，MCP 專案營運、`GET /v0.1/servers`）是 2026 年各家客戶端共用的「server 黃頁」，所以 /connectors 直接搜尋它：
+
+- `GET api/connectors/registry?search=`（`IMcpRegistry`）→ `{ servers, more }`。伺服器代查（不讓瀏覽器直接打外站，也才能全站共用快取 30 分鐘），`version=latest`、只留 `active`、有 **Streamable HTTP** remote 且網址沒有 `{變數}`、https；同一個網址只列一次，最多 30 個。
+- 每筆是**指標，不是安裝**：前端把網址放進新增對話框、照貼上網址的流程 probe → 認證 → 工具，所以 SSRF（`SafeHttp`）、OAuth、權限預設全部沿用；Registry 的內容不進 AI 的 prompt。
+- 內容是任何人發布的：名稱、說明一行純文字、截斷；連結只留 https；必填 header 只留合法名稱（最多 3 個），用來預填 API key 的 header；跟本站目錄同一個網址的標 `catalogKey`，請使用者從目錄連線（不會加兩次）。
+- 不計 usage（沒有 AI）；Registry 的搜尋只比對英文名稱，畫面上說明。
+
 ## 7. 端點（前端已照這份實作，第 3 輪定稿；型別見 `jackyaiapp.client/src/apis/connectorsApis/types.ts`）
 
 | 方法 | 路由 | 說明 |

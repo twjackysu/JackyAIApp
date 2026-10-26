@@ -41,7 +41,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         {
             await Registry().SearchAsync("  git hub&x  ", default);
 
-            var url = Assert.Single(_asked).RequestUri!.ToString();
+            var url = Assert.Single(_asked).RequestUri!.AbsoluteUri;
             Assert.StartsWith(McpRegistry.BaseUrl + "?", url);
             Assert.Contains("version=latest", url);
             Assert.Contains($"limit={McpRegistry.PageSize}", url);
