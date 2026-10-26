@@ -26,9 +26,10 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             return new McpRegistry(factory.Object, cache ?? new MemoryCache(new MemoryCacheOptions()), NullLogger<McpRegistry>.Instance);
         }
 
-        private static string Page(params string[] entries) => Page(null, entries);
+        private static string Page(params string[] entries) => PageThen(null, entries);
 
-        private static string Page(string? nextCursor, params string[] entries) =>
+        /// <summary>A page whose next is <paramref name="nextCursor"/> (null: the last).</summary>
+        private static string PageThen(string? nextCursor, params string[] entries) =>
             $$"""{ "servers": [{{string.Join(",", entries)}}], "metadata": { "count": {{entries.Length}}{{(nextCursor == null ? "" : $", \"nextCursor\": \"{nextCursor}\"")}} } }""";
 
         private static string Server(string name, string remotes, string extra = "", string status = "active") => $$"""
@@ -43,8 +44,8 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         public async Task ReadsTheLatestVersionOfEveryServer_PageByPage_AndNoSearchReachesTheRegistry()
         {
             _registry = request => StubHttpMessageHandler.JsonResponse(request.RequestUri!.Query.Contains("cursor=p%2F2")
-                ? Page(null, Server("io.example/two", Remote("https://two.example.com/mcp")))
-                : Page("p/2", Server("io.example/one", Remote("https://one.example.com/mcp"))));
+                ? PageThen(null, Server("io.example/two", Remote("https://two.example.com/mcp")))
+                : PageThen("p/2", Server("io.example/one", Remote("https://one.example.com/mcp"))));
 
             var result = await Registry().SearchAsync("  two&x  ", default);
 
@@ -62,7 +63,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         [Fact]
         public async Task ARepeatedCursor_EndsTheWalk()
         {
-            _registry = _ => StubHttpMessageHandler.JsonResponse(Page("same", Server("io.example/one", Remote("https://one.example.com/mcp"))));
+            _registry = _ => StubHttpMessageHandler.JsonResponse(PageThen("same", Server("io.example/one", Remote("https://one.example.com/mcp"))));
 
             var result = await Registry().SearchAsync("", default);
 
@@ -75,7 +76,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         {
             _registry = request => request.RequestUri!.Query.Contains("cursor=")
                 ? new HttpResponseMessage(HttpStatusCode.BadGateway)
-                : StubHttpMessageHandler.JsonResponse(Page("next", Server("io.example/one", Remote("https://one.example.com/mcp"))));
+                : StubHttpMessageHandler.JsonResponse(PageThen("next", Server("io.example/one", Remote("https://one.example.com/mcp"))));
 
             var result = await Registry().SearchAsync("", default);
 
@@ -85,7 +86,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         [Fact]
         public async Task ASearchMatchesNameTitleOrDescription_EveryWord_NamesFirst()
         {
-            _registry = _ => StubHttpMessageHandler.JsonResponse(Page(null,
+            _registry = _ => StubHttpMessageHandler.JsonResponse(PageThen(null,
                 Server("io.example/notes", Remote("https://notes.example.com/mcp"), """, "description": "Weather notes for travel." """),
                 Server("io.example/forecast", Remote("https://forecast.example.com/mcp"), """, "title": "Weather Forecast" """),
                 Server("io.example/other", Remote("https://other.example.com/mcp"))));

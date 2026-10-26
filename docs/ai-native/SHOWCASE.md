@@ -29,6 +29,7 @@
 | **AI 之間交棒**：在任何頁面跟 Studio AI 說「幫我做一個業績總覽 dashboard」→ 它說「交給資料分析的 AI 助理」→ 頁面自己切到 /data-analysis，那裡的助理**自動展開並接手**，畫圖、出確認卡 | `open_page` 的 `go`＋`ask` → `tool_result.handoff`（只跟著站內導覽送、讀過外部內容的對話不送）→ react-router 的 location state（外部連結設不了）→ 目的頁的 launcher 以新對話送一次後清掉 | 多 agent 協作（handoff）：全站助理是入口與調度者，專門的助理帶專門的工具做事；使用者不必知道該去哪問、也不用重打一次 |
 | dashboard 上一鍵 **「AI 解讀」**：Studio AI 用最新資料重算每張圖，說出最重要的變化與異常（手機上 dashboard 一列一張圖） | `read_dashboard`（只讀自己的 dashboard，別人分享的不讀）；dashboard 頁的路徑讓「這個 dashboard」就是正在看的那個；同一個工具也開放給本站 MCP server，Claude.ai 裡也能問「我的業績追蹤 dashboard 怎麼樣？」 | 資料不只畫成圖，AI 還會讀圖、說重點 |
 | **Connectors**：目錄一鍵加入 tw-stock、DeepWiki；貼任何 MCP URL 自動偵測登入方式 | MCP 官方 SDK（Streamable HTTP）、SafeHttp 防 SSRF | MCP 是 AI 接工具的標準 |
+| **不知道網址也能加：直接搜 MCP 官方目錄**——目錄最後一張「找更多 MCP server」→ 打 `github`、`search` → 列出可以直接連線的 remote MCP server（網址、要 token 還是 API key、原始碼連結）→ 按「使用」就走一樣的偵測、登入、工具流程，API key 的 header 已經填好 | `McpRegistry`：伺服器把 registry.modelcontextprotocol.io（v0.1）整份讀一次、全站共用快取 1 小時，只留 Streamable HTTP、固定 https 網址的；內容當不可信資料（純文字、只留 https 連結），只是指標，不進 AI（D-122、D-123） | 官方 MCP Registry 是各家客戶端共用的「server 黃頁」：別人做好的 server 搜得到、按一下就接上 |
 | 需要登入的 MCP server：**自動跑完 MCP 授權規格** | 401 → PRM（RFC 9728）→ AS metadata（RFC 8414／OIDC）→ DCR／CIMD／手填 client → PKCE S256 + `resource` + `iss` → token 加密 → 到期自動 refresh → 403 `insufficient_scope` 時 step-up | 2025-11 起的 MCP 授權規格（PRM、CIMD、RFC 8707 resource、RFC 9207 iss） |
 | 每個工具「自動／需確認／停用」；確認卡可勾「以後直接執行」；讀過外部資料（含行事曆邀請）後的寫入一律先問；工具說明被改了就改回需確認 | `ToolPermissions`、taint（D-031、`OutsideText`）、工具結果包成不可信資料、`CachedTools.Changed`（rug pull） | prompt injection 與 tool poisoning 防護 |
 | **網站本身就是 MCP server**：在 /connectors 產生 token，一鍵複製 Claude Code／Claude Desktop／Cursor／VS Code 的設定，別家的 AI 就能查字典、看你的學習進度與投資組合 | `POST /api/mcp`（Streamable HTTP、JSON 回應、無 session）、只存雜湊的 PAT、預設唯讀、跟 /connectors 的權限連動；**Claude.ai／ChatGPT 只要貼網址**：本站同時是 OAuth 授權伺服器（PRM、AS metadata、DCR、PKCE、同意頁） | MCP 是雙向的：網站不只是 MCP client，也是 MCP server |
@@ -110,6 +111,10 @@
 6. **接上外面的世界（2 分鐘）**：/connectors → 目錄裡的 Notion 或 Linear 按「前往授權」→ 用自己的帳號登入 → 回到 /connectors 顯示已連線與工具 → Studio 問「我在 Linear 上還有哪些未完成的 issue？」。或一鍵加入 DeepWiki → 回到 Studio 問「twjackysu/JackyAIApp 這個 repo 的架構是什麼？」→ 工具進度顯示「DeepWiki・…」→ 回答。再示範「新增 MCP server」：貼一個需要 OAuth 的 MCP URL → 「找到了！這個 server 用 OAuth 登入（xxx）」→ 前往授權 → 回來後工具列表出現。
    ![Connectors：目錄裡的 Notion、Linear 一鍵授權](screenshots/connectors-oauth-desktop.png)
    ![自己的 MCP server：偵測到 OAuth](screenshots/add-mcp-oauth-desktop.png)
+
+   **不知道網址？** 目錄最後一張「找更多 MCP server」→「搜尋官方目錄」→ 打 `exa` → Exa Search 標著「需要 API key（x-api-key）」→ 按「使用」→ 直接到登入這一步，名稱與 header 都填好，貼上 key 就連線。已在本站目錄的（DeepWiki）標「上方目錄已有」，不會加兩次。
+   ![從 MCP 官方目錄搜尋](screenshots/connectors-registry-desktop.png)
+   ![選好之後：名稱與 header 已填好](screenshots/connectors-registry-picked-desktop.png)
 7. **安全（1 分鐘）**：在 connector 詳情把某個工具設成「停用」→ AI 說它沒有這個能力；「需確認」的工具一律出確認卡；按「停止」整輪什麼都不執行。
 8. **反過來：網站本身就是 MCP server（1 分鐘）**：/connectors 往下捲到「讓其他 AI 使用本站」→「產生 token」（名稱 Claude Code、唯讀）→ 複製「Claude Code」那一行指令貼到終端機 → 在 Claude Code 問「用 jacky-studio 查一下 serendipity，再看我今天要複習幾個字」→ 它呼叫本站的 `look_up_word`、`learning_progress`。再打 `/mcp__jacky-studio__daily_briefing`（產生 token 的對話框會寫出這行）→ Claude Code 一次呼叫行程、學習進度、投資組合三個工具，整理成三段簡報；`/mcp__jacky-studio__quiz_me` 則一次問一題。回到 /connectors 看到 token「最後使用」更新；按「撤銷」後 Claude Code 立刻連不上。
    **或在 Claude.ai**：設定 → Connectors → 新增自訂 connector，只貼 `https://apps.jacky-studio.com/api/mcp` → 跳到本站的同意頁「Claude 想用你的身分使用 Jacky Studio 的工具，完成後會回到 claude.ai」→ 允許 → 回到 Claude.ai，工具出現。
@@ -224,5 +229,6 @@ flowchart LR
 | 10/26 | 26 | /finance 與 /data-analysis 自己的助理也有「/」現成指令（`AiChatConfig.slashCommands`；比對與 chip 搬進共用的 `aiChat`）；CI 的 .NET SDK 改回 `10.0.x` |
 | 10/26 | 27 | **找出我的弱點**（`weak_spots`：測驗答對率與最常錯的字，AI 點出最該加強的地方，再用只考那幾個字的測驗卡〔`review_quiz` 的 `words`〕；學習統計頁的「AI 弱點分析」卡片；「/」與本站 MCP prompt `my_weak_spots`） |
 | 10/26 | 28 | **語音對話**：用麥克風問的問題，回答結束自動朗讀；首頁今日簡報的「用聽的」（D-120） |
+| 10/26 | 29 | **/connectors 搜尋 MCP 官方目錄**：不知道網址也能加 remote MCP server（D-122）；審查後改成整份讀一次、本機比對名稱與說明（D-123） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。
