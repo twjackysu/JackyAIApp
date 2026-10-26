@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 
-import type { ToolCardRenderer } from './cards/toolCard';
+import type { CustomCard, TableCard, ToolCardRenderer } from './cards/toolCard';
 import type { FollowUpRule } from './utils/followUps';
 import type { SlashCommand } from './utils/slashCommands';
 import type { ChatErrorCode } from '@/apis/chatbotApis/chatErrors';
@@ -54,6 +54,11 @@ export interface AiChatConfig {
   toolLabels?: Readonly<Record<string, string>>;
   /** How this app draws kinds of tool card the chat does not (cards/toolCard), by kind. */
   cardRenderers?: Readonly<Record<string, ToolCardRenderer>>;
+  /**
+   * How this app's own kinds of card read as a table where the chat writes the conversation out (匯出對話, D-149): Data
+   * Analysis's chart is its rows. A kind not listed is named in one line there.
+   */
+  cardTables?: Readonly<Record<string, (card: CustomCard) => TableCard | null>>;
   /**
    * What the page says about itself, sent with every message for the assistant's tools (Data
    * Analysis: the source on screen, `sourceId`/`tableName` or `sessionId`). The server keeps at most

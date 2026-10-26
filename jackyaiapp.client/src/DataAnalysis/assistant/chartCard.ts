@@ -2,6 +2,7 @@ import { VIZ_CAPABILITIES } from '../viz/capabilities';
 
 import type { VizId } from '../viz/types';
 import type { SummarizeRequest } from '@/apis/dataAnalysisApis/types';
+import type { CustomCard, TableCard } from '@/components/aiChat/cards/toolCard';
 
 /**
  * A `chart` card's data (docs/ai-native/design/04 §2.1), as the Data Analysis assistant's tools
@@ -51,5 +52,27 @@ export function parseChartCardData(data: Record<string, unknown>): ChartCardData
     groupHints: strings(data.groupHints, CHART_LIMITS.columns) ?? [],
     temporalHints: strings(data.temporalHints, CHART_LIMITS.columns) ?? [],
     plan: isPlan(data.plan) ? data.plan : null,
+  };
+}
+
+/**
+ * A chart card as the table of its rows, for writing the conversation out (匯出對話, D-149): its headers as the
+ * columns, a column numeric when every value in it is a number, the card's title kept.
+ */
+export function chartCardTable(card: CustomCard): TableCard | null {
+  const chart = parseChartCardData(card.data);
+  if (!chart) return null;
+  return {
+    kind: 'table',
+    title: card.title,
+    columns: chart.headers.map((h) => ({
+      key: h,
+      label: h,
+      numeric:
+        chart.rows.some((r) => r[h] !== null) &&
+        chart.rows.every((r) => r[h] === null || typeof r[h] === 'number'),
+    })),
+    rows: chart.rows,
+    totalRows: null,
   };
 }

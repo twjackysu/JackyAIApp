@@ -245,6 +245,40 @@ describe('what could break the document (D-148)', () => {
   });
 });
 
+describe("an app's own cards as tables (D-149)", () => {
+  it('writes a kind the app reads as a table, and names one it does not', () => {
+    const md = conversationMarkdown(
+      [
+        user('q'),
+        bot('a', {
+          cards: [
+            { kind: 'chart', title: '營收', data: { n: 5 } },
+            { kind: 'chart', title: '壞的', data: {} },
+          ],
+        }),
+      ],
+      {
+        ...options,
+        drawnKinds: ['chart'],
+        cardTables: {
+          chart: (card) =>
+            card.data.n === undefined
+              ? null
+              : {
+                  kind: 'table',
+                  title: card.title,
+                  columns: [{ key: 'n', label: 'N', numeric: true }],
+                  rows: [{ n: 5000 }],
+                  totalRows: null,
+                },
+        },
+      },
+    );
+    expect(md).toContain('**營收**\n\n| N |\n| ---: |\n| 5,000 |');
+    expect(md).toContain('（「壞的」在對話裡顯示，這裡沒有匯出）');
+  });
+});
+
 describe('canExportConversation', () => {
   it('needs a question', () => {
     expect(canExportConversation([])).toBe(false);

@@ -10,7 +10,7 @@
  * turns' (so an answer's 「## 你的持股」 is not taken for a turn), and a code block a message leaves open (an answer cut
  * at its length limit or stopped) is closed at its end, so the turns after it are not code (D-148).
  */
-import { LinkCard, TableCard, ToolCard } from '../cards/toolCard';
+import { CustomCard, LinkCard, TableCard, ToolCard } from '../cards/toolCard';
 import { Message } from '../types';
 
 export interface ConversationMarkdownOptions {
@@ -24,6 +24,8 @@ export interface ConversationMarkdownOptions {
   origin: string;
   /** The kinds of card this chat draws besides `table` and `link` (`AiChatConfig.cardRenderers`); others are not on screen. */
   drawnKinds?: readonly string[];
+  /** This chat's own kinds of card as tables (`AiChatConfig.cardTables`, D-149). */
+  cardTables?: Readonly<Record<string, (card: CustomCard) => TableCard | null>>;
 }
 
 const taipei = new Intl.DateTimeFormat('sv-SE', {
@@ -111,15 +113,20 @@ const linkMarkdown = (card: LinkCard, origin: string) => {
   return card.description ? `${link}：${inline(card.description)}` : link;
 };
 
-const cardMarkdown = (card: ToolCard, origin: string, drawnKinds: readonly string[]) =>
-  card.kind === 'table'
-    ? tableMarkdown(card as TableCard)
-    : card.kind === 'link'
-      ? linkMarkdown(card as LinkCard, origin)
-      : // A kind this chat does not draw is not on screen either (`ToolCards` leaves it out).
-        drawnKinds.includes(card.kind)
-        ? `（${card.title ? `「${inline(card.title)}」` : '一張卡片'}在對話裡顯示，這裡沒有匯出）`
-        : null;
+const cardMarkdown = (
+  card: ToolCard,
+  origin: string,
+  drawnKinds: readonly string[],
+  cardTables: ConversationMarkdownOptions['cardTables'],
+) => {
+  if (card.kind === 'table') return tableMarkdown(card as TableCard);
+  if (card.kind === 'link') return linkMarkdown(card as LinkCard, origin);
+  // A kind this chat does not draw is not on screen either (`ToolCards` leaves it out).
+  if (!drawnKinds.includes(card.kind)) return null;
+  const table = cardTables?.[card.kind]?.(card as CustomCard);
+  if (table) return tableMarkdown(table);
+  return `（${card.title ? `「${inline(card.title)}」` : '一張卡片'}在對話裡顯示，這裡沒有匯出）`;
+};
 
 /** The cards an answer showed: its tools' in this session, else the ones stored with it. */
 const cardsOf = (message: Message): ToolCard[] =>
@@ -133,7 +140,14 @@ export const canExportConversation = (messages: readonly Message[]) =>
 
 export function conversationMarkdown(
   messages: readonly Message[],
-  { title, assistant, exportedAt, origin, drawnKinds = [] }: ConversationMarkdownOptions,
+  {
+    title,
+    assistant,
+    exportedAt,
+    origin,
+    drawnKinds = [],
+    cardTables,
+  }: ConversationMarkdownOptions,
 ): string {
   const parts: string[] = [
     `# ${inline(title?.trim() || '對話')}`,
@@ -154,7 +168,7 @@ export function conversationMarkdown(
     ];
     if (used.length) body.push(`*用了：${used.map(inline).join('、')}*`);
     for (const card of cardsOf(message)) {
-      const markdown = cardMarkdown(card, origin, drawnKinds);
+      const markdown = cardMarkdown(card, origin, drawnKinds, cardTables);
       if (markdown) body.push(markdown);
     }
     const text = message.content.trim();

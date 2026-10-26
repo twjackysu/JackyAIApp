@@ -125,7 +125,8 @@ jackyaiapp.client/src/
   .md file: `utils/conversationMarkdown` writes the history column's title (the list read when the menu opens), the time in
   Taipei, each question and answer under its heading, the tools an answer used, its table cards as Markdown tables (numbers and
   empty cells as `TableCardView` shows them, `|` escaped) and its link cards whole (a path on this site gets the origin); a card
-  an app draws itself (a chart, a quiz) is named in one line (one this chat has no renderer for is not on screen, so not either),
+  an app draws itself is written as a table when the app says how (`AiChatConfig.cardTables`, D-149: Data Analysis's chart is its
+  rows, `chartCardTable`), else named in one line (one this chat has no renderer for is not on screen, so not either),
   and the thinking and confirmation cards are left out. A message's own Markdown keeps the document whole (`messageBody`,
   D-148): its headings two levels under the turns' and a code block it left open (an answer cut short) closed at its end; a
   card's words are escaped so they open no link, emphasis or markup. Nothing goes to the server; disabled while an answer

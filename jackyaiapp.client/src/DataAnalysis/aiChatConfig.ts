@@ -3,6 +3,7 @@ import ShowChartIcon from '@mui/icons-material/ShowChart';
 import TableChartIcon from '@mui/icons-material/TableChartOutlined';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 
+import { chartCardTable } from './assistant/chartCard';
 import ChartCardView from './assistant/ChartCardView';
 
 import type { AiChatConfig } from '@/components/aiChat/config';
@@ -84,6 +85,8 @@ export const DATA_ANALYSIS_AI_CHAT: AiChatConfig = {
   },
   slashCommands: DATA_ANALYSIS_SLASH_COMMANDS,
   cardRenderers: { chart: ChartCardView },
+  // Written out as its rows when the conversation is exported (D-149).
+  cardTables: { chart: chartCardTable },
   // After a chart, the next things one does with it; after a look at the columns, a first question.
   followUps: [
     { tools: ['save_to_dashboard'], texts: ['再畫一張不同角度的圖，存到同一個 dashboard'] },

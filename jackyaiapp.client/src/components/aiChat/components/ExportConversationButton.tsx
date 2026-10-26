@@ -33,7 +33,7 @@ const ExportConversationButton = ({
   conversationId,
   busy,
 }: ExportConversationButtonProps) => {
-  const { profile, title: assistant = 'AI 助手', cardRenderers } = useAiChatConfig();
+  const { profile, title: assistant = 'AI 助手', cardRenderers, cardTables } = useAiChatConfig();
   const menuId = useId();
   // The menu is open while it has the button to hang from.
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -60,6 +60,7 @@ const ExportConversationButton = ({
         exportedAt,
         origin: window.location.origin,
         drawnKinds: Object.keys(cardRenderers ?? {}),
+        cardTables,
       }),
     };
   };

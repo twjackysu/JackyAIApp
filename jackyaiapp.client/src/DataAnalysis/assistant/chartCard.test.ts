@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { CHART_LIMITS, parseChartCardData } from './chartCard';
+import { CHART_LIMITS, chartCardTable, parseChartCardData } from './chartCard';
 
 const data = {
   viz: 'line',
@@ -53,5 +53,37 @@ describe('parseChartCardData', () => {
       rows: Array.from({ length: 2000 }, () => ({ month: 'a', revenue: 1 })),
     });
     expect(r?.rows).toHaveLength(CHART_LIMITS.rows);
+  });
+});
+
+describe('chartCardTable (D-149)', () => {
+  it('is the rows under the headers, a column numeric only when its values are all numbers', () => {
+    const rows = [
+      { month: '2026-01', revenue: 100, share: 0.4 },
+      { month: '2026-02', revenue: null, share: '60%' },
+    ];
+    expect(
+      chartCardTable({
+        kind: 'chart',
+        title: '每月營收',
+        data: { ...data, headers: ['month', 'revenue', 'share'], rows },
+      }),
+    ).toEqual({
+      kind: 'table',
+      title: '每月營收',
+      columns: [
+        { key: 'month', label: 'month', numeric: false },
+        { key: 'revenue', label: 'revenue', numeric: true },
+        { key: 'share', label: 'share', numeric: false },
+      ],
+      rows,
+      totalRows: null,
+    });
+  });
+
+  it('is nothing for a card that is not a chart', () => {
+    expect(
+      chartCardTable({ kind: 'chart', title: null, data: { ...data, viz: 'radar' } }),
+    ).toBeNull();
   });
 });
