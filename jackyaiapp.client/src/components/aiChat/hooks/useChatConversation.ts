@@ -231,6 +231,11 @@ export function useChatConversation(options?: ChatConversationOptions) {
         ),
       );
 
+    // A new conversation is named by the AI once its first answer is in (D-141); until then its title is the
+    // question's start. Not an edit (that conversation already had its first answer) nor a stopped one.
+    const startsConversation = (fresh || !conversationId) && !edited;
+    const answered: { conversationId?: string } = {};
+
     await sendStreamingMessage({
       message: text,
       conversationId: fresh ? '' : conversationId,
@@ -251,6 +256,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
       onComplete: (newConversationId, truncated, assistantMessageId) => {
         pause();
         if (newConversationId) setConversationId(newConversationId);
+        answered.conversationId = newConversationId || undefined;
         updateBot({
           truncated: truncated || undefined,
           serverId: assistantMessageId,
@@ -335,6 +341,8 @@ export function useChatConversation(options?: ChatConversationOptions) {
     // The turn is over, however it ended: the first message of a new conversation has just
     // created it on the server, and any turn moves it to the top. The column shows the list.
     dispatch(chatbotApis.util.invalidateTags(['Conversations']));
+    if (startsConversation && answered.conversationId)
+      void dispatch(chatbotApis.endpoints.nameConversation.initiate(answered.conversationId));
   };
 
   // Messages sent while an answer is still being written wait here, and go out one at a time as

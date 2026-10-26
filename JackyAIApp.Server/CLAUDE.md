@@ -329,6 +329,15 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   streams each piece that has text as SSE `thinking`. It is not the answer: not added to the text, not counted as the
   answer having started (a turn with thinking and no answer text is still a failure), not stored, never sent again in
   the history; within a turn the tool rounds still send the reply back whole, thinking blocks and signatures included
+- A conversation's title is its first question's first 30 characters (`AnthropicChatService.TitleFrom`) until the AI names
+  it (D-141): after a new conversation's first answer the client asks `POST conversations/{id}/title` once, and
+  `ConversationTitler` (`IConversationTitler`) has Haiku 5.5 read the question and the start of the answer (600 and 800
+  characters, as data inside `<question>`/`<answer>`, effort low, no tools, 20s) and keeps its reply cleaned into a title
+  (`ConversationTitler.Clean`: the first line, no markdown, quotes, label or end punctuation, `<`/`>` full-width, at most 24
+  characters). Only the reader's own conversation (else NotFound), only once it has its first answer and still has the title
+  its question gave it (one already named keeps its name), one try a conversation (`IMemoryCache`, a day, so a failed one is
+  not asked again and again); without the API key or on any failure the title stays as it was, still 200. Not charged on its
+  own: a conversation exists only after a charged message, and the call is a few hundred tokens (logged as `chatbot.title`)
 - `AnthropicChatService.StreamChatAsync` only orchestrates a turn. Its requests and the reading of the
   stream (the deltas to the reader, the pause_turn retries, uploading the files again when the Files API
   no longer has one) are `ModelTurn`, which ends in a `TurnOutcome`; what an outcome comes to (answered,

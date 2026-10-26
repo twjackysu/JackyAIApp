@@ -99,6 +99,9 @@ let deleted: string[];
 let uploadReplies: Array<() => Response | Promise<Response>>;
 let uploads: number;
 let deletedAttachments: string[];
+/** The conversations the client asked the server to name (D-141), and the title the server gives them. */
+let named: string[];
+let aiTitle: string;
 /** Called while a chat turn is being answered, to let a test change the server's state first. */
 let whileAnswering: (() => void) | undefined;
 
@@ -112,6 +115,9 @@ beforeEach(() => {
   uploadReplies = [];
   uploads = 0;
   deletedAttachments = [];
+  named = [];
+  // None: the server keeps the title (its question's start), as when naming fails.
+  aiTitle = '';
   stops = [];
   approvals = [];
   whileAnswering = undefined;
@@ -142,6 +148,16 @@ beforeEach(() => {
       if (stop && method === 'POST') {
         stops.push(stop[1]);
         return json({ data: { stopped: true } });
+      }
+      const title = url.match(/conversations\/([^/]+)\/title$/);
+      if (title && method === 'POST') {
+        named.push(title[1]);
+        if (aiTitle)
+          conversations = conversations.map((c) =>
+            c.id === title[1] ? { ...c, title: aiTitle } : c,
+          );
+        const kept = conversations.find((c) => c.id === title[1])?.title ?? '新對話';
+        return json({ data: { title: kept } });
       }
       const approval = url.match(/(conversations\/[^/]+\/approvals\/[^/]+)$/);
       if (approval && method === 'POST') {
@@ -2308,6 +2324,41 @@ describe('AiAssistantPanel — conversation history column', () => {
     // The words are in the sent message straight away; the row needs the list's refetch.
     await waitFor(() => expect(row('剛問的問題')?.classList.contains('Mui-selected')).toBe(true));
     expect(listFetches).toBeGreaterThan(1);
+  });
+
+  it('has the AI name a new conversation once its first answer is in, and lists the new title (D-141)', async () => {
+    conversations = [];
+    await mount();
+    await waitForText('還沒有任何對話');
+    whileAnswering = () => {
+      conversations = [conversation('conv-new', '我的持股最近外資在買還是賣？幫我看看 2330 …')];
+    };
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '外資賣超' }, { type: 'done', conversationId: 'conv-new' }),
+    );
+    aiTitle = '持股的外資買賣超';
+    await send('我的持股最近外資在買還是賣？幫我看看 2330 和 0050');
+
+    await waitFor(() => expect(row('持股的外資買賣超')).toBeTruthy());
+    expect(named).toEqual(['conv-new']);
+
+    // The next message continues it: nothing is named again.
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '好的' }, { type: 'done', conversationId: 'conv-new' }),
+    );
+    await send('那 0050 呢？');
+    await waitForText('好的');
+    expect(named).toEqual(['conv-new']);
+  });
+
+  it('names nothing when the first answer failed', async () => {
+    conversations = [];
+    await mount();
+    chatReplies.push(() => sseReply({ type: 'error', code: 'failed' }));
+    await send('第一則');
+    await waitFor(() => expect(chatBodies).toHaveLength(1));
+    await waitFor(() => expect(container.textContent).toContain('錯誤'));
+    expect(named).toEqual([]);
   });
 
   it('starts over with 新對話: the messages go and the next message carries no conversation id', async () => {

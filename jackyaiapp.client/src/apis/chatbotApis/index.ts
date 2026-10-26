@@ -27,6 +27,18 @@ export const chatbotApis = createApi({
       invalidatesTags: ['Conversations'],
     }),
 
+    /**
+     * Have the AI name a new conversation from its first question and answer (D-141), asked once after its first
+     * answer. The server names it only the first time; the list is read again for the new title.
+     */
+    nameConversation: builder.mutation<ApiOkResponse<{ title: string }>, string>({
+      query: (conversationId) => ({
+        url: `conversations/${encodeURIComponent(conversationId)}/title`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result) => (result ? ['Conversations'] : []),
+    }),
+
     /** Upload a file to send with the next message; the server reads it into text. */
     uploadChatAttachment: builder.mutation<ApiOkResponse<ChatAttachment>, File>({
       query: (file) => {
@@ -47,6 +59,7 @@ export const {
   useGetConversationsQuery,
   useLazyGetConversationMessagesQuery,
   useDeleteConversationMutation,
+  useNameConversationMutation,
   useUploadChatAttachmentMutation,
   useDeleteChatAttachmentMutation,
 } = chatbotApis;
