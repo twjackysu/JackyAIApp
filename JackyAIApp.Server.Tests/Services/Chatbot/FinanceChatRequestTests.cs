@@ -92,7 +92,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             var body = Body(FinanceChatRequest.Build(Today, [], "# 市場背景"));
 
             Assert.Equal(
-                new[] { "cache_control", "max_tokens", "mcp_servers", "messages", "model", "output_config", "system", "tools" },
+                new[] { "cache_control", "max_tokens", "mcp_servers", "messages", "model", "output_config", "system", "thinking", "tools" },
                 body.EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal).ToArray());
         }
 

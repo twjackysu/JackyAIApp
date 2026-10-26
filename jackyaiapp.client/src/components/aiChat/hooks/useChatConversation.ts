@@ -10,6 +10,7 @@ import {
   resolveApproval,
 } from '../utils/approval';
 import { handoffOf } from '../utils/handoff';
+import { addThinking, pauseThinking, type ThinkingTrace } from '../utils/thinking';
 import { applyToolEvent, settleToolSteps, ToolStep } from '../utils/toolActivity';
 
 import { chatbotApis, useLazyGetConversationMessagesQuery } from '@/apis/chatbotApis';
@@ -204,6 +205,19 @@ export function useChatConversation(options?: ChatConversationOptions) {
       );
     const settleSteps = (answered: boolean) =>
       updateSteps((steps) => settleToolSteps(steps, answered));
+    // The model's thinking (utils/thinking): grows while it streams, and each other event ends the span going on.
+    const updateThinking = (
+      next: (trace: ThinkingTrace | undefined) => ThinkingTrace | undefined,
+    ) =>
+      setMessages((prev) => {
+        const msg = prev.find((m) => m.id === botMessage.id);
+        if (!msg) return prev;
+        const trace = next(msg.thinking);
+        // Nothing to change (not thinking): the same list, so no render.
+        if (trace === msg.thinking) return prev;
+        return prev.map((m) => (m === msg ? { ...m, thinking: trace } : m));
+      });
+    const pause = () => updateThinking((trace) => pauseThinking(trace, Date.now()));
     // A question left open when the turn ended was never answered: the server ran none of it, and
     // a click now would find nothing waiting. It shows as closed with nothing run (no decisions).
     const closeApproval = () =>
@@ -226,10 +240,13 @@ export function useChatConversation(options?: ChatConversationOptions) {
         if (userMessageId) update(userMessage.id, { serverId: userMessageId });
       },
       onUpdate: (content) => {
+        pause();
         setCurrentStreamingContent(content);
         updateBot({ content });
       },
+      onThinking: (piece) => updateThinking((trace) => addThinking(trace, piece, Date.now())),
       onComplete: (newConversationId, truncated, assistantMessageId) => {
+        pause();
         if (newConversationId) setConversationId(newConversationId);
         updateBot({
           truncated: truncated || undefined,
@@ -240,6 +257,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
         closeApproval();
       },
       onToolEvent: (event) => {
+        pause();
         updateSteps((steps) => applyToolEvent(steps, event));
         if (event.type === 'tool_result' && event.ok) {
           const path = sitePathOf(event.navigate);
@@ -247,29 +265,33 @@ export function useChatConversation(options?: ChatConversationOptions) {
         }
         if (event.type === 'tool_result' && event.ok) onToolDoneRef.current?.(event.name);
       },
-      onApprovalEvent: (event) =>
-        event.type === 'approval_required'
-          ? updateBot({
-              approval: {
-                request: {
-                  pendingId: event.pendingId,
-                  calls: event.calls,
-                  tainted: event.tainted,
-                  askedAt: Date.now(),
-                },
-                state: 'pending',
+      onApprovalEvent: (event) => {
+        pause();
+        if (event.type === 'approval_required')
+          updateBot({
+            approval: {
+              request: {
+                pendingId: event.pendingId,
+                calls: event.calls,
+                tainted: event.tainted,
+                askedAt: Date.now(),
               },
-            })
-          : setMessages((prev) =>
-              prev.map((msg) =>
-                msg.approval?.request.pendingId === event.pendingId
-                  ? { ...msg, approval: resolveApproval(msg.approval, event.decisions) }
-                  : msg,
-              ),
+              state: 'pending',
+            },
+          });
+        else
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.approval?.request.pendingId === event.pendingId
+                ? { ...msg, approval: resolveApproval(msg.approval, event.decisions) }
+                : msg,
             ),
+          );
+      },
       // What was said before the stop stays, marked the way the server stores it. `parsedBlocks` is
       // cleared so the bubble renders `content`, mark included.
       onStopped: (partial, assistantMessageId) => {
+        pause();
         updateBot({
           content: stoppedContent(partial),
           parsedBlocks: undefined,
@@ -281,8 +303,9 @@ export function useChatConversation(options?: ChatConversationOptions) {
       },
       // `parsedBlocks` is cleared so the bubble falls back to rendering `content`: an empty
       // block list is what a reply that never started looks like, and it draws nothing.
+      // A failed turn shows only its error, as the server keeps nothing of it: its thinking goes too.
       onError: (error) => {
-        updateBot({ content: `錯誤: ${error}`, parsedBlocks: undefined });
+        updateBot({ content: `錯誤: ${error}`, parsedBlocks: undefined, thinking: undefined });
         settleSteps(false);
         closeApproval();
       },

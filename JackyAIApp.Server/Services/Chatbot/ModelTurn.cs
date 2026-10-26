@@ -55,6 +55,8 @@ namespace JackyAIApp.Server.Services.Chatbot
         private BetaStopReason? _stopReason;
         private TokenTotals _tokens;
         private bool _paragraphBreakDue;
+        private bool _thinkingSent;
+        private bool _thinkingBreakDue;
 
         /// <param name="request">The turn's first request.</param>
         /// <param name="reuploadFiles">The request again, with the conversation's files uploaded again.</param>
@@ -209,11 +211,20 @@ namespace JackyAIApp.Server.Services.Chatbot
             else if (evt.TryPickContentBlockDelta(out var thinkingDelta) &&
                      thinkingDelta.Delta.TryPickThinking(out var thinking) && thinking.Thinking.Length > 0)
             {
-                await sse.WriteAsync(new { type = "thinking", text = thinking.Thinking }, ct);
+                // Another thinking block (after a tool search, which the reader is not sent, or in a retried
+                // attempt) is a new paragraph of the summary, not the end of the last one's sentence.
+                var text = _thinkingBreakDue ? "\n\n" + thinking.Thinking : thinking.Thinking;
+                _thinkingBreakDue = false;
+                _thinkingSent = true;
+                await sse.WriteAsync(new { type = "thinking", text }, ct);
             }
             else if (evt.TryPickContentBlockStart(out var blockStart))
             {
-                if (blockStart.ContentBlock.TryPickBetaMcpToolUse(out var toolUse))
+                if (blockStart.ContentBlock.TryPickBetaThinking(out _))
+                {
+                    _thinkingBreakDue = _thinkingSent;
+                }
+                else if (blockStart.ContentBlock.TryPickBetaMcpToolUse(out var toolUse))
                 {
                     _toolsCalled.Add(toolUse.Name);
                     await sse.WriteAsync(new { type = "tool_use", name = toolUse.Name }, ct);

@@ -324,6 +324,11 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   connectors page to change one; without notes its prompt is as before), and /finance's does not (its prompt is pinned word for
   word, design/08 §8). The morning briefing's last suggestion uses a note that bears on today. Studio AI may also offer to keep a note the reader did not ask
   for (a goal or preference they mention in passing): a `remember` call after its answer, so a confirmation card, once a conversation (D-103)
+- Every turn asks for the summary of the model's thinking (`ChatTurnRequest.ShownThinking`: adaptive, as Haiku 5.5
+  thinks anyway, with `display: summarized` in place of its default `omitted`; billed the same, D-136), and `ModelTurn`
+  streams each piece that has text as SSE `thinking`. It is not the answer: not added to the text, not counted as the
+  answer having started (a turn with thinking and no answer text is still a failure), not stored, never sent again in
+  the history; within a turn the tool rounds still send the reply back whole, thinking blocks and signatures included
 - `AnthropicChatService.StreamChatAsync` only orchestrates a turn. Its requests and the reading of the
   stream (the deltas to the reader, the pause_turn retries, uploading the files again when the Files API
   no longer has one) are `ModelTurn`, which ends in a `TurnOutcome`; what an outcome comes to (answered,

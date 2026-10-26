@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { ANSWERING, statusAfter, withToolLabel } from './chatStatus';
+import { ANSWERING, THINKING, statusAfter, withToolLabel } from './chatStatus';
 import { finishSseLines, splitSseLines } from './sseLines';
 
 import type { ToolEffect } from '@/apis/connectorsApis/types';
@@ -65,6 +65,8 @@ export interface ApprovalCallEvent {
 type ChatStreamEvent =
   | { type: 'start'; conversationId: string; userMessageId?: number }
   | { type: 'delta'; text: string }
+  /** A piece of the summary of the model's thinking (D-136): not the answer, never stored. */
+  | { type: 'thinking'; text: string }
   | ToolEvent
   | ApprovalEvent
   | {
@@ -91,6 +93,8 @@ export interface ChatTurn {
   onStart?: (conversationId: string, userMessageId?: number) => void;
   /** The answer so far, each time it grows. */
   onUpdate: (content: string) => void;
+  /** A piece of the summary of the model's thinking, as it comes (not the answer; see `utils/thinking`). */
+  onThinking?: (piece: string) => void;
   /** `truncated`: the answer ran into the length limit and is cut short. */
   onComplete: (conversationId?: string, truncated?: boolean, assistantMessageId?: number) => void;
   /** The reader stopped the turn; `partial` is what had been written by then (the server keeps it). */
@@ -176,6 +180,7 @@ export const useChatStreaming = ({
       quotesPageText,
       onStart,
       onUpdate,
+      onThinking,
       onComplete,
       onStopped,
       onError,
@@ -248,6 +253,21 @@ export const useChatStreaming = ({
               case 'delta':
                 accumulatedContent += event.text;
                 onUpdate(accumulatedContent);
+                // The header said it was thinking; the answer is being written now.
+                setStreamingStatus((prev) =>
+                  prev.currentEvent === 'thinking'
+                    ? { ...prev, currentEvent: 'delta', statusText: ANSWERING }
+                    : prev,
+                );
+                break;
+              case 'thinking':
+                if (!event.text) break;
+                onThinking?.(event.text);
+                setStreamingStatus((prev) =>
+                  prev.currentEvent === 'thinking'
+                    ? prev
+                    : { ...prev, currentEvent: 'thinking', statusText: THINKING },
+                );
                 break;
               case 'tool_use':
               case 'tool_result': {

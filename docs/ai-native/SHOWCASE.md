@@ -13,6 +13,7 @@
 | **打「/」就有現成指令**：Studio 輸入框打 `/` → 今日簡報、考我單字、用我的單字寫短文、投資組合健檢…一排按鈕，打 `/簡報`、`/quiz` 就篩出來，按下直接送出；/finance（`/外資`、`/景氣`）與 /data-analysis（`/欄位`、`/dashboard`）自己的助理也有各自的一組 | 共用的 `matchSlashCommands`＋`QuickChips`，每個助理的清單在它的 `AiChatConfig.slashCommands`；Studio 的名稱跟本站 MCP server 的 prompts 一樣，名稱跟本站 MCP server 的 prompts 一樣，所以 Claude Code 裡的 `/mcp__jacky-studio__quiz_me` 與本站的 `/quiz` 是同一件事 | 斜線指令是 2026 AI 產品的共通語言（Claude、ChatGPT、Cursor） |
 | **用說的**：三個助理的輸入框都有麥克風，說「給我今天的簡報」字就出現在框裡 | 瀏覽器內建的 Web Speech API（zh-TW），不經本站伺服器、不花 AI 額度；Firefox 沒有就不顯示 | 語音是 2026 AI 助理的基本互動 |
 | **聽它說、跟它對話**：用麥克風問的問題，**回答一結束就自動念給你聽**（打字問的不念）；首頁今日簡報旁的 **「用聽的」**，早上不用看螢幕就聽完行程、複習與資產；每個回答下方也有「朗讀」，英文段落用英文聲音、中文用中文聲音 | 瀏覽器的 speechSynthesis，`speechText` 把 Markdown 變成字並依語言切段；`SendOptions.readAloud`：只在回答正常結束才念、每則只念一次、念的時候「停止朗讀」一直顯示（D-120）；不經伺服器、不花用量 | 語音進、語音出：ChatGPT／Gemini 的語音對話，在網頁上用瀏覽器內建能力做到 |
+| **看得見 AI 在想什麼**：回答開始前，助理上方出現「💭 思考中… 3 秒」與它正在想的最後一句；回答出來後收成「已思考 8 秒」，按下展開整段推理（先查什麼、為什麼一次叫三個工具、結論怎麼來）；三個助理都有 | Haiku 5.5 本來就會思考，只是預設不回傳；請求改成 `thinking.display: summarized`（計費相同），`ModelTurn` 把思考摘要串流成 SSE `thinking`，前端 `ThinkingTraceView` 摺疊顯示。純文字、不存、不算回答（D-136） | 2026 的 AI 產品都把推理攤開給人看（Claude 的 thinking、ChatGPT 的 reasoning summary）：等待變成看得懂的過程，也看得出 AI 為什麼這樣回答 |
 | **AI 今日簡報**：首頁一鍵，Studio AI 同時讀行程、學習進度、投資組合，整理成三段重點與「先做哪件事」 | `askStudio`（任何頁面帶一句話打開 Studio）；模型在一次回覆裡呼叫三個工具，卡片與文字一起出現 | Agent 的價值是「跨 app 組合」：一個問題用到三個資料源 |
 | **「帶我去複習」→ 頁面真的切過去**，對話留在旁邊說明到了之後怎麼做；每個回答下方有 2–3 個 **「接著問」** 一鍵續問 | `open_page` 的 `go` → `tool_result.navigate`（只限本站工具、站內路徑、沒讀過外部內容）；接著問依回答用到的工具決定（不花 token） | AI 不只回答，還會操作網站本身 |
 | **「考我今天該複習的單字」→ 回答裡直接出現可以作答的測驗卡**：一次一題、按下立刻顯示對錯與解說，答完自動記進 SM-2 複習排程（+XP） | `review_quiz`（每日挑戰的題型產生器，不花 AI）→ `quiz` 卡片 → 前端呼叫既有的 `review/submit`；模型被告知考哪些字但不准說出答案 | Generative UI 不只顯示結果，還能「互動」：對話裡長出一個小 app |
@@ -48,6 +49,9 @@
 1. **開場：AI 今日簡報（1 分鐘）**：首頁最上方「AI 今日簡報」→ 右側滑出 Studio AI，一次呼叫 Google 日曆（與 Outlook 行事曆）、學習進度、投資組合（回答上方三個工具 chip）→ 行程表格、「12 個單字待複習」卡片、三段重點與「建議先做的事」。之後任何頁面按 ⌘K 都叫得出它，建議問題依目前頁面變化；按輸入框的麥克風可以用說的。
    ![首頁的 AI 今日簡報](screenshots/home-briefing-card-desktop.png)
    ![Studio 的今日簡報](screenshots/studio-briefing-desktop.png)
+   **看它想**：送出後、回答出來前，回答上方是「💭 思考中… 1 秒」與它正在想的最後一句（「三個工具彼此無關，可以一次一起呼叫」）；回答出來後收成「已思考 N 秒」，按下展開整段思考摘要（D-136）。/finance、/data-analysis 的助理也一樣。
+   ![思考中](screenshots/thinking-live-phone.png)
+   ![展開思考摘要](screenshots/thinking-open-desktop.png)
    ![語音輸入](screenshots/studio-voice-desktop.png)
    **用聽的**：今日簡報卡片右邊的耳機「用聽的」→ 同一份簡報，回答一結束就自動念出來（下方按鈕變成「停止朗讀」）；用麥克風說完送出的問題也一樣自動念（D-120）。
    ![今日簡報的用聽的](screenshots/home-briefing-listen-desktop.png)
@@ -249,5 +253,6 @@ flowchart LR
 | 10/26 | 31 | **接上就試**（「在 Studio AI 試試看」：新增 MCP server 的最後一步與 connector 詳情，Studio 開新對話用一個讀取工具示範；D-126） |
 | 10/26 | 32 | **Jira 原生 connector**（`jira_issues`：既有 Atlassian 連線變成 AI 工具，JQL 搜尋、表格卡片、Studio「/jira」；D-130）；改用打字後不再自動朗讀、Studio 第二次「加入」換新搜尋（D-129） |
 | 10/26 | 33 | **在 Jira 留言**（`jira_add_comment`：第一個寫入外部服務的原生 connector，確認卡寫出整則留言；D-132）；審查修正：確認卡的說明不再截到 200 字、讀與寫用同一個 Jira 網站（D-133）；**Outlook 行事曆原生 connector**（`outlook_calendar_events`，今日簡報兩個行事曆都讀、不再叫人去連另一個；D-134、D-135） |
+| 10/26 | 34 | **看得見 AI 在想什麼**：三個助理都串流思考摘要（「思考中… 3 秒」→「已思考 8 秒」，按下展開；D-136） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

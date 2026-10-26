@@ -226,7 +226,9 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
     BM25, which misses Chinese queries), except a few always loaded
     (`AnthropicChatService.AlwaysLoadedTools`; the turn log names the tools each turn called, to
     keep that list honest). Haiku 5.5 thinks by default (adaptive) and the thinking
-    counts toward `max_tokens`; effort is set explicitly to `medium`; it can decline a request
+    counts toward `max_tokens`; effort is set explicitly to `medium`; its thinking's summary is asked for
+    (`display: summarized`, not the model's default `omitted`; billed the same) and streamed to the reader
+    as `thinking` events, shown folded above the answer and never kept (D-136); it can decline a request
     (`stop_reason: refusal`, no server-side fallback for Haiku), which is reported to the user as
     such. The system prompt carries today's Taipei date. The API is stateless, so conversations
     live in our own SQL tables (`ChatConversations`, `ChatMessages`) and the whole history is

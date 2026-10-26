@@ -932,6 +932,43 @@ describe('AiAssistantPanel', () => {
     expect(card?.textContent).toContain('1,200');
   });
 
+  it("folds the model's thinking above its answer, plain text, unfolded on a press, never part of the answer", async () => {
+    await mount();
+    chatReplies.push(() =>
+      sseReply(
+        { type: 'thinking', text: '先看看 [這裡](https://evil.example) ' },
+        { type: 'thinking', text: '今天的行情。' },
+        { type: 'delta', text: '台積電今天上漲。' },
+        { type: 'done', conversationId: 'c1' },
+      ),
+    );
+    await send('台積電');
+
+    await waitForText('台積電今天上漲。');
+    const trace = container.querySelector('[data-testid="thinking-trace"]')!;
+    const toggle = trace.querySelector('button')!;
+    expect(toggle.textContent).toContain('已思考 1 秒');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    await act(async () => toggle.click());
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(trace.textContent).toContain('先看看 [這裡](https://evil.example) 今天的行情。');
+    expect(trace.querySelector('a')).toBeNull();
+    // The answer is the text alone.
+    const answer = container.querySelectorAll('[data-testid="assistant-message"]');
+    expect(answer[answer.length - 1].textContent).toContain('台積電今天上漲。');
+  });
+
+  it('a turn that fails after thinking shows only its error', async () => {
+    await mount();
+    chatReplies.push(() =>
+      sseReply({ type: 'thinking', text: '想一想' }, { type: 'error', code: 'busy' }),
+    );
+    await send('台積電');
+
+    await waitForText('錯誤');
+    expect(container.querySelector('[data-testid="thinking-trace"]')).toBeNull();
+  });
+
   it('an answer that used no tool shows no tool list', async () => {
     await mount();
     chatReplies.push(() =>

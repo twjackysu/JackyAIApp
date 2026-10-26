@@ -471,6 +471,18 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         [Fact]
+        public async Task AnotherThinkingBlock_AfterAToolSearch_IsANewParagraph()
+        {
+            _anthropic.Reply(Sse.Start(), Sse.Thinking("先找工具。"), Sse.ToolSearch(), Sse.Thinking("找到了。"),
+                Sse.Text("好"), Sse.End("end_turn"));
+
+            var turn = await AskAsync();
+
+            var thinking = turn.Events.Where(e => Type(e) == "thinking").Select(e => e.GetProperty("text").GetString()).ToArray();
+            Assert.Equal(new[] { "先找工具。", "\n\n找到了。" }, thinking);
+        }
+
+        [Fact]
         public async Task AnOmittedThinkingBlock_SendsTheReaderNothing()
         {
             _anthropic.Reply(Sse.Start(), Sse.Thinking(), Sse.Text("好"), Sse.End("end_turn"));

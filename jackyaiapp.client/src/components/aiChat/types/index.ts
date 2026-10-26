@@ -1,5 +1,6 @@
 import { ToolCard } from '../cards/toolCard';
 import { MessageApproval } from '../utils/approval';
+import { ThinkingTrace } from '../utils/thinking';
 import { ToolStep } from '../utils/toolActivity';
 
 import { ChatAttachment } from '@/apis/chatbotApis/types';
@@ -44,6 +45,8 @@ export interface Message {
   parsedBlocks?: ParsedBlock[];
   /** The answer ran into the length limit and is cut short. */
   truncated?: boolean;
+  /** The summary of the model's thinking for this answer, this session only (see ThinkingTrace, D-136). */
+  thinking?: ThinkingTrace;
   /** The tools an answer used, in order (see ToolActivity). */
   toolSteps?: ToolStep[];
   /** A reopened answer's cards, as stored with it (its tool steps are not kept). */

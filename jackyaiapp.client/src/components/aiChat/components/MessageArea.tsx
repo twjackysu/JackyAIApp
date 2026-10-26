@@ -11,6 +11,7 @@ import { ACCENT, accentWash, hairline, revealActionsOnHover } from '../style';
 import { Message } from '../types';
 import { ApprovalCall, ApprovalDecision } from '../utils/approval';
 import { followUpsFor } from '../utils/followUps';
+import { isThinking } from '../utils/thinking';
 
 import ApprovalCard from './ApprovalCard';
 import AssistantMark from './AssistantMark';
@@ -18,6 +19,7 @@ import AttachmentChip from './AttachmentChip';
 import FollowUps from './FollowUps';
 import MessageActions from './MessageActions';
 import MessageEditor from './MessageEditor';
+import ThinkingTraceView from './ThinkingTraceView';
 import ToolActivity from './ToolActivity';
 
 import { TRUNCATED_NOTE } from '@/apis/chatbotApis/chatErrors';
@@ -353,6 +355,7 @@ function MessageArea({
               </Box>
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 {attachments}
+                {message.thinking && <ThinkingTraceView thinking={message.thinking} />}
                 {message.toolSteps && <ToolActivity steps={message.toolSteps} />}
                 {message.toolSteps && <ToolCards steps={message.toolSteps} />}
                 {!message.toolSteps && message.cards && <ToolCards cards={message.cards} />}
@@ -360,7 +363,8 @@ function MessageArea({
                 {!message.parsedBlocks?.length && message.content ? (
                   <MarkdownMessage content={message.content} isOwnMessage={false} theme={theme} />
                 ) : !message.parsedBlocks?.length ? (
-                  awaitingReader ? null : (
+                  // Thinking shows itself (its line counts the seconds); the dots would say it twice.
+                  awaitingReader || isThinking(message.thinking) ? null : (
                     // The answer has not started: three dots in place of text.
                     <Box
                       aria-label="AI 助手思考中"

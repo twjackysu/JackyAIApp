@@ -24,6 +24,8 @@ export interface ChatStatus {
 
 export const ANSWERING = '正在生成回應...';
 export const WAITING_FOR_READER = '⏸ 等你確認…';
+/** While the model's thinking streams (D-136), before or between its answer's text. */
+export const THINKING = '💭 思考中…';
 
 /**
  * The header's line after a tool or approval event: the tool by the name the reader is shown (a site

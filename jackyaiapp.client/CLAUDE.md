@@ -73,7 +73,12 @@ jackyaiapp.client/src/
   through the panel's `onSendDraft`, D-115; with none listed, or with files picked, the text goes as typed) is an `AiChatConfig` (`components/aiChat/config.ts`)
   that the app passes to `AiAssistantLauncher` (Finance's is `Finance/aiChatConfig.ts`; Data Analysis's depends on what
   is on screen, `dataAnalysisAiChatFor`: nothing about dashboards for an uploaded file, whose charts cannot be saved); the chat's
-  parts read it with `useAiChatConfig()`, so their tests render under an `AiChatConfigContext`. The tools
+  parts read it with `useAiChatConfig()`, so their tests render under an `AiChatConfigContext`. The model's
+  thinking (the stream's `thinking` pieces, D-136) is `ThinkingTraceView` above the answer: folded to 「思考中… 3 秒」 with
+  its latest line while it thinks, 「已思考 8 秒」 once the answer, a tool or a question to the reader took over (`utils/thinking`:
+  `addThinking`, `pauseThinking`; thinking that resumes after a tool is a new paragraph), unfolded on a press; plain text, never
+  Markdown or links (it may repeat what a tool read); the header says 💭 思考中… and no dots are drawn meanwhile; this session
+  only (`Message.thinking`), and a failed turn drops it with its text. The tools
   an answer used are `ToolActivity` (from the stream's `tool_use`/`tool_result`, `utils/toolActivity`),
   a write waiting for the reader is `ApprovalCard` (`approval_required`, `utils/approval`; several calls are decided one
   by one or together, 全部拒絕 always and 全部允許 only when all are the site's own tools, none destructive, and the conversation read no outside content,
