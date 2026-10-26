@@ -19,7 +19,7 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
             var body = Body(request);
 
             Assert.Equal(
-                new[] { "cache_control", "max_tokens", "messages", "model", "output_config", "system" },
+                new[] { "cache_control", "max_tokens", "messages", "model", "output_config", "system", "thinking" },
                 body.EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal).ToArray());
             Assert.Equal("你是助手。", body.GetProperty("system").GetString());
             Assert.DoesNotContain("mcp-client", JsonSerializer.Serialize(request));

@@ -454,6 +454,61 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         [Fact]
+        public async Task TheThinkingSummary_StreamsToTheReader_ButIsNotTheAnswer_AndIsNotKept()
+        {
+            _anthropic.Reply(Sse.Start(), Sse.Thinking("先看看", "今天的行情。"), Sse.Text("台積電今天上漲。"), Sse.End("end_turn"));
+
+            var turn = await AskAsync();
+
+            Assert.Equal(new[] { "start", "thinking", "thinking", "delta", "done" }, turn.Events.Select(Type));
+            Assert.Equal("先看看", turn.Events[1].GetProperty("text").GetString());
+            Assert.Equal("今天的行情。", turn.Events[2].GetProperty("text").GetString());
+            Assert.Equal("台積電今天上漲。", Messages()[1].Content);
+            // Asked for on every turn: Haiku 5.5's own default is to leave it out.
+            var thinking = JsonDocument.Parse(Assert.Single(_anthropic.Requests)).RootElement.GetProperty("thinking");
+            Assert.Equal("adaptive", thinking.GetProperty("type").GetString());
+            Assert.Equal("summarized", thinking.GetProperty("display").GetString());
+        }
+
+        [Fact]
+        public async Task AnOmittedThinkingBlock_SendsTheReaderNothing()
+        {
+            _anthropic.Reply(Sse.Start(), Sse.Thinking(), Sse.Text("好"), Sse.End("end_turn"));
+
+            var turn = await AskAsync();
+
+            Assert.Equal(new[] { "start", "delta", "done" }, turn.Events.Select(Type));
+        }
+
+        [Fact]
+        public async Task ThinkingAlone_IsNotAnAnswer()
+        {
+            _anthropic.Reply(Sse.Start(), Sse.Thinking("想了一下"), Sse.End("end_turn"));
+
+            var turn = await AskAsync();
+
+            Assert.Equal("error", Type(turn.Events[^1]));
+            Assert.Equal(new[] { "user" }, Messages().Select(m => m.Role));
+        }
+
+        [Fact]
+        public async Task AToolRoundAfterThinking_SendsTheThinkingBlockBackWithItsSignature()
+        {
+            _anthropic.Reply(Sse.Start(), Sse.Thinking("要查字典。"),
+                Sse.ClientToolUse("toolu_1", "lookup_word", "{\"word\":\"serendipity\"}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Thinking("查到了。"), Sse.Text("意外的好運。"), Sse.End("end_turn"));
+
+            var turn = await AskAsync("serendipity 是什麼意思", profile: ToolProfile.ProfileKey);
+
+            Assert.Equal(new[] { "start", "thinking", "tool_use", "tool_result", "thinking", "delta", "done" }, turn.Events.Select(Type));
+            var reply = JsonDocument.Parse(_anthropic.Requests[1]).RootElement.GetProperty("messages")[1].GetProperty("content");
+            Assert.Equal("thinking", reply[0].GetProperty("type").GetString());
+            Assert.Equal("要查字典。", reply[0].GetProperty("thinking").GetString());
+            Assert.StartsWith("sig-", reply[0].GetProperty("signature").GetString());
+            Assert.Equal("意外的好運。", Messages()[1].Content);
+        }
+
+        [Fact]
         public async Task AToolCall_IsRun_ItsResultGoesBack_AndTheAnswerFollowsInTheSameStream()
         {
             _anthropic.Reply(Sse.Start(input: 100), Sse.Text("我查一下。"),
@@ -973,6 +1028,18 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
                 var index = _block++;
                 return Event("content_block_start", new { type = "content_block_start", index, content_block = new { type = "text", text = "" } })
                     + Event("content_block_delta", new { type = "content_block_delta", index, delta = new { type = "text_delta", text } })
+                    + Event("content_block_stop", new { type = "content_block_stop", index });
+            }
+
+            /// <summary>A thinking block: its summary in pieces (none, as with display omitted), then its signature.</summary>
+            public static string Thinking(params string[] pieces)
+            {
+                var index = _block++;
+                string[] deltas = pieces.Length == 0 ? [""] : pieces;
+                return Event("content_block_start", new { type = "content_block_start", index, content_block = new { type = "thinking", thinking = "", signature = "" } })
+                    + string.Concat(deltas.Select(piece =>
+                        Event("content_block_delta", new { type = "content_block_delta", index, delta = new { type = "thinking_delta", thinking = piece } })))
+                    + Event("content_block_delta", new { type = "content_block_delta", index, delta = new { type = "signature_delta", signature = "sig-" + index } })
                     + Event("content_block_stop", new { type = "content_block_stop", index });
             }
 

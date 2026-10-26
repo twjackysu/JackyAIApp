@@ -56,6 +56,9 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             Assert.Equal("claude-haiku-5-5", body.GetProperty("model").GetString());
             Assert.Equal(32000, body.GetProperty("max_tokens").GetInt32());
             Assert.Equal("medium", body.GetProperty("output_config").GetProperty("effort").GetString());
+            // The thinking stays Haiku 5.5's own (adaptive); only its summary is asked for, for the reader to watch.
+            Assert.Equal("adaptive", body.GetProperty("thinking").GetProperty("type").GetString());
+            Assert.Equal("summarized", body.GetProperty("thinking").GetProperty("display").GetString());
         }
 
         [Fact]

@@ -19,6 +19,15 @@ namespace JackyAIApp.Server.Services.Assistant
         // adds to what a turn needs. It is a ceiling, not a charge: a turn pays for what it uses.
         private const int MaxTokens = 32000;
 
+        /// <summary>
+        /// Haiku 5.5 thinks by default, adaptively; this only asks for the summary of that thinking
+        /// (<c>display: summarized</c>) instead of the model's default, <c>omitted</c>, so the reader can
+        /// watch it (<c>ModelTurn</c> streams it as <c>thinking</c> events). Billed the same either way:
+        /// thinking is paid for whether or not its summary comes back. The same on every turn, so the
+        /// prompt cache still matches.
+        /// </summary>
+        private static BetaThinkingConfigAdaptive ShownThinking() => new() { Display = Display.Summarized };
+
         /// <summary>The tw-stock tools that are not deferred (<see cref="TwStockMcp.AlwaysLoadedTools"/>).</summary>
         internal static readonly string[] AlwaysLoadedTools = [.. TwStockMcp.AlwaysLoadedTools];
 
@@ -50,6 +59,7 @@ namespace JackyAIApp.Server.Services.Assistant
                     Model = AnthropicModel.ClaudeHaiku5_5,
                     MaxTokens = MaxTokens,
                     OutputConfig = new BetaOutputConfig { Effort = Effort.Medium },
+                    Thinking = ShownThinking(),
                     System = setup.CachedBackground == null
                         ? setup.SystemPrompt
                         : new List<BetaTextBlockParam>
@@ -69,6 +79,7 @@ namespace JackyAIApp.Server.Services.Assistant
                 // Medium is Haiku 5.5's default; set explicitly so a change of default upstream
                 // cannot quietly change how much every turn thinks (and costs).
                 OutputConfig = new BetaOutputConfig { Effort = Effort.Medium },
+                Thinking = ShownThinking(),
                 Betas = [TwStockMcp.ConnectorBeta],
                 McpServers = [new BetaRequestMcpServerUrlDefinition { Name = TwStockMcp.Name, Url = TwStockMcp.Url }],
                 // Regex, not BM25: BM25 found almost no tool for questions asked in Chinese. No
@@ -129,6 +140,7 @@ namespace JackyAIApp.Server.Services.Assistant
                 Model = AnthropicModel.ClaudeHaiku5_5,
                 MaxTokens = MaxTokens,
                 OutputConfig = new BetaOutputConfig { Effort = Effort.Medium },
+                Thinking = ShownThinking(),
                 System = setup.CachedBackground == null
                     ? systemPrompt
                     : new List<BetaTextBlockParam>

@@ -202,6 +202,15 @@ namespace JackyAIApp.Server.Services.Chatbot
                 _text.Append(text);
                 await sse.WriteAsync(new { type = "delta", text }, ct);
             }
+            // The summary of the model's thinking (ChatTurnRequest asks for it), for the reader to watch
+            // while the answer is worked out. It is not the answer: it is not kept, not counted as the
+            // answer having started, and the history never sends it again. An omitted block's empty
+            // delta says nothing, so it is not sent.
+            else if (evt.TryPickContentBlockDelta(out var thinkingDelta) &&
+                     thinkingDelta.Delta.TryPickThinking(out var thinking) && thinking.Thinking.Length > 0)
+            {
+                await sse.WriteAsync(new { type = "thinking", text = thinking.Thinking }, ct);
+            }
             else if (evt.TryPickContentBlockStart(out var blockStart))
             {
                 if (blockStart.ContentBlock.TryPickBetaMcpToolUse(out var toolUse))
