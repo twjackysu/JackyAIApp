@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  canTryInStudio,
   drawerDescription,
   catalogCategories,
   catalogEntries,
@@ -97,5 +98,27 @@ describe('drawerDescription', () => {
 
   it('says nothing for an empty description', () => {
     expect(drawerDescription(installed({ description: '  ' }))).toBeNull();
+  });
+});
+
+describe('canTryInStudio', () => {
+  it('offers a connector the reader added that works and has a tool the AI sees', () => {
+    expect(canTryInStudio(installed())).toBe(true);
+    expect(canTryInStudio(installed({ health: 'unknown' }))).toBe(true);
+  });
+
+  it('does not offer one turned off, failing or waiting for a sign-in', () => {
+    for (const health of ['disabled', 'error', 'needsAuth'] as const)
+      expect(canTryInStudio(installed({ health }))).toBe(false);
+  });
+
+  it('does not offer one with no tool the AI may see', () => {
+    expect(canTryInStudio(installed({ tools: [] }))).toBe(false);
+    const off = installed().tools.map((t) => ({ ...t, permission: 'disabled' as const }));
+    expect(canTryInStudio(installed({ tools: off }))).toBe(false);
+  });
+
+  it("does not offer the site's own tools, which are always there", () => {
+    expect(canTryInStudio(installed({ alwaysOn: true, id: null }))).toBe(false);
   });
 });

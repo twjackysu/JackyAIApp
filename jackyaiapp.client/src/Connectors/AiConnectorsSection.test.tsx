@@ -8,6 +8,8 @@ import { catalog, entry, installed } from './testData';
 
 import type { CatalogEntry } from '@/apis/connectorsApis/types';
 
+import { ASK_STUDIO_EVENT, type AskStudioDetail } from '@/components/StudioAssistant/askStudio';
+
 const { mutation } = vi.hoisted(() => ({
   /** An RTK Query mutation hook whose trigger answers with `fn`'s result (or its throw). */
   mutation: (fn: (...args: unknown[]) => unknown) => () => [
@@ -247,6 +249,27 @@ describe('AiConnectorsSection', () => {
       toolName: 'add_word',
       permission: 'auto',
     });
+  });
+
+  it('tries a connector in Studio AI from its drawer, in a conversation of its own (D-126)', async () => {
+    const asked: AskStudioDetail[] = [];
+    const listen = (e: Event) => asked.push((e as CustomEvent<AskStudioDetail>).detail);
+    window.addEventListener(ASK_STUDIO_EVENT, listen);
+    try {
+      render(catalog({ installed: [installed()] }));
+      await openFirstCard();
+      await click(button('在 Studio AI 試試看'));
+    } finally {
+      window.removeEventListener(ASK_STUDIO_EVENT, listen);
+    }
+    expect(asked).toEqual([{ text: expect.stringContaining('「DeepWiki」'), fresh: true }]);
+  });
+
+  it('offers no try for a connector waiting for a sign-in', async () => {
+    render(catalog({ installed: [installed({ health: 'needsAuth' })] }));
+    await openFirstCard();
+    expect(text()).toContain('重新授權');
+    expect(button('在 Studio AI 試試看')).toBeUndefined();
   });
 
   it('asks once more before removing', async () => {

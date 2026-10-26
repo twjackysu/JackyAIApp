@@ -1,4 +1,4 @@
-import { TravelExplore } from '@mui/icons-material';
+import { AutoAwesome, TravelExplore } from '@mui/icons-material';
 import {
   Alert,
   Button,
@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 
+import { canTryInStudio } from '../connectorView';
 import { EFFECT_LABELS } from '../toolPermission';
 import ToolPermissionToggle from '../ToolPermissionToggle';
 
@@ -46,6 +47,7 @@ import {
   useSetToolPermissionMutation,
 } from '@/apis/connectorsApis/connectorsApis';
 import { getCaughtErrorMessage } from '@/apis/utils/errorMessage';
+import { askStudio, tryConnectorPrompt } from '@/components/StudioAssistant/askStudio';
 
 interface AddMcpServerDialogProps {
   open: boolean;
@@ -360,9 +362,23 @@ function AddMcpServerForm({
           </>
         )}
         {step === 'done' && (
-          <Button variant="contained" onClick={onClose}>
-            完成
-          </Button>
+          <>
+            {added && canTryInStudio(added) && (
+              <Button
+                startIcon={<AutoAwesome />}
+                onClick={() => {
+                  // The dialog goes first, so Studio AI's drawer opens over the page, not under a modal.
+                  onClose();
+                  askStudio(tryConnectorPrompt(added.displayName), { fresh: true });
+                }}
+              >
+                在 Studio AI 試試看
+              </Button>
+            )}
+            <Button variant="contained" onClick={onClose}>
+              完成
+            </Button>
+          </>
         )}
       </DialogActions>
     </>

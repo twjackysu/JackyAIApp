@@ -111,3 +111,15 @@ export function drawerDescription(
   if (!connector.alwaysOn && connector.serverUrl && text === connector.serverUrl) return null;
   return text;
 }
+
+/**
+ * Whether a connector can be tried in Studio AI (D-126): one the reader added, not turned off or failing, with a tool
+ * the AI may see. The site's own tools are always there, so they need no trying.
+ */
+export function canTryInStudio(connector: InstalledConnector): boolean {
+  return (
+    !connector.alwaysOn &&
+    (connector.health === 'ok' || connector.health === 'unknown') &&
+    connector.tools.some((t) => t.permission !== 'disabled')
+  );
+}

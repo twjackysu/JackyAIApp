@@ -68,3 +68,22 @@ export const FIND_MY_WEAK_SPOTS = '找出我最近英文最弱的地方';
 /** What a dashboard's 「AI 解讀」 asks (its owner only): the server's prompt names the dashboard on screen, and
  *  `read_dashboard` reads it as it is now. Always in a conversation of its own. */
 export const READ_DASHBOARD_PROMPT = '幫我解讀這個 dashboard：最重要的變化與值得注意的地方';
+
+/** The longest connector name a try-it request quotes. */
+const MAX_TRIED_NAME = 60;
+
+/**
+ * Trying a connector the reader just added (D-126: the dialog's last step, a connector's detail drawer): Studio AI
+ * is asked, in a conversation of its own (whose tools are read anew, the new connector's among them), to show what
+ * it can do with it by using one tool that only reads. The name may be what the server or a registry publisher
+ * called itself, so it goes as one plain line within quotes, never as more of the request.
+ */
+export function tryConnectorPrompt(name: string): string {
+  const plain = name
+    .replace(/[\p{C}\s「」]+/gu, ' ')
+    .trim()
+    .slice(0, MAX_TRIED_NAME)
+    .trim();
+  const named = plain ? `「${plain}」` : '這個 connector';
+  return `示範一下你能用${named}做什麼：挑一個只會讀取的工具實際用一次，再用兩三句話告訴我還能請你用它做哪些事。`;
+}

@@ -6,6 +6,8 @@ import { entry, installed, probe, registryServer } from '../testData';
 
 import AddMcpServerDialog from './index';
 
+import { ASK_STUDIO_EVENT, type AskStudioDetail } from '@/components/StudioAssistant/askStudio';
+
 const { mutation } = vi.hoisted(() => ({
   /** An RTK Query mutation hook whose trigger answers with `fn`'s result (or its throw). */
   mutation: (fn: (...args: unknown[]) => unknown) => () => [
@@ -136,6 +138,38 @@ describe('AddMcpServerDialog', () => {
       toolName: 'ask_question',
       permission: 'confirm',
     });
+  });
+
+  it('offers to try a server just added in Studio AI, closing first (D-126)', async () => {
+    mocks.probe.mockReturnValue(probe({ serverName: 'DeepWiki' }));
+    mocks.create.mockReturnValue(installed());
+    const asked: AskStudioDetail[] = [];
+    const listen = (e: Event) => asked.push((e as CustomEvent<AskStudioDetail>).detail);
+    window.addEventListener(ASK_STUDIO_EVENT, listen);
+    try {
+      render();
+      type(input('MCP server 網址'), 'https://mcp.example.com/mcp');
+      await click('檢查');
+      await click('連線');
+      await click('在 Studio AI 試試看');
+    } finally {
+      window.removeEventListener(ASK_STUDIO_EVENT, listen);
+    }
+    expect(onClose).toHaveBeenCalled();
+    expect(asked).toHaveLength(1);
+    expect(asked[0].fresh).toBe(true);
+    expect(asked[0].text).toContain('「DeepWiki」');
+  });
+
+  it('does not offer to try a server whose tools the AI cannot see', async () => {
+    mocks.probe.mockReturnValue(probe({ serverName: 'Empty' }));
+    mocks.create.mockReturnValue(installed({ tools: [] }));
+    render();
+    type(input('MCP server 網址'), 'https://mcp.example.com/mcp');
+    await click('檢查');
+    await click('連線');
+    expect(text()).toContain('已連線');
+    expect(button('在 Studio AI 試試看')).toBeUndefined();
   });
 
   it('waits for the token of a server that needs one', async () => {

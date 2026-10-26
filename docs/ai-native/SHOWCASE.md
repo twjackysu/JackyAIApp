@@ -31,6 +31,7 @@
 | **Connectors**：目錄一鍵加入 tw-stock、DeepWiki；貼任何 MCP URL 自動偵測登入方式 | MCP 官方 SDK（Streamable HTTP）、SafeHttp 防 SSRF | MCP 是 AI 接工具的標準 |
 | **不知道網址也能加：直接搜 MCP 官方目錄**——目錄最後一張「找更多 MCP server」→ 打 `github`、`search` → 列出可以直接連線的 remote MCP server（網址、要 token 還是 API key、原始碼連結）→ 按「使用」就走一樣的偵測、登入、工具流程，API key 的 header 已經填好 | `McpRegistry`：伺服器把 registry.modelcontextprotocol.io（v0.1）整份讀一次、全站共用快取 1 小時，只留 Streamable HTTP、固定 https 網址的；內容當不可信資料（純文字、只留 https 連結），只是指標（D-122、D-123） | 官方 MCP Registry 是各家客戶端共用的「server 黃頁」：別人做好的 server 搜得到、按一下就接上 |
 | **跟 Studio AI 說「幫我找能查天氣的 MCP server」**——它在官方目錄找到幾個，卡片列出主機、要不要 API key；按「加入」就到 /connectors，新增對話框已經搜好那一個，自己確認工具與權限後連線 | `find_mcp_server`（Studio 專用、唯讀、`OutsideText`）＋ `mcp-servers` 卡片；`/connectors?registry=` 打開對話框並填好搜尋，Studio 抽屜自己收起（D-124、D-125） | AI 知道自己缺什麼工具、幫你找，但**裝不裝由你**：human-in-the-loop 的「擴充自己」 |
+| **接上就試：「在 Studio AI 試試看」**——新增 MCP server 的最後一步、或任何 connector 的詳情裡一顆按鈕，Studio AI 開新對話，挑一個只會讀取的工具**實際用一次**，再說還能請它做哪些事 | `tryConnectorPrompt`＋`askStudio(…, { fresh: true })`：新對話重新讀工具清單，剛接上的 connector 就在裡面；名稱可能是發布者寫的，只當一行引號裡的字（D-126） | 從「找到工具」到「AI 用上它」一氣呵成：擴充 AI 的能力不再是設定頁，而是一段對話 |
 | 需要登入的 MCP server：**自動跑完 MCP 授權規格** | 401 → PRM（RFC 9728）→ AS metadata（RFC 8414／OIDC）→ DCR／CIMD／手填 client → PKCE S256 + `resource` + `iss` → token 加密 → 到期自動 refresh → 403 `insufficient_scope` 時 step-up | 2025-11 起的 MCP 授權規格（PRM、CIMD、RFC 8707 resource、RFC 9207 iss） |
 | 每個工具「自動／需確認／停用」；確認卡可勾「以後直接執行」；讀過外部資料（含行事曆邀請）後的寫入一律先問；工具說明被改了就改回需確認 | `ToolPermissions`、taint（D-031、`OutsideText`）、工具結果包成不可信資料、`CachedTools.Changed`（rug pull） | prompt injection 與 tool poisoning 防護 |
 | **網站本身就是 MCP server**：在 /connectors 產生 token，一鍵複製 Claude Code／Claude Desktop／Cursor／VS Code 的設定，別家的 AI 就能查字典、看你的學習進度與投資組合 | `POST /api/mcp`（Streamable HTTP、JSON 回應、無 session）、只存雜湊的 PAT、預設唯讀、跟 /connectors 的權限連動；**Claude.ai／ChatGPT 只要貼網址**：本站同時是 OAuth 授權伺服器（PRM、AS metadata、DCR、PKCE、同意頁） | MCP 是雙向的：網站不只是 MCP client，也是 MCP server |
@@ -120,6 +121,9 @@
    **或直接問 Studio AI**：在 /connectors 按 ⌘K → 第一個建議「幫我找一個能查天氣的 MCP server」→ 卡片列出 Weather、Open-Meteo（主機、需要 API key）與一兩句推薦 → 按 Weather 的「加入」→ 抽屜收起、新增對話框已搜好 `io.example/weather` → 按「使用」繼續。
    ![Studio AI 找 MCP server](screenshots/studio-find-mcp-desktop.png)
    ![按「加入」：對話框已搜好](screenshots/studio-find-mcp-added-desktop.png)
+   **接上就試**：連線成功的最後一步（或之後在 DeepWiki 的詳情裡）按 **「在 Studio AI 試試看」** → 對話框收起、Studio AI 開新對話：「示範一下你能用『DeepWiki』做什麼…」→ 工具 chip「DeepWiki・讀 wiki 目錄」→ 一份 repo 文件目錄，加上三個可以接著問的例子（D-126）。
+   ![connector 詳情的在 Studio AI 試試看](screenshots/connector-try-drawer-desktop.png)
+   ![Studio AI 示範剛接上的 connector](screenshots/studio-try-connector-desktop.png)
 7. **安全（1 分鐘）**：在 connector 詳情把某個工具設成「停用」→ AI 說它沒有這個能力；「需確認」的工具一律出確認卡；按「停止」整輪什麼都不執行。
 8. **反過來：網站本身就是 MCP server（1 分鐘）**：/connectors 往下捲到「讓其他 AI 使用本站」→「產生 token」（名稱 Claude Code、唯讀）→ 複製「Claude Code」那一行指令貼到終端機 → 在 Claude Code 問「用 jacky-studio 查一下 serendipity，再看我今天要複習幾個字」→ 它呼叫本站的 `look_up_word`、`learning_progress`。再打 `/mcp__jacky-studio__daily_briefing`（產生 token 的對話框會寫出這行）→ Claude Code 一次呼叫行程、學習進度、投資組合三個工具，整理成三段簡報；`/mcp__jacky-studio__quiz_me` 則一次問一題。回到 /connectors 看到 token「最後使用」更新；按「撤銷」後 Claude Code 立刻連不上。
    **或在 Claude.ai**：設定 → Connectors → 新增自訂 connector，只貼 `https://apps.jacky-studio.com/api/mcp` → 跳到本站的同意頁「Claude 想用你的身分使用 Jacky Studio 的工具，完成後會回到 claude.ai」→ 允許 → 回到 Claude.ai，工具出現。
@@ -236,5 +240,6 @@ flowchart LR
 | 10/26 | 28 | **語音對話**：用麥克風問的問題，回答結束自動朗讀；首頁今日簡報的「用聽的」（D-120） |
 | 10/26 | 29 | **/connectors 搜尋 MCP 官方目錄**：不知道網址也能加 remote MCP server（D-122）；審查後改成整份讀一次、本機比對名稱與說明（D-123） |
 | 10/26 | 30 | **Studio AI 幫你找 MCP server**（`find_mcp_server`：卡片按「加入」到 /connectors，對話框已搜好；安裝仍由你按；D-124、D-125） |
+| 10/26 | 31 | **接上就試**（「在 Studio AI 試試看」：新增 MCP server 的最後一步與 connector 詳情，Studio 開新對話用一個讀取工具示範；D-126） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

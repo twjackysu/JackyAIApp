@@ -1,4 +1,4 @@
-import { Close } from '@mui/icons-material';
+import { AutoAwesome, Close } from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -13,13 +13,14 @@ import {
 import { useState } from 'react';
 
 import CategoryIcon from './CategoryIcon';
-import { drawerDescription, HEALTH_VIEW } from './connectorView';
+import { canTryInStudio, drawerDescription, HEALTH_VIEW } from './connectorView';
 import { EFFECT_LABELS } from './toolPermission';
 import ToolPermissionToggle from './ToolPermissionToggle';
 
 import type { InstalledConnector, ToolEffect, ToolPermission } from '@/apis/connectorsApis/types';
 
 import { ActionTooltip } from '@/components/hints';
+import { askStudio, tryConnectorPrompt } from '@/components/StudioAssistant/askStudio';
 
 const AUTH_LABELS: Record<InstalledConnector['authKind'], string> = {
   none: '不需要登入',
@@ -165,7 +166,20 @@ function DetailBody({
       )}
 
       {!connector.alwaysOn && (
-        <Stack direction="row" spacing={1} sx={{ mb: 3, flexWrap: 'wrap', rowGap: 1 }}>
+        <Stack direction="row" sx={{ mb: 3, flexWrap: 'wrap', gap: 1 }}>
+          {canTryInStudio(connector) && (
+            <Button
+              variant="contained"
+              startIcon={<AutoAwesome />}
+              onClick={() => {
+                // The drawer steps aside for Studio AI's, which asks in a conversation of its own (D-126).
+                onClose();
+                askStudio(tryConnectorPrompt(connector.displayName), { fresh: true });
+              }}
+            >
+              在 Studio AI 試試看
+            </Button>
+          )}
           <Button variant="outlined" onClick={onTest} disabled={busy || !enabled}>
             測試連線
           </Button>
