@@ -282,6 +282,8 @@ function AiAssistantPanel({
             onNewChat={handleNewChat}
             onCollapse={onCollapse}
             sheet={sheet}
+            messages={messages}
+            conversationId={conversationId}
           />
           <MessageArea
             messages={messages}

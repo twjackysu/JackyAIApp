@@ -2056,6 +2056,30 @@ describe('AiAssistantPanel — copy and edit', () => {
     return editor;
   };
 
+  it('exports the conversation on screen as Markdown, titled as in the history (D-147)', async () => {
+    conversations = [conversation('c1', '台積電財報')];
+    messagesOf = { c1: [turn(1, 'user', '台積電最新財報？'), turn(2, 'assistant', '毛利率 59%')] };
+    await mount();
+    // Nothing asked yet: nothing to export.
+    expect(buttonByLabel('匯出對話')!.disabled).toBe(true);
+    await openConversation('台積電財報');
+    await waitForText('毛利率 59%');
+
+    await act(async () => buttonByLabel('匯出對話')!.click());
+    const item = () =>
+      [...document.body.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((m) =>
+        m.textContent?.includes('複製成 Markdown'),
+      );
+    await waitFor(() => expect(item()).toBeDefined());
+    await act(async () => item()!.click());
+
+    await waitFor(() => expect(copied).toHaveLength(1));
+    expect(copied[0]).toMatch(/^# 台積電財報\n/);
+    expect(copied[0]).toContain('## 你\n\n台積電最新財報？');
+    expect(copied[0]).toContain('毛利率 59%');
+    await waitFor(() => expect(document.body.textContent).toContain('已複製整段對話'));
+  });
+
   it('copies an answer as it was written, and says it did', async () => {
     await mount();
     chatReplies.push(() =>

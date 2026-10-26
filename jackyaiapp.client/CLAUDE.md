@@ -118,7 +118,15 @@ jackyaiapp.client/src/
   empties it before it closes anything. Each row's pencil (shown as its delete button is) turns its title into a box,
   `ConversationTitleEditor` (D-144): Enter or leaving the box saves, Escape keeps the title and goes no further;
   `utils/conversationTitle`' `renamedTitle` sends one line, nothing when empty, unchanged or past `MAX_TITLE_LENGTH`
-  (held to the server's by its test). `renameConversation` patches the list at once and puts it back if the server refuses
+  (held to the server's by its test). `renameConversation` patches the list at once and puts it back if the server refuses,
+  and the column then says so for a moment (`RENAME_FAILED_TEXT`, D-146); a box ended with Enter or Escape gives the focus
+  back to its row's pencil (`onClose(byKey)`), one left with the mouse does not
+- The header's 匯出對話 (`ExportConversationButton`, D-147) copies the conversation on screen as Markdown or downloads it as a
+  .md file: `utils/conversationMarkdown` writes the history column's title (the list read when the menu opens), the time in
+  Taipei, each question and answer under its heading, the tools an answer used, its table cards as Markdown tables (numbers and
+  empty cells as `TableCardView` shows them, `|` escaped) and its link cards whole (a path on this site gets the origin); a card
+  an app draws itself (a chart, a quiz) is named in one line, and the thinking and confirmation cards are left out. Nothing
+  goes to the server; disabled while an answer is written and before a first question
 - Studio AI (`components/StudioAssistant`, mounted once in `App.tsx`) is the same chat as a sheet: a button
   in the lower right, or ⌘K / Ctrl+K, opens `AiAssistantPanel` with `variant="sheet"` (fills a right-hand
   drawer, the history behind its button, the header's last action closes) under the `studio` profile, with

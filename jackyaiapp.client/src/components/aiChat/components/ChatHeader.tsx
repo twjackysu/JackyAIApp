@@ -8,8 +8,10 @@ import { useTheme } from '@mui/material/styles';
 import { useAiChatConfig } from '../config';
 import { noSelectionAsk } from '../selection/readSelection';
 import { ACCENT, hairline } from '../style';
+import { Message } from '../types';
 
 import AssistantMark from './AssistantMark';
+import ExportConversationButton from './ExportConversationButton';
 import { HISTORY_COLUMN_BREAKPOINT } from './historyColumn';
 
 import { ActionTooltip } from '@/components/hints';
@@ -26,6 +28,9 @@ interface ChatHeaderProps {
   /** The panel fills a drawer of its own: the history is always behind its button, and the last
    *  action closes the drawer. */
   sheet?: boolean;
+  /** The conversation on screen, for 匯出對話 (D-147). */
+  messages: readonly Message[];
+  conversationId: string;
 }
 
 /**
@@ -39,6 +44,8 @@ const ChatHeader = ({
   onNewChat,
   onCollapse,
   sheet = false,
+  messages,
+  conversationId,
 }: ChatHeaderProps) => {
   const theme = useTheme();
   const { connectedLabel, title = 'AI 助手' } = useAiChatConfig();
@@ -94,6 +101,7 @@ const ChatHeader = ({
         </Box>
       </Box>
       <Box sx={{ flexGrow: 1 }} />
+      <ExportConversationButton messages={messages} conversationId={conversationId} busy={busy} />
       <ActionTooltip title="新對話">
         <span>
           <IconButton
