@@ -27,8 +27,8 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
         private const string Sites = $$"""
             [
-              { "id": "aaaaaaaa-0000-0000-0000-000000000000", "url": "https://readonly.atlassian.net", "name": "readonly",
-                "scopes": ["read:jira-work"] },
+              { "id": "aaaaaaaa-0000-0000-0000-000000000000", "url": "https://wiki.atlassian.net", "name": "wiki",
+                "scopes": ["read:confluence-space"] },
               { "id": "{{CloudId}}", "url": "https://acme.atlassian.net", "name": "acme",
                 "scopes": ["read:jira-user", "read:jira-work", "write:jira-work"] }
             ]
@@ -163,18 +163,69 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Contains("jira_issues", result.Content);
         }
 
-        [Theory]
-        [InlineData(HttpStatusCode.Unauthorized)]
-        [InlineData(HttpStatusCode.Forbidden)]
-        public async Task ARefusedConnection_PointsToReconnecting(HttpStatusCode status)
+        [Fact]
+        public async Task ARefusedConnection_PointsToReconnecting()
         {
             Connected();
-            _post = () => Json("{}", status);
+            _post = () => Json("{}", HttpStatusCode.Unauthorized);
 
             var result = await Run(new { issueKey = "WEB-12", comment = "hi" });
 
             Assert.True(result.IsError);
             Assert.Equal("/connectors", CardJson(result).GetProperty("href").GetString());
+        }
+
+        [Fact]
+        public async Task AnIssueTheReaderMayNotCommentOn_IsSaidSo_NotSentToReconnectFirst()
+        {
+            Connected();
+            _post = () => Json("{}", HttpStatusCode.Forbidden);
+
+            var result = await Run(new { issueKey = "WEB-12", comment = "hi" });
+
+            Assert.True(result.IsError);
+            Assert.Null(result.Card);
+            Assert.Contains("權限", result.Content);
+        }
+
+        [Fact]
+        public async Task TheSiteJiraIssuesReads_IsTheOneCommentedOn_SoACommentNeverLandsOnAnotherSitesIssue()
+        {
+            Connected();
+            // The first Jira site is read only: commenting on the second's WEB-12 would be another issue than the one read.
+            _resources = () => Json($$"""
+                [ { "id": "abc", "url": "https://first.atlassian.net", "name": "first", "scopes": ["read:jira-work"] },
+                  { "id": "{{CloudId}}", "url": "https://acme.atlassian.net", "name": "acme", "scopes": ["read:jira-work", "write:jira-work"] } ]
+                """);
+
+            var result = await Run(new { issueKey = "WEB-12", comment = "hi" });
+
+            Assert.True(result.IsError);
+            Assert.Single(_asked);
+        }
+
+        [Fact]
+        public async Task AFailureBeforeTheCommentIsSent_SaysItWasNotPosted()
+        {
+            Connected();
+            _resources = () => throw new HttpRequestException("down");
+
+            var result = await Run(new { issueKey = "WEB-12", comment = "hi" });
+
+            Assert.True(result.IsError);
+            Assert.Contains("所以沒有留言", result.Content);
+        }
+
+        [Fact]
+        public async Task AnUnreadableAnswerToAPostedComment_StillSaysItIsPosted_LinkingTheIssue()
+        {
+            Connected();
+            _post = () => Json("not json", HttpStatusCode.Created);
+
+            var result = await Run(new { issueKey = "WEB-12", comment = "hi" });
+
+            Assert.False(result.IsError);
+            Assert.Equal("https://acme.atlassian.net/browse/WEB-12", CardJson(result).GetProperty("href").GetString());
         }
 
         [Fact]

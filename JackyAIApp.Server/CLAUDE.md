@@ -403,8 +403,11 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   `/browse/{key}` link for the model (keys checked to look like Jira's). A JQL Jira refuses (400) is a failed call carrying
   Jira's `errorMessages` (cut), so the model can fix it; any other refusal or failure is said as for the calendar. `OutsideText`.
   `JiraAddCommentTool` (`jira_add_comment`, D-132) is the first native connector that writes: a comment on one issue in the
-  reader's name (scope `write:jira-work`, which the connection already asks for, so the first site granted it), a `Write`, so
-  asked first, its card saying the issue and the whole comment (`IDescribesCall`). The comment is posted exactly as confirmed:
+  reader's name (scope `write:jira-work`, which the connection already asks for), on the same site `jira_issues` reads (the first
+  granted Jira; refused when that one is not granted writes, so a comment never lands on another site's issue of the same key),
+  a `Write`, so asked first, its card saying the issue and the whole comment (`IDescribesCall`; the card's summary,
+  `ClientToolRunner.MaxSummary`, is long enough for it, since the card shows the summary in place of the arguments). A 403 on
+  the post is the project's permissions, said as such, not a reason to reconnect. The comment is posted exactly as confirmed:
   at most 2000 characters and refused beyond, never cut; one Atlassian document paragraph a line, text only. It is posted with
   the app's default client (timeout, no retries: `ExternalReadOnly`'s retries could post it twice), and an answer that is
   neither a success nor a refusal (5xx, a timeout) is reported as possibly posted, with the issue's link, so it is not simply

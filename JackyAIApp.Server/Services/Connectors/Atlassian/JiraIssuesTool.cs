@@ -43,6 +43,9 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
         /// <summary>The scope that lets a site's issues be read.</summary>
         internal const string ReadScope = "read:jira-work";
 
+        /// <summary>The scope that lets a site's issues be commented on (<see cref="JiraAddCommentTool"/>).</summary>
+        internal const string WriteScope = "write:jira-work";
+
         public static readonly AiToolDescriptor Definition = new(
             Name,
             "Jira",
@@ -207,11 +210,15 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
 
         private static string LabelOf(string jql) => jql == DefaultJql ? "指派給我、還沒完成的票" : "搜尋結果";
 
-        /// <summary>A Jira site the token may read: its cloud id (only letters, digits and dashes, so it stays one path segment), name and address.</summary>
-        public sealed record JiraSite(string Id, string Name, string Url)
+        /// <summary>A Jira site the token may read: its cloud id (only letters, digits and dashes, so it stays one path segment), name, address, and whether it may be commented on.</summary>
+        public sealed record JiraSite(string Id, string Name, string Url, bool CanWrite = false)
         {
-            /// <summary>The first site of an accessible-resources answer granted <paramref name="scope"/> (by default <c>read:jira-work</c>); null when none.</summary>
-            public static JiraSite? FirstOf(JsonElement answer, string scope = ReadScope)
+            /// <summary>
+            /// The first site of an accessible-resources answer granted <c>read:jira-work</c>, and whether it is also granted
+            /// <c>write:jira-work</c>; null when none. Reading and commenting use this same site, so a comment lands on the
+            /// issue that was read.
+            /// </summary>
+            public static JiraSite? FirstOf(JsonElement answer)
             {
                 if (answer.ValueKind != JsonValueKind.Array) return null;
                 foreach (var r in answer.EnumerateArray())
@@ -222,9 +229,10 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
                     if (id == null || !CloudId().IsMatch(id)) continue;
                     if (url == null || !Uri.TryCreate(url, UriKind.Absolute, out var site) || site.Scheme != Uri.UriSchemeHttps) continue;
                     if (!r.TryGetProperty("scopes", out var scopes) || scopes.ValueKind != JsonValueKind.Array ||
-                        !scopes.EnumerateArray().Any(s => s.ValueKind == JsonValueKind.String && s.GetString() == scope))
+                        !scopes.EnumerateArray().Any(s => s.ValueKind == JsonValueKind.String && s.GetString() == ReadScope))
                         continue;
-                    return new JiraSite(id, Cut(Text(r, "name"), 100) ?? site.Host, site.GetLeftPart(UriPartial.Authority));
+                    var canWrite = scopes.EnumerateArray().Any(s => s.ValueKind == JsonValueKind.String && s.GetString() == WriteScope);
+                    return new JiraSite(id, Cut(Text(r, "name"), 100) ?? site.Host, site.GetLeftPart(UriPartial.Authority), canWrite);
                 }
                 return null;
             }

@@ -30,9 +30,6 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
         /// <summary>The longest comment taken.</summary>
         internal const int MaxComment = 2000;
 
-        /// <summary>The scope that lets a site's issues be commented on.</summary>
-        internal const string WriteScope = "write:jira-work";
-
         public static readonly AiToolDescriptor Definition = new(
             Name,
             "Jira 留言",
@@ -69,6 +66,7 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
                     IsError: true,
                     Card: ConnectCard);
 
+            var sent = false;
             try
             {
                 using var resources = await GetAsync(httpClientFactory.CreateClient(HttpClientName), ResourcesUrl, token, ct);
@@ -79,7 +77,8 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
                     return Unreachable;
                 }
                 using var sites = await JsonDocument.ParseAsync(await resources.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-                if (JiraSite.FirstOf(sites.RootElement, WriteScope) is not { } site)
+                // The same site jira_issues reads, so the comment lands on the issue that was read.
+                if (JiraSite.FirstOf(sites.RootElement) is not { CanWrite: true } site)
                     return new AiToolResult(
                         "這個 Atlassian 帳號連線沒有可以留言的 Jira 網站（沒有 Jira，或連線時沒有授權寫入 Jira），所以沒有留言。請告訴使用者到 Connectors 中斷再重新連線 Atlassian。",
                         IsError: true,
@@ -91,8 +90,13 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
                 };
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
                 request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                sent = true;
                 using var posted = await httpClientFactory.CreateClient(WriteHttpClientName).SendAsync(request, ct);
-                if (Refused(posted)) return RefusedResult;
+                if (posted.StatusCode == HttpStatusCode.Unauthorized) return RefusedResult;
+                if (posted.StatusCode == HttpStatusCode.Forbidden)
+                    // Signed in, but not let comment on this issue (its project's permissions), or a connection without the scope.
+                    return AiToolResult.Error(
+                        $"Jira（{site.Name}）不讓使用者在 {comment.IssueKey} 留言（可能沒有這個專案的留言權限），所以沒有留言。請告訴使用者到 Jira 確認權限；別的票也不行的話，再到 Connectors 中斷並重新連線 Atlassian。");
                 if (posted.StatusCode == HttpStatusCode.NotFound)
                     return AiToolResult.Error($"Jira（{site.Name}）找不到 {comment.IssueKey}，或使用者沒有在這張票留言的權限，所以沒有留言。請跟使用者確認票號（可以先用 jira_issues 找）。");
                 if (posted.StatusCode == HttpStatusCode.BadRequest)
@@ -104,8 +108,7 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
                     return AiToolResult.Error($"Jira 沒有確認留言成功（可能沒有留上），請告訴使用者到 Jira 看一下再決定要不要重試：{site.BrowseUrl(comment.IssueKey)}");
                 }
 
-                using var body = await JsonDocument.ParseAsync(await posted.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-                var link = site.CommentLink(comment.IssueKey, CommentIdOf(body.RootElement));
+                var link = site.CommentLink(comment.IssueKey, await CommentIdOf(posted, ct));
                 return new AiToolResult(
                     $"已用使用者的名義在 Jira（{site.Name}）的 {comment.IssueKey} 留言（{comment.Text.Length} 字）：{link}",
                     Card: new
@@ -120,8 +123,10 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
             catch (Exception ex) when (!ct.IsCancellationRequested && ex is HttpRequestException or JsonException or TaskCanceledException)
             {
                 logger.LogWarning(ex, "Jira comment could not be posted");
-                // A timeout may come after Jira wrote it: never say it was not posted.
-                return AiToolResult.Error("連不上 Jira 或沒有收到回應（留言可能沒有留上），請告訴使用者到 Jira 看一下再決定要不要重試。");
+                // Once sent, a timeout may come after Jira wrote it: never say it was not posted.
+                return sent
+                    ? AiToolResult.Error("送出留言後沒有收到 Jira 的回應（可能沒有留上，也可能已經留了），請告訴使用者到 Jira 看一下再決定要不要重試。")
+                    : Unreachable;
             }
         }
 
@@ -131,6 +136,20 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
             Card: ConnectCard);
 
         private static AiToolResult Unreachable => AiToolResult.Error("Jira 暫時連不上，所以沒有留言，請告訴使用者稍後再試。");
+
+        /// <summary>The new comment's id from Jira's answer; null when the answer cannot be read (the comment is posted either way).</summary>
+        private static async Task<string?> CommentIdOf(HttpResponseMessage posted, CancellationToken ct)
+        {
+            try
+            {
+                using var body = await JsonDocument.ParseAsync(await posted.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+                return CommentIdOf(body.RootElement);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
 
         /// <summary>The new comment's id from Jira's answer, only when it is digits (it goes into a link).</summary>
         internal static string? CommentIdOf(JsonElement answer) =>

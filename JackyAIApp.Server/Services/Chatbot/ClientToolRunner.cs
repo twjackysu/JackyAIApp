@@ -209,6 +209,9 @@ namespace JackyAIApp.Server.Services.Chatbot
             return checkedCard;
         }
 
+        /// <summary>The longest summary on the card.</summary>
+        internal const int MaxSummary = 2200;
+
         /// <summary>What a site tool says one call would do, for the card; none from a connector's tool, or on any failure.</summary>
         private string? Summary(BetaToolUseBlock call, IAiTool tool)
         {
@@ -216,7 +219,9 @@ namespace JackyAIApp.Server.Services.Chatbot
             try
             {
                 var text = describes.Describe(JsonSerializer.SerializeToElement(call.Input), _context)?.Trim();
-                return string.IsNullOrEmpty(text) ? null : text.Length > 200 ? text[..200] : text;
+                // Long enough for the whole of what a write sends (a Jira comment, 2000 characters): the card shows the
+                // summary in place of the arguments, so a cut one would hide part of what is approved.
+                return string.IsNullOrEmpty(text) ? null : text.Length > MaxSummary ? text[..(char.IsHighSurrogate(text[MaxSummary - 1]) ? MaxSummary - 1 : MaxSummary)] + "…" : text;
             }
             catch (Exception)
             {
