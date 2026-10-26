@@ -113,6 +113,9 @@ jackyaiapp.client/src/
   conversation (a stored one has a `serverId`; a failed one has none, so a first question that failed and is asked again
   is still named; a stopped answer is stored and counts), and the list is read again, so the history column's row changes from the question's
   first words to a short title (「持股的外資買賣超」) a moment later. Every assistant, no settings
+  With six or more conversations the history column has a search box (D-143): titles holding every word typed
+  (`utils/conversationSearch`' `matchConversations`, case and full-width forms ignored), on the client only; Escape
+  empties it before it closes anything
 - Studio AI (`components/StudioAssistant`, mounted once in `App.tsx`) is the same chat as a sheet: a button
   in the lower right, or ⌘K / Ctrl+K, opens `AiAssistantPanel` with `variant="sheet"` (fills a right-hand
   drawer, the history behind its button, the header's last action closes) under the `studio` profile, with

@@ -41,6 +41,7 @@
 | **在 Claude.ai／ChatGPT 裡也看得到本站的卡片**：問「我的投資組合」，回答下方直接出現本站的持倉表格（深淺色跟著 host） | MCP Apps（`ui://` 資源、`structuredContent`、postMessage 的 `ui/initialize`／`tool-result`／`size-changed`），一個內嵌的 HTML 畫所有卡片 | MCP Apps（2026 的 generative UI 標準）：工具不只回文字，也回 UI |
 | **別家 AI 裡的斜線指令**：Claude Code 打 `/mcp__jacky-studio__daily_briefing` 就是今日簡報；還有「考我單字」（一次一題）、「解讀 dashboard」、「投資組合健檢」「找出我的弱點」等 7 個現成指令（VS Code、Claude Desktop 的選單也有） | MCP prompts（`prompts/list`／`prompts/get`）：每個 `SitePrompt` 宣告在它用到的工具旁邊，token 用不到的工具就不列出它；參數整理成一行、最多 100 字 | MCP 的三種能力（tools、resources、prompts）本站對外全部提供 |
 | **失敗了按一下「重試」**：AI 服務忙碌、網路斷掉、回覆沒收完時，失敗的回答下方出現「重試」，問題原地重送（附檔、引用的頁面文字都照原樣），不用重打；對話太長、模型拒答這種再問也一樣的不給，已經動過手（跑過本站或 connector 工具）的也不給，免得同一筆寫入做兩次；長對話串流時只重畫正在寫的那則（每段 329 ms → 3.4 ms） | `useChatConversation.retry`：伺服器存過的問題當成編輯它自己、沒存過的重新送出；`isRetryableChatError`；`memo(MessageItem)`（D-138～D-140） | 2026 的 chat 產品的基本功：失敗可以一鍵重來、長對話不卡 |
+| **AI 替對話取名字**：問完第一個問題，左邊紀錄列表那一列從「台積電最近一個月的走勢如何？技術面和籌…」變成「台積電近一個月走勢」，之後一眼就找得到 | 第一個回答之後前端呼叫 `POST conversations/{id}/title`，`ConversationTitler` 用 Haiku 5.5（effort low）讀問題與回答開頭取 ≤24 字標題；每個對話一次、不另外計費（D-141、D-142） | Claude、ChatGPT 的對話列表都是 AI 取的名字；三個助理共用，不用設定。對話多了，紀錄欄上方可以**搜尋標題**（D-143） |
 | /finance 的 Stock Intelligence：**行為不變**，工具 chip 與進度改用中文（「個股歷史股價」「技術指標」），回答下方有「接著問」 | 同一套共用 chat（`FinanceChatRequestTests` 逐欄位鎖住請求）；中文名稱是前端的對照表（`FINANCE_TOOL_LABELS`） | — |
 
 ## Demo 腳本（約 10 分鐘）
@@ -150,6 +151,11 @@
    **失敗了就重試**：AI 服務忙碌時，回答寫「錯誤: AI 服務目前忙碌中」，下方一顆「重試」，按下問題原地重送、不用重打。
    ![失敗的回答下方的重試](screenshots/retry-failed-desktop.png)
    ![重試後的回答](screenshots/retry-done-phone.png)
+   **AI 替對話取名字**：問完第一個問題，看左邊的紀錄列表：一兩秒後，那一列從問題開頭換成 AI 取的短標題（「台積電近一個月走勢」）。
+   ![取名前：問題開頭](screenshots/title-before-desktop.png)
+   ![取名後：AI 取的短標題](screenshots/title-after-desktop.png)
+   對話多了（6 則以上），紀錄欄上方有 **「搜尋對話」**：打「台積電」只留下標題有台積電的對話。
+   ![搜尋對話標題](screenshots/history-search-desktop.png)
 10. **收尾**：下面的架構圖，以及「新增一個 connector 要寫多少 code」（[CONTRIBUTING-CONNECTORS.md](CONTRIBUTING-CONNECTORS.md)）。
 
 ## 架構
@@ -259,5 +265,6 @@ flowchart LR
 | 10/26 | 33 | **在 Jira 留言**（`jira_add_comment`：第一個寫入外部服務的原生 connector，確認卡寫出整則留言；D-132）；審查修正：確認卡的說明不再截到 200 字、讀與寫用同一個 Jira 網站（D-133）；**Outlook 行事曆原生 connector**（`outlook_calendar_events`，今日簡報兩個行事曆都讀、不再叫人去連另一個；D-134、D-135） |
 | 10/26 | 34 | **看得見 AI 在想什麼**：三個助理都串流思考摘要（「思考中… 3 秒」→「已思考 8 秒」，按下展開；D-136） |
 | 10/27 | 35 | 長對話不卡：每則訊息各自 memo，串流時只重畫正在寫的那則（每段 329 ms → 3.4 ms；D-138）；**失敗的回答下方「重試」**（問題原地重送，附檔與引用的頁面文字照原樣；D-139）；審查修正：失敗的編輯重試仍是編輯、伺服器可能已存或工具跑過的不給（D-140） |
+| 10/27 | 36 | **AI 替對話取名字**：新對話第一個回答之後，紀錄列表換成 AI 取的短標題（三個助理都有；D-141）；審查修正：失敗後重試成功的也命名、回答裡的標籤改全形、同時請求只問一次（D-142）；對話滿 6 則時紀錄欄可以搜尋標題（D-143） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

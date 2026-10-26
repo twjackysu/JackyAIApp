@@ -1,11 +1,23 @@
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditNoteIcon from '@mui/icons-material/EditNote';
-import { Box, Button, IconButton, List, ListItemButton, Typography } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import {
+  Box,
+  Button,
+  IconButton,
+  InputAdornment,
+  List,
+  ListItemButton,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import { useState } from 'react';
 
 import { useAiChatConfig } from '../config';
 import { noSelectionAsk } from '../selection/readSelection';
 import { ACCENT, accentWash, hairline } from '../style';
+import { matchConversations, SEARCH_FROM } from '../utils/conversationSearch';
 import { periodOf } from '../utils/period';
 
 import { useDeleteConversationMutation, useGetConversationsQuery } from '@/apis/chatbotApis';
@@ -51,6 +63,10 @@ const ConversationList = ({
   const [deleteConversation, { isLoading: isDeleting }] = useDeleteConversationMutation();
 
   const conversations = data?.data ?? [];
+  // Finding one by its title (D-143), once there are enough to look for.
+  const [query, setQuery] = useState('');
+  const searchable = conversations.length >= SEARCH_FROM;
+  const shown = searchable ? matchConversations(conversations, query) : conversations;
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -86,6 +102,38 @@ const ConversationList = ({
         >
           新對話
         </Button>
+        {searchable && (
+          <TextField
+            size="small"
+            fullWidth
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              // Escape empties the search first; an empty one lets it through (the drawer closes).
+              if (e.key === 'Escape' && query) {
+                e.stopPropagation();
+                setQuery('');
+              }
+            }}
+            placeholder="搜尋對話"
+            slotProps={{
+              htmlInput: { 'aria-label': '搜尋對話' },
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{
+              mt: 1,
+              '& .MuiOutlinedInput-root': { borderRadius: 2.5 },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: hairline(theme) },
+              '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: ACCENT },
+            }}
+          />
+        )}
       </Box>
 
       {isFetching && conversations.length === 0 ? (
@@ -98,9 +146,17 @@ const ConversationList = ({
         >
           還沒有任何對話
         </Typography>
+      ) : shown.length === 0 ? (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ textAlign: 'center', py: 4, px: 2, overflowWrap: 'anywhere' }}
+        >
+          沒有標題含「{query.trim()}」的對話
+        </Typography>
       ) : (
         <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', px: 1, pb: 1.5 }}>
-          {byPeriod(conversations).map((group) => (
+          {byPeriod(shown).map((group) => (
             <Box key={group.period} component="section" sx={{ mt: 1 }}>
               <Typography
                 variant="caption"

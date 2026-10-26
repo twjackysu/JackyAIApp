@@ -2292,6 +2292,52 @@ describe('AiAssistantPanel — conversation history column', () => {
     expect(container.querySelector('.MuiDrawer-root')).toBeNull();
   });
 
+  it('finds a conversation by its title once there are enough to look for (D-143)', async () => {
+    const searchBox = () =>
+      container.querySelector<HTMLInputElement>('input[aria-label="搜尋對話"]');
+    const search = (text: string) =>
+      act(() => {
+        const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+        setValue.call(searchBox(), text);
+        searchBox()!.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    conversations = [
+      conversation('c1', '台積電近一個月走勢'),
+      conversation('c2', '0050 定期定額'),
+      conversation('c3', 'ETF 溢價比較'),
+      conversation('c4', '台積電財報體檢'),
+      conversation('c5', '台指期籌碼'),
+    ];
+    await mount();
+    await waitForText('台指期籌碼');
+    // Five are read at a glance.
+    expect(searchBox()).toBeNull();
+
+    act(() => root.unmount());
+    root = createRoot(container);
+    conversations = [...conversations, conversation('c6', '外資買賣超')];
+    await mount();
+    await waitForText('外資買賣超');
+
+    search('台積電');
+    expect(row('台積電近一個月走勢')).toBeTruthy();
+    expect(row('台積電財報體檢')).toBeTruthy();
+    expect(row('ETF 溢價比較')).toBeUndefined();
+
+    search('ＥＴＦ');
+    expect(row('ETF 溢價比較')).toBeTruthy();
+
+    search('美股');
+    expect(container.textContent).toContain('沒有標題含「美股」的對話');
+
+    // Escape empties it.
+    act(() => {
+      searchBox()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    expect(searchBox()!.value).toBe('');
+    expect(row('外資買賣超')).toBeTruthy();
+  });
+
   it('opens a conversation from the column and carries on in it', async () => {
     await mount();
     await openConversation('台積電財報');
