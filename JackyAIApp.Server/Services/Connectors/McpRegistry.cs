@@ -11,7 +11,7 @@ namespace JackyAIApp.Server.Services.Connectors
     /// <c>GET /v0.1/servers</c>; docs/ai-native/design/03 §6.1, D-122), so the reader does not have to know
     /// a server's URL to add it. Only a pointer: choosing one puts its URL in the add dialog, which probes
     /// and adds it as any server of the reader's own (<see cref="IConnectorInstallService"/>, every request
-    /// through <see cref="SafeHttp"/>). Nothing of an entry reaches the AI.
+    /// through <see cref="SafeHttp"/>). What reaches an AI is only Studio AI's search of it (<c>FindMcpServerTool</c>), as untrusted outside text.
     /// </summary>
     public interface IMcpRegistry
     {
@@ -72,17 +72,20 @@ namespace JackyAIApp.Server.Services.Connectors
         }
 
         /// <summary>
-        /// The servers whose name, title or description holds every word of <paramref name="query"/> (any case),
-        /// those matching by name or title first, at most <see cref="MaxResults"/>.
+        /// The servers whose name, title or description holds every word of <paramref name="query"/> (any case):
+        /// the one whose whole name it is first (a search for a server's name, as Studio AI's card sends, D-124),
+        /// then those matching by name or title, at most <see cref="MaxResults"/>.
         /// </summary>
         internal static McpRegistrySearchDto Search(IReadOnlyList<McpRegistryServerDto> all, string query)
         {
             var words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             bool Holds(string text) => words.All(w => text.Contains(w, StringComparison.OrdinalIgnoreCase));
             var matches = all
-                .Select(s => (Server: s, ByName: Holds(s.Name + " " + s.Title), Any: Holds(s.Name + " " + s.Title + " " + s.Description)))
+                .Select(s => (Server: s, Exact: s.Name.Equals(query, StringComparison.OrdinalIgnoreCase),
+                    ByName: Holds(s.Name + " " + s.Title), Any: Holds(s.Name + " " + s.Title + " " + s.Description)))
                 .Where(m => m.Any)
-                .OrderByDescending(m => m.ByName) // stable: the registry's order within each
+                .OrderByDescending(m => m.Exact)
+                .ThenByDescending(m => m.ByName) // stable: the registry's order within each
                 .Select(m => m.Server)
                 .ToList();
             return new McpRegistrySearchDto(matches.Take(MaxResults).ToList(), More: matches.Count > MaxResults);

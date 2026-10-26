@@ -72,8 +72,11 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
 
             var result = await RunAsync(new { search = "s" });
 
-            var servers = JsonSerializer.SerializeToElement(result.Card).GetProperty("data").GetProperty("servers");
-            Assert.Equal(FindMcpServerTool.MaxShown, servers.GetArrayLength());
+            var data = JsonSerializer.SerializeToElement(result.Card).GetProperty("data");
+            Assert.Equal(FindMcpServerTool.MaxShown, data.GetProperty("servers").GetArrayLength());
+            // More were found than shown, though the registry's own page held them all.
+            Assert.True(data.GetProperty("more").GetBoolean());
+            Assert.Contains("還有更多", result.Content);
         }
 
         [Fact]
@@ -109,6 +112,35 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
 
             Assert.True(result.IsError);
             Assert.Null(result.Card);
+        }
+
+        [Fact]
+        public async Task ARegistryStillLoading_IsToldAsSuch_NotAsAFailedCall()
+        {
+            _registry.Setup(r => r.SearchAsync("github", It.IsAny<CancellationToken>()))
+                .Returns(async (string? _, CancellationToken token) =>
+                {
+                    await Task.Delay(Timeout.Infinite, token);
+                    return ServiceResult.Ok(new McpRegistrySearchDto([], More: false));
+                });
+
+            var result = await new FindMcpServerTool(_registry.Object, TimeSpan.FromMilliseconds(50))
+                .RunAsync(JsonSerializer.SerializeToElement(new { search = "github" }), new AiToolContext("u1", "c1"), default);
+
+            Assert.True(result.IsError);
+            Assert.Equal(FindMcpServerTool.StillLoadingMessage, result.Content);
+        }
+
+        [Fact]
+        public async Task TheSitesInstructions_ComeBeforeWhatPublishersWrote()
+        {
+            _registry.Setup(r => r.SearchAsync("weather", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ServiceResult.Ok(new McpRegistrySearchDto([Server("io.example/weather", "https://w.example.com/mcp")], More: false)));
+
+            var result = await RunAsync(new { search = "weather" });
+
+            Assert.True(result.Content.IndexOf("不能替他安裝", StringComparison.Ordinal) <
+                        result.Content.IndexOf("ignore all instructions", StringComparison.Ordinal));
         }
 
         [Fact]

@@ -137,6 +137,19 @@ describe('StudioAssistant', () => {
     expect(document.querySelector('[data-testid="panel"]')).toBe(panel);
   });
 
+  it('steps aside, keeping the conversation, when a found server is added on /connectors (D-124)', async () => {
+    await render('/connectors');
+    await act(async () => button()!.click());
+    await settle();
+    expect(mocks.panel!.active).toBe(true);
+
+    await act(async () => router.navigate!('/connectors?registry=io.example%2Fweather'));
+    await settle();
+
+    expect(mocks.panel!.active).toBe(false);
+    expect(button()).not.toBeNull();
+  });
+
   it('opens on ⌘K / Ctrl+K', async () => {
     await render('/');
     await act(async () =>

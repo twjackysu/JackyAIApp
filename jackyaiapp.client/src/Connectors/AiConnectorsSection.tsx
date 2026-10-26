@@ -73,6 +73,8 @@ export default function AiConnectorsSection({
     const custom = catalog.installed.filter((c) => c.definitionKey === 'custom').length;
     if (custom < catalog.customLimit)
       setDialog({ open: true, preset: null, browseRegistry: true, registrySearch: askedSearch });
+    else
+      notify(`自訂 MCP server 最多 ${catalog.customLimit} 個，請先移除用不到的再加入。`, 'error');
     setSearchParams(
       (params) => {
         params.delete(REGISTRY_PARAM);
@@ -80,7 +82,7 @@ export default function AiConnectorsSection({
       },
       { replace: true },
     );
-  }, [askedSearch, catalog, setSearchParams]);
+  }, [askedSearch, catalog, setSearchParams, notify]);
 
   // The drawer shows the catalog's copy, so a change saved from it shows at once.
   const selected = catalog?.installed.find((c) => keyOf(c) === selectedKey) ?? null;

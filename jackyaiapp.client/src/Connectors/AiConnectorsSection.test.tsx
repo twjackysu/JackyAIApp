@@ -141,6 +141,7 @@ describe('AiConnectorsSection', () => {
     );
     render(catalog({ installed: full, customLimit: 2 }), 0, '/connectors?registry=weather');
     expect(text()).not.toContain('[Dialog');
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('最多 2 個'), 'error');
     expect(where.path).toBe('/connectors');
   });
 

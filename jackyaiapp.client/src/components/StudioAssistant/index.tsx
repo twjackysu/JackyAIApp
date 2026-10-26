@@ -30,6 +30,7 @@ import { ACCENT_GRADIENT } from '@/components/aiChat/style';
 import { handoffState } from '@/components/aiChat/utils/handoff';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { ActionTooltip } from '@/components/hints';
+import { registrySearchOf } from '@/Connectors/AddMcpServerDialog/registryView';
 import { useAppDispatch } from '@/redux/hooks';
 
 const AiAssistantPanel = lazy(() => import('@/components/aiChat'));
@@ -45,7 +46,7 @@ type QuickChip = QuickAction | SlashCommand;
  * message sent (`askStudio`, the home page's briefing).
  */
 export default function StudioAssistant() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { data: user } = useGetUserInfoQuery();
   const signedIn = !!user?.data;
   const shown = signedIn && studioShownOn(pathname);
@@ -224,6 +225,14 @@ export default function StudioAssistant() {
   useEffect(() => {
     if (!shown) setOpen(false);
   }, [shown]);
+
+  // Sent to /connectors to add a server Studio AI found (the `mcp-servers` card's 加入, D-124): adding it is done on the
+  // page, so the drawer steps aside (on a phone it is the whole screen) and the conversation waits for the reader.
+  const addingFromRegistry =
+    pathname === '/connectors' && registrySearchOf(new URLSearchParams(search)) !== null;
+  useEffect(() => {
+    if (addingFromRegistry) setOpen(false);
+  }, [addingFromRegistry]);
 
   // Signed out, there is nothing to keep. On a page without the button (one of Studio's own links goes to
   // /finance) only the button goes: unmounting the panel would drop the conversation mid-reply.

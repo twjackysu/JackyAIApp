@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.Connectors;
 using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Caching.Memory;
@@ -229,6 +230,18 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Equal(ErrorCodes.ExternalApiError, failed.Error);
             Assert.Equal(ErrorCodes.ExternalApiError, notJson.Error);
             Assert.Equal(2, _asked.Count);
+        }
+
+        [Fact]
+        public void AServersWholeName_IsFoundFirst()
+        {
+            static McpRegistryServerDto Entry(string name, string description = "Does things.") =>
+                new(name, name, description, $"https://{name.Replace('/', '.')}.example.com/mcp", null, null, "1.0.0", [], null);
+            var all = new[] { Entry("io.example/weather-pro"), Entry("io.other/notes", "Works with io.example/weather."), Entry("io.example/weather") };
+
+            var found = McpRegistry.Search(all, "IO.EXAMPLE/WEATHER");
+
+            Assert.Equal(new[] { "io.example/weather", "io.example/weather-pro", "io.other/notes" }, found.Servers.Select(s => s.Name));
         }
     }
 }
