@@ -1,4 +1,4 @@
-// 第 27 輪：Studio AI 的「最近的弱點」（weak_spots，/english/stats 的建議 → 表格卡片 → 接著問）。其餘同 chat.cjs——Studio AI 與 /data-analysis 助理的截圖（迴圈專用，合併前與 .loop/ 一起刪）：dist/ + 假 API + 假的 chat 串流。
+// 第 27 輪：Studio AI 的「最近的弱點」（weak_spots，/english/stats 的建議 → 表格卡片 → 接著問；統計頁的「AI 弱點分析」卡片，D-118）。其餘同 chat.cjs——Studio AI 與 /data-analysis 助理的截圖（迴圈專用，合併前與 .loop/ 一起刪）：dist/ + 假 API + 假的 chat 串流。
 // 用法：cd jackyaiapp.client && npm run build && NODE_PATH=$(npm root -g) node ../.loop/shots/weak-spots.cjs <輸出目錄>
 // chat 的串流由頁面內的 fetch 替身送出（addInitScript），可以停在確認卡上不結束，所以拍得到「等待確認」的畫面。
 const { chromium } = require('playwright');
@@ -336,6 +336,15 @@ const weak = [
     await page.waitForTimeout(3000);
     await page.screenshot({ path: `${out}/studio-weak-spots-${name}.png` });
     await page.close();
+    // 學習統計頁的「AI 弱點分析」卡片（D-118）：按下 → Studio 開新對話問弱點
+    const card = await open(browser, viewport, weak);
+    await card.goto('http://localhost:5173/english/stats');
+    await card.waitForTimeout(1500);
+    await card.screenshot({ path: `${out}/stats-weak-card-${name}.png` });
+    await card.getByText('AI 弱點分析').click();
+    await card.waitForTimeout(3000);
+    await card.screenshot({ path: `${out}/stats-weak-card-asked-${name}.png` });
+    await card.close();
   }
   await browser.close();
 })();

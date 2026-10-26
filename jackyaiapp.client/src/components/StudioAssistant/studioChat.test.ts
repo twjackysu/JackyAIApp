@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { READ_DASHBOARD_PROMPT } from './askStudio';
+import { FIND_MY_WEAK_SPOTS, READ_DASHBOARD_PROMPT } from './askStudio';
 import {
-  FIND_MY_WEAK_SPOTS,
   MAKE_DASHBOARD,
   MY_HOLDINGS_MARKET,
   studioChatConfig,

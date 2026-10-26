@@ -108,7 +108,9 @@ jackyaiapp.client/src/
   `aiChat/hooks/useAskQueue`, so two asked before the lazy panel has loaded both go; `fresh` sends it as the first message of a new conversation,
   `useChatConversation`'s `send(…, { fresh: true })`, queued like any message while an answer is written): the home
   page's 「AI 今日簡報」 (`Portal/BriefingCard`, signed in only, nothing asked until clicked) sends `BRIEFING_PROMPT`,
-  always fresh, so it neither resends an old conversation's history nor inherits that conversation's tainted writes. A dashboard's owner gets
+  always fresh, so it neither resends an old conversation's history nor inherits that conversation's tainted writes. That card is
+  `StudioAssistant/AskStudioCard` (icon, title, description, the request; pressed, it asks fresh), which the stats page shows too as
+  「AI 弱點分析」 (`FIND_MY_WEAK_SPOTS`, D-118). A dashboard's owner gets
   「AI 解讀」 (`READ_DASHBOARD_PROMPT`, fresh; the server names the dashboard on screen and `read_dashboard` reads it), which is
   also Studio AI's first suggestion on a dashboard. A tool result's `navigate` (Studio AI's `open_page` with `go`, a path on this site only, `sitePathOf`, as it streams,
   never from a reopened conversation) moves the page under the drawer through the panel's `onNavigate`; on a phone the

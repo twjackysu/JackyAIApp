@@ -1,11 +1,5 @@
-import { BRIEFING_PROMPT, READ_DASHBOARD_PROMPT } from './askStudio';
-import {
-  dictionaryWordOf,
-  FIND_MY_WEAK_SPOTS,
-  MAKE_DASHBOARD,
-  RECORD_TRADE,
-  WRITE_WITH_MY_WORDS,
-} from './studioChat';
+import { BRIEFING_PROMPT, FIND_MY_WEAK_SPOTS, READ_DASHBOARD_PROMPT } from './askStudio';
+import { dictionaryWordOf, MAKE_DASHBOARD, RECORD_TRADE, WRITE_WITH_MY_WORDS } from './studioChat';
 
 import type { DashboardSummary } from '@/apis/dashboardApis/types';
 import type { SlashCommand } from '@/components/aiChat/utils/slashCommands';

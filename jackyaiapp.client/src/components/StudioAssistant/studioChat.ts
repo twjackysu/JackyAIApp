@@ -11,7 +11,7 @@ import QuizIcon from '@mui/icons-material/QuizOutlined';
 import ShowChartIcon from '@mui/icons-material/ShowChartOutlined';
 import TrendingDownIcon from '@mui/icons-material/TrendingDownOutlined';
 
-import { BRIEFING_PROMPT, READ_DASHBOARD_PROMPT } from './askStudio';
+import { BRIEFING_PROMPT, FIND_MY_WEAK_SPOTS, READ_DASHBOARD_PROMPT } from './askStudio';
 import QuizCardView from './QuizCardView';
 
 import type { AiChatConfig, AiChatSuggestion } from '@/components/aiChat/config';
@@ -38,9 +38,7 @@ const ENGLISH: AiChatSuggestion[] = [
   { text: '考我今天該複習的單字', icon: QuizIcon },
   { text: '幫我查 serendipity 是什麼意思', icon: AutoStoriesIcon },
 ];
-/** Where the reader went wrong lately (weak_spots): what the stats page counts but cannot say what to do about. */
-export const FIND_MY_WEAK_SPOTS = '找出我最近英文最弱的地方';
-/** On the stats and exam pages, which show the results the weak spots are read from. */
+/** On the stats and exam pages, which show the results the weak spots (weak_spots) are read from but not what to do about them. */
 const RESULTS: AiChatSuggestion[] = [
   { text: FIND_MY_WEAK_SPOTS, icon: TrendingDownIcon },
   { text: '考我今天該複習的單字', icon: QuizIcon },

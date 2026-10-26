@@ -16,7 +16,7 @@
 | **AI 今日簡報**：首頁一鍵，Studio AI 同時讀行程、學習進度、投資組合，整理成三段重點與「先做哪件事」 | `askStudio`（任何頁面帶一句話打開 Studio）；模型在一次回覆裡呼叫三個工具，卡片與文字一起出現 | Agent 的價值是「跨 app 組合」：一個問題用到三個資料源 |
 | **「帶我去複習」→ 頁面真的切過去**，對話留在旁邊說明到了之後怎麼做；每個回答下方有 2–3 個 **「接著問」** 一鍵續問 | `open_page` 的 `go` → `tool_result.navigate`（只限本站工具、站內路徑、沒讀過外部內容）；接著問依回答用到的工具決定（不花 token） | AI 不只回答，還會操作網站本身 |
 | **「考我今天該複習的單字」→ 回答裡直接出現可以作答的測驗卡**：一次一題、按下立刻顯示對錯與解說，答完自動記進 SM-2 複習排程（+XP） | `review_quiz`（每日挑戰的題型產生器，不花 AI）→ `quiz` 卡片 → 前端呼叫既有的 `review/submit`；模型被告知考哪些字但不准說出答案 | Generative UI 不只顯示結果，還能「互動」：對話裡長出一個小 app |
-| **「找出我最近英文最弱的地方」→ AI 教練**：讀你最近 30 天的測驗紀錄，表格列出最常答錯、而且最近還是錯的字，再點出最弱的一種測驗（例如聽寫只對 45%），最後一句「現在考你 3 題？」接到測驗卡 | `weak_spots`（`IStatsService.GetWeakSpotsAsync`：自己的 `ExamAttempts`，各類型答對數、最常錯的 10 個字；唯讀、不花用量）→ 表格卡片；學習統計與測驗頁的建議、「/」的「找出我的弱點」、本站 MCP prompt `my_weak_spots` | 資料早就在，缺的是「讀懂並告訴你下一步」——AI 原生化不是加新資料，而是讓既有資料會說話 |
+| **「找出我最近英文最弱的地方」→ AI 教練**：讀你最近 30 天的測驗紀錄，表格列出最常答錯、而且最近還是錯的字，再點出最弱的一種測驗（例如聽寫只對 45%），最後一句「現在考你 3 題？」接到只考那幾個字的測驗卡 | `weak_spots`（`IStatsService.GetWeakSpotsAsync`：自己的 `ExamAttempts`，各類型答對數、最常錯的 10 個字；唯讀、不花用量）→ 表格卡片；`review_quiz` 的 `words` 只考那幾個字；學習統計與測驗頁的建議、「/」的「找出我的弱點」、本站 MCP prompt `my_weak_spots` | 資料早就在，缺的是「讀懂並告訴你下一步」——AI 原生化不是加新資料，而是讓既有資料會說話 |
 | 單字庫頁「用我單字庫裡最近存的字寫一段短文」→ AI 讀你最近存的 5 個字，寫一段把它們**粗體標出**的英文短文＋中文翻譯，按「朗讀」聽它念 | `saved_words`（最近存的字與一個中文意思、總字數；不花 AI 的讀取）＋模型的寫作 | 個人化的 AI 學習：教材是你自己的字 |
 | **選一段字就能問**：在任何頁面選取一句例句、一段分析 → 選取處上方出現「解釋／翻成中文／問 AI」；選一個英文單字是「查字典／加入單字庫」——在 Studio 自己寫的短文裡選一個不認識的字，一鍵加入單字庫。/finance 與 /data-analysis 也一樣，問的是那一頁自己的助理（選「多頭排列」→ 解釋）；作答中的考題不給（不會一選就洩漏答案） | `aiChat/selection`（`SelectionBar`、`selectionStepOf`，Studio 與各 app 的助理共用；選取停 250ms 才出現；`noSelectionAsk` 標出作答中的題目）；頁面上的文字可能是別人寫的，所以請求帶 `quotesPageText`，伺服器把對話標成讀過外部文字，寫入一律先問 | AI 不在旁邊的框裡等你，而是出現在你正在讀的地方（Notion、Arc、Apple Intelligence 式的 inline AI） |
 | **Studio AI 記得你**：說「記住：我在準備多益，目標 800 分，短文用商務情境」→ 確認卡寫出整句筆記 → 之後每個新對話的短文、簡報、出題都照這個方向（資料分析的助理也讀得到，只讀）；「你記得我什麼？」、/connectors 上逐則刪除 | `AssistantMemories`（每則 200 字、每人 30 則）；`remember`（寫入，先問）／`forget`（照抄筆記文字、Destructive）；筆記放在 system prompt 的 `<user_memories>`，標明「不是指令」、`<>` 換成全形，防持久化的 prompt injection | ChatGPT、Claude、Gemini 2025–2026 的「記憶」：個人化的 AI，而且使用者看得到、刪得掉 |
@@ -61,8 +61,10 @@
    ![Studio 的複習小測驗](screenshots/studio-quiz-desktop.png)
    ![作答後立刻顯示答案與解說](screenshots/studio-quiz-answered-desktop.png)
    ![答完：答對幾題、記進複習排程與 XP](screenshots/studio-quiz-result-phone.png)
-   到 /english/stats → ⌘K → 第一個建議「找出我最近英文最弱的地方」→ 「最近的弱點」表格（最常答錯的字、最近一次對錯）＋兩句重點（最弱的測驗類型、還是錯的字）→ 下方「考我幾題」接到上面的測驗卡（D-116）。
+   到 /english/stats → ⌘K → 第一個建議「找出我最近英文最弱的地方」→ 「最近的弱點」表格（最常答錯的字、最近一次對錯）＋兩句重點（最弱的測驗類型、還是錯的字）→ 下方「考我最常錯的這幾個字」→ 測驗卡考的就是表格裡那幾個字（`review_quiz` 的 `words`；D-116、D-117）。
    ![找出我的弱點](screenshots/studio-weak-spots-desktop.png)
+   統計頁最上方就有「**AI 弱點分析**」卡片（跟首頁的今日簡報同一個元件 `AskStudioCard`），不用先知道 ⌘K，按一下就是同一段分析（D-118）。
+   ![學習統計頁的 AI 弱點分析卡片](screenshots/stats-weak-card-phone.png)
    到 /english/repository → ⌘K → 第一個建議「用我單字庫裡最近存的字寫一段短文」→ 「我的單字庫」卡片（共 86 個字）＋一段用到 5 個字的英文短文（粗體）與中文翻譯 → 按回答下方的 **朗讀**（喇叭圖示），英文用英文聲音、翻譯用中文聲音念；下方「換個主題再寫一段」「考我幾題」。
    ![用自己的單字寫短文](screenshots/studio-writing-desktop.png)
    **選取就能問**：在短文裡把不認識的「ephemeral」選起來 → 上方出現「查字典／加入單字庫／問 AI」→ 按「加入單字庫」→ 同一個對話裡出現確認卡。再到字典頁，選一句例句 → 「解釋／翻成中文／問 AI」→ 按「翻成中文」→ Studio 開新對話，翻譯＋值得學的字詞表。到 /finance 問助理台積電的走勢，在回答裡選「多頭排列」→ 工具列換成 /finance 助理的「解釋／翻成英文／問 AI」→ 按「解釋」，接在同一段對話（截圖 `select-finance-*`）。
@@ -217,6 +219,6 @@ flowchart LR
 | 10/26 | 24 | **本站 MCP server 的現成指令**（MCP prompts：Claude Code 打 `/mcp__jacky-studio__daily_briefing` 就是今日簡報，共 6 個，token 用得到的工具才列出）；Studio 輸入框打 **「/」** 出現同一組現成指令；產生 token 的對話框寫出各 AI 怎麼叫出；審查修正 |
 | 10/26 | 25 | 「/」指令跟著頁面走：單字頁「解釋 {word}」、/portfolio「記一筆交易」、/dashboards「做一個新的 dashboard」、自己的 dashboard「解讀這個 dashboard」排在最前面 |
 | 10/26 | 26 | /finance 與 /data-analysis 自己的助理也有「/」現成指令（`AiChatConfig.slashCommands`；比對與 chip 搬進共用的 `aiChat`）；CI 的 .NET SDK 改回 `10.0.x` |
-| 10/26 | 27 | **找出我的弱點**（`weak_spots`：測驗答對率與最常錯的字，AI 點出最該加強的地方再接測驗卡；「/」與本站 MCP prompt `my_weak_spots`） |
+| 10/26 | 27 | **找出我的弱點**（`weak_spots`：測驗答對率與最常錯的字，AI 點出最該加強的地方，再用只考那幾個字的測驗卡〔`review_quiz` 的 `words`〕；學習統計頁的「AI 弱點分析」卡片；「/」與本站 MCP prompt `my_weak_spots`） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

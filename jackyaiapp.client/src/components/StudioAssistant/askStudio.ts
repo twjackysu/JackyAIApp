@@ -42,6 +42,10 @@ export function askedOf(event: Event): AskStudioDetail | null {
  *  Always in a conversation of its own. */
 export const BRIEFING_PROMPT = '給我今天的簡報';
 
+/** Where the reader went wrong lately (`weak_spots`): the stats page's card, the stats and exam pages' first
+ *  suggestion and the `/` command 找出我的弱點. */
+export const FIND_MY_WEAK_SPOTS = '找出我最近英文最弱的地方';
+
 /** What a dashboard's 「AI 解讀」 asks (its owner only): the server's prompt names the dashboard on screen, and
  *  `read_dashboard` reads it as it is now. Always in a conversation of its own. */
 export const READ_DASHBOARD_PROMPT = '幫我解讀這個 dashboard：最重要的變化與值得注意的地方';
