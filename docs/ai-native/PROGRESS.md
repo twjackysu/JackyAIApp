@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-26 15:42 – 第 31 輪（接上就試、已加入的標示）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。
+- **「在 Studio AI 試試看」**（D-126，只動前端）：新增 MCP server 的完成步驟與 connector 詳情多一顆按鈕，先關對話框／抽屜，再 `askStudio(tryConnectorPrompt(名稱), { fresh: true, quotesPageText: true })`：Studio 開新對話、用一個讀取工具示範剛接上的 connector。`canTryInStudio` 把關（非內建、ok／尚未測試、有沒停用的工具）。順手修詳情按鈕列換行多縮 8px（`spacing` → `gap`）。截圖 `connector-try-drawer-*`、`studio-try-connector-*`（新腳本 `.loop/shots/try-connector.cjs`）；SHOWCASE 亮點列、demo 第 6 步、日誌。
+- **已經加過的 MCP server 標「已加入」**（D-127）：`find_mcp_server` 卡片資料多帶 `url`（只給前端，模型仍只拿到主機），前端 `serverUrlKey`／`installedServerUrls` 比對；Studio 卡片「已加入」、對話框的 Registry 搜尋「已經加入了」。
+- **審查**（subagent，D-128）：無高風險；中——名稱以使用者的話送出、第一個工具回來前不算外部文字 → `askStudio` 的 `quotesPageText`；低——依字元切、其他引號、已加入優先於「目錄已有」。都已修並補測試。
+- 驗證：前端 lint、build 全過，test 最後一次 149 檔 1613 個全過；CI 40288613073（D-126）、40289066128（D-127，含後端）綠；**40289886123（本輪最後一次含程式碼的 push be5a891a：審查修正）綠**。
+- 問題：無阻礙。
+
 ## 2026-10-26 13:42 – 第 30 輪（Studio AI 幫你找 MCP server）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。
