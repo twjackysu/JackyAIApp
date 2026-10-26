@@ -30,6 +30,8 @@ interface RegistrySearchProps {
   onPick: (server: McpRegistryServer) => void;
   /** A pick is being checked, so the buttons wait. */
   busy: boolean;
+  /** Opened to search (the catalog's 找更多): the search box takes the focus. */
+  autoFocus?: boolean;
 }
 
 /** Only an https link someone published is followed (the server keeps only those, too). */
@@ -40,7 +42,7 @@ const safeLink = (url: string | null) => (url?.startsWith('https://') ? url : nu
  * only, so the search is a few English letters; each server shows where it lives and what it
  * will ask for, and choosing one checks its address the way a pasted one is checked.
  */
-export default function RegistrySearch({ onPick, busy }: RegistrySearchProps) {
+export default function RegistrySearch({ onPick, busy, autoFocus = false }: RegistrySearchProps) {
   const [typed, setTyped] = useState('');
   const [search, setSearch] = useState('');
   useEffect(() => {
@@ -48,8 +50,9 @@ export default function RegistrySearch({ onPick, busy }: RegistrySearchProps) {
     return () => clearTimeout(timer);
   }, [typed]);
 
-  const { data, error, isFetching } = useSearchMcpRegistryQuery(search);
-  const notice = data ? registryNotice(data, search) : null;
+  // currentData, not data: while a new search loads, the last one's answer is not shown as its own.
+  const { currentData: data, error, isFetching } = useSearchMcpRegistryQuery(search);
+  const notice = data && !error ? registryNotice(data, search) : null;
 
   return (
     <Stack spacing={1.5}>
@@ -59,6 +62,7 @@ export default function RegistrySearch({ onPick, busy }: RegistrySearchProps) {
         value={typed}
         onChange={(e) => setTyped(e.target.value)}
         size="small"
+        autoFocus={autoFocus}
         fullWidth
         slotProps={{
           htmlInput: { maxLength: 50, 'aria-describedby': 'registry-hint' },
@@ -78,12 +82,12 @@ export default function RegistrySearch({ onPick, busy }: RegistrySearchProps) {
       />
       <Typography id="registry-hint" variant="caption" color="text.secondary">
         列出 registry.modelcontextprotocol.io 上可以直接連線的 remote MCP
-        server。內容由發布者提供，連線前請確認你信任它。
+        server（比對名稱與說明）。內容由發布者提供，連線前請確認你信任它。
       </Typography>
 
       {error && <Alert severity="warning">{getApiErrorMessage(error)}</Alert>}
 
-      {data && (
+      {data && !error && (
         <Stack
           component="ul"
           spacing={1}
@@ -96,7 +100,7 @@ export default function RegistrySearch({ onPick, busy }: RegistrySearchProps) {
         </Stack>
       )}
       {notice && (
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" color="text.secondary" role="status">
           {notice}
         </Typography>
       )}

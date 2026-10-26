@@ -127,7 +127,8 @@ function AddMcpServerForm({
 
   const pick = (server: McpRegistryServer) => {
     setUrl(server.url);
-    setForm((f) => ({ ...f, ...registryCredentials(server) }));
+    // Each pick starts from an empty form, so one server's header or key never carries to another.
+    setForm({ ...EMPTY_CREDENTIALS, ...registryCredentials(server) });
     void detect({ url: server.url, title: server.title });
   };
 
@@ -196,7 +197,7 @@ function AddMcpServerForm({
               label="MCP server 網址"
               placeholder="https://mcp.example.com/mcp"
               value={url}
-              autoFocus
+              autoFocus={!browseRegistry}
               onChange={(e) => setUrl(e.target.value)}
               onBlur={() => setUrlTouched(true)}
               onKeyDown={(e) => e.key === 'Enter' && detect()}
@@ -205,7 +206,7 @@ function AddMcpServerForm({
               fullWidth
             />
             {registryOpen ? (
-              <RegistrySearch onPick={pick} busy={probing} />
+              <RegistrySearch onPick={pick} busy={probing} autoFocus={browseRegistry} />
             ) : (
               <Button
                 startIcon={<TravelExplore />}

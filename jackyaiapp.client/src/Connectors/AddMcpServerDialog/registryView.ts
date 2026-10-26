@@ -37,7 +37,7 @@ export function registryNotice(result: McpRegistrySearch, search: string): strin
   const term = search.trim();
   if (result.servers.length === 0)
     return term
-      ? `官方目錄裡沒有名稱含「${term}」、可以直接連線的 remote MCP server。目錄只比對英文名稱，試試別的字。`
+      ? `官方目錄裡沒有符合「${term}」、可以直接連線的 remote MCP server。目錄多半是英文，試試英文關鍵字。`
       : '官方目錄目前沒有可以直接連線的 remote MCP server。';
   if (result.more) return `只列出前 ${result.servers.length} 個，輸入更多字可以縮小範圍。`;
   return null;

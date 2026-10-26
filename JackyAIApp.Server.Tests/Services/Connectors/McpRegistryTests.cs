@@ -26,7 +26,10 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             return new McpRegistry(factory.Object, cache ?? new MemoryCache(new MemoryCacheOptions()), NullLogger<McpRegistry>.Instance);
         }
 
-        private static string Page(params string[] entries) => $$"""{ "servers": [{{string.Join(",", entries)}}], "metadata": { "count": {{entries.Length}} } }""";
+        private static string Page(params string[] entries) => Page(null, entries);
+
+        private static string Page(string? nextCursor, params string[] entries) =>
+            $$"""{ "servers": [{{string.Join(",", entries)}}], "metadata": { "count": {{entries.Length}}{{(nextCursor == null ? "" : $", \"nextCursor\": \"{nextCursor}\"")}} } }""";
 
         private static string Server(string name, string remotes, string extra = "", string status = "active") => $$"""
             { "server": { "name": "{{name}}", "description": "Does things.", "version": "1.0.0", "remotes": {{remotes}} {{extra}} },
@@ -37,23 +40,61 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             $$"""[{ "type": "{{type}}", "url": "{{url}}" {{headers}} }]""";
 
         [Fact]
-        public async Task AsksTheLatestVersionOfEachServer_WithTheSearchEscaped()
+        public async Task ReadsTheLatestVersionOfEveryServer_PageByPage_AndNoSearchReachesTheRegistry()
         {
-            await Registry().SearchAsync("  git hub&x  ", default);
+            _registry = request => StubHttpMessageHandler.JsonResponse(request.RequestUri!.Query.Contains("cursor=p%2F2")
+                ? Page(null, Server("io.example/two", Remote("https://two.example.com/mcp")))
+                : Page("p/2", Server("io.example/one", Remote("https://one.example.com/mcp"))));
 
-            var url = Assert.Single(_asked).RequestUri!.AbsoluteUri;
-            Assert.StartsWith(McpRegistry.BaseUrl + "?", url);
-            Assert.Contains("version=latest", url);
-            Assert.Contains($"limit={McpRegistry.PageSize}", url);
-            Assert.Contains("search=git%20hub%26x", url);
+            var result = await Registry().SearchAsync("  two&x  ", default);
+
+            Assert.Equal(2, _asked.Count);
+            Assert.All(_asked, r =>
+            {
+                Assert.StartsWith(McpRegistry.BaseUrl + "?", r.RequestUri!.AbsoluteUri);
+                Assert.Contains("version=latest", r.RequestUri.AbsoluteUri);
+                Assert.Contains($"limit={McpRegistry.PageSize}", r.RequestUri.AbsoluteUri);
+                Assert.DoesNotContain("search=", r.RequestUri.AbsoluteUri);
+            });
+            Assert.Empty(result.Data!.Servers);
         }
 
         [Fact]
-        public async Task AnEmptySearch_ListsFromTheStart()
+        public async Task ARepeatedCursor_EndsTheWalk()
         {
-            await Registry().SearchAsync("   ", default);
+            _registry = _ => StubHttpMessageHandler.JsonResponse(Page("same", Server("io.example/one", Remote("https://one.example.com/mcp"))));
 
-            Assert.DoesNotContain("search=", Assert.Single(_asked).RequestUri!.ToString());
+            var result = await Registry().SearchAsync("", default);
+
+            Assert.Equal(2, _asked.Count);
+            Assert.Single(result.Data!.Servers);
+        }
+
+        [Fact]
+        public async Task APageThatFailsLater_KeepsWhatWasRead()
+        {
+            _registry = request => request.RequestUri!.Query.Contains("cursor=")
+                ? new HttpResponseMessage(HttpStatusCode.BadGateway)
+                : StubHttpMessageHandler.JsonResponse(Page("next", Server("io.example/one", Remote("https://one.example.com/mcp"))));
+
+            var result = await Registry().SearchAsync("", default);
+
+            Assert.Equal("io.example/one", Assert.Single(result.Data!.Servers).Name);
+        }
+
+        [Fact]
+        public async Task ASearchMatchesNameTitleOrDescription_EveryWord_NamesFirst()
+        {
+            _registry = _ => StubHttpMessageHandler.JsonResponse(Page(null,
+                Server("io.example/notes", Remote("https://notes.example.com/mcp"), """, "description": "Weather notes for travel." """),
+                Server("io.example/forecast", Remote("https://forecast.example.com/mcp"), """, "title": "Weather Forecast" """),
+                Server("io.example/other", Remote("https://other.example.com/mcp"))));
+
+            var found = (await Registry().SearchAsync("WEATHER", default)).Data!.Servers.Select(s => s.Name).ToList();
+            var both = (await Registry().SearchAsync("weather travel", default)).Data!.Servers.Select(s => s.Name).ToList();
+
+            Assert.Equal(new[] { "io.example/forecast", "io.example/notes" }, found);
+            Assert.Equal(new[] { "io.example/notes" }, both);
         }
 
         [Fact]
@@ -72,7 +113,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
                 Server("io.example/deprecated", Remote("https://old.example.com/mcp"), status: "deprecated"),
                 Server("not a name", Remote("https://bad-name.example.com/mcp"))));
 
-            var result = await Registry().SearchAsync("example", default);
+            var result = await Registry().SearchAsync("", default);
 
             var server = Assert.Single(result.Data!.Servers);
             Assert.Equal("io.example/good", server.Name);
@@ -126,7 +167,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
                 Server("com.deepwiki/mcp", Remote("https://mcp.deepwiki.com/mcp")),
                 Server("io.github.someone/deepwiki-copy", Remote("https://mcp.deepwiki.com/mcp/"))));
 
-            var server = Assert.Single((await Registry().SearchAsync("deepwiki", default)).Data!.Servers);
+            var server = Assert.Single((await Registry().SearchAsync("", default)).Data!.Servers);
 
             Assert.Equal("deepwiki", server.CatalogKey);
         }
@@ -146,14 +187,6 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Fact]
-        public void ANextCursor_MeansThereIsMore()
-        {
-            using var doc = JsonDocument.Parse("""{ "servers": [], "metadata": { "nextCursor": "abc" } }""");
-
-            Assert.True(McpRegistry.Parse(doc.RootElement).More);
-        }
-
-        [Fact]
         public void FieldsOfTheWrongShape_AreSkipped_NotThrown()
         {
             using var doc = JsonDocument.Parse("""
@@ -162,19 +195,22 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
                   "metadata": "nope" }
                 """);
 
-            var server = Assert.Single(McpRegistry.Parse(doc.RootElement).Servers);
+            var page = McpRegistry.Parse(doc.RootElement);
+            var server = Assert.Single(page.Servers);
+            Assert.Null(page.NextCursor);
             Assert.Equal("io.example/ok", server.Name);
             Assert.Equal("", server.Description);
             Assert.Empty(server.RequiredHeaders);
         }
 
         [Fact]
-        public async Task OneSearchIsAskedOnce_ForEveryReader()
+        public async Task TheRegistryIsReadOnce_ForEverySearchAndReader()
         {
             var cache = new MemoryCache(new MemoryCacheOptions());
 
             await Registry(cache).SearchAsync("GitHub", default);
-            await Registry(cache).SearchAsync("github", default);
+            await Registry(cache).SearchAsync("weather", default);
+            await Registry(cache).SearchAsync("", default);
 
             Assert.Single(_asked);
         }

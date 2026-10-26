@@ -16,9 +16,9 @@ namespace JackyAIApp.Server.Services.Connectors
     public interface IMcpRegistry
     {
         /// <summary>
-        /// The registry's latest, active servers whose name holds <paramref name="search"/> (the registry
-        /// matches names only; empty lists from the start) and that can be reached the way the site
-        /// connects: Streamable HTTP at a fixed https URL. Free, cached for every reader.
+        /// The registry's latest, active servers that can be reached the way the site connects (Streamable
+        /// HTTP at a fixed https URL) whose name, title or description holds <paramref name="search"/>
+        /// (empty: from the start). Free; the registry is read once for every reader and every search.
         /// </summary>
         Task<ServiceResult<McpRegistrySearchDto>> SearchAsync(string? search, CancellationToken ct);
     }
@@ -29,102 +29,143 @@ namespace JackyAIApp.Server.Services.Connectors
         public const string HttpClientName = "ExternalReadOnly";
         public const string BaseUrl = "https://registry.modelcontextprotocol.io/v0.1/servers";
 
-        /// <summary>Longest search kept; the registry's names are at most 200 characters.</summary>
+        /// <summary>Longest search kept.</summary>
         public const int MaxSearchLength = 50;
 
-        /// <summary>How many entries one answer shows (the registry is asked for <see cref="PageSize"/>).</summary>
+        /// <summary>How many entries one answer shows.</summary>
         public const int MaxResults = 30;
 
         public const int PageSize = 100;
+
+        /// <summary>
+        /// Most registry pages read in one walk (4000 servers): most of the registry is local (stdio) servers,
+        /// so the remote ones are only found by reading it whole.
+        /// </summary>
+        public const int MaxPages = 40;
+
         public const int MaxTitleLength = 100;
         public const int MaxDescriptionLength = 200;
         public const int MaxRequiredHeaders = 3;
 
-        /// <summary>A registry answer larger than this is not read (a page of 100 is about 200KB).</summary>
+        /// <summary>A registry page larger than this is not read (a page of 100 is about 200KB).</summary>
         public const long MaxBytes = 2 * 1024 * 1024;
 
-        private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(30);
-        private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(15);
+        private const string CacheKey = "mcp-registry:remote-servers";
+        private static readonly TimeSpan Ttl = TimeSpan.FromHours(1);
+        private static readonly TimeSpan WalkTimeout = TimeSpan.FromSeconds(60);
         private const string OfficialMeta = "io.modelcontextprotocol.registry/official";
 
         public async Task<ServiceResult<McpRegistrySearchDto>> SearchAsync(string? search, CancellationToken ct)
         {
-            var query = CleanSearch(search);
-            var found = await cache.GetOrCreateSingleFlightAsync($"mcp-registry:{query.ToLowerInvariant()}", Ttl,
-                () => FetchAsync(query), ct);
-            return found == null
+            // One list for every search: a search is a filter of it, so no reader's typing reaches the registry.
+            var all = await cache.GetOrCreateSingleFlightAsync(CacheKey, Ttl, FetchAllAsync, ct);
+            return all == null
                 ? ServiceResult.Fail(ErrorCodes.ExternalApiError, "MCP 官方目錄暫時讀不到，請稍後再試，或直接貼上網址。")
-                : ServiceResult.Ok(found);
+                : ServiceResult.Ok(Search(all, CleanSearch(search)));
         }
 
-        /// <summary>The search as the registry is asked it: one line, trimmed, at most <see cref="MaxSearchLength"/>.</summary>
+        /// <summary>The search as it is matched: one line, trimmed, at most <see cref="MaxSearchLength"/>.</summary>
         internal static string CleanSearch(string? search)
         {
             var text = new string((search ?? "").Where(c => !char.IsControl(c)).ToArray()).Trim();
             return text.Length > MaxSearchLength ? text[..MaxSearchLength].Trim() : text;
         }
 
-        internal static string UrlFor(string query) =>
-            $"{BaseUrl}?version=latest&limit={PageSize}" + (query.Length == 0 ? "" : $"&search={Uri.EscapeDataString(query)}");
-
-        private async Task<McpRegistrySearchDto?> FetchAsync(string query)
+        /// <summary>
+        /// The servers whose name, title or description holds every word of <paramref name="query"/> (any case),
+        /// those matching by name or title first, at most <see cref="MaxResults"/>.
+        /// </summary>
+        internal static McpRegistrySearchDto Search(IReadOnlyList<McpRegistryServerDto> all, string query)
         {
-            // Shared by every reader asking the same thing (single flight), so no reader's token stops it.
-            using var timeout = new CancellationTokenSource(Timeout);
-            try
-            {
-                var http = httpClientFactory.CreateClient(HttpClientName);
-                using var response = await http.GetAsync(UrlFor(query), HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-                if (!response.IsSuccessStatusCode)
-                {
-                    logger.LogWarning("MCP registry answered {Status} for {Query}", (int)response.StatusCode, query);
-                    return null;
-                }
-                await response.Content.LoadIntoBufferAsync(MaxBytes, timeout.Token);
-                await using var body = await response.Content.ReadAsStreamAsync(timeout.Token);
-                using var doc = await JsonDocument.ParseAsync(body, default, timeout.Token);
-                return Parse(doc.RootElement);
-            }
-            catch (Exception ex) when (ex is HttpRequestException or JsonException or OperationCanceledException or IOException)
-            {
-                logger.LogWarning(ex, "MCP registry could not be read for {Query}", query);
-                return null;
-            }
+            var words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            bool Holds(string text) => words.All(w => text.Contains(w, StringComparison.OrdinalIgnoreCase));
+            var matches = all
+                .Select(s => (Server: s, ByName: Holds(s.Name + " " + s.Title), Any: Holds(s.Name + " " + s.Title + " " + s.Description)))
+                .Where(m => m.Any)
+                .OrderByDescending(m => m.ByName) // stable: the registry's order within each
+                .Select(m => m.Server)
+                .ToList();
+            return new McpRegistrySearchDto(matches.Take(MaxResults).ToList(), More: matches.Count > MaxResults);
         }
+
+        internal static string UrlFor(string? cursor) =>
+            $"{BaseUrl}?version=latest&limit={PageSize}" + (string.IsNullOrEmpty(cursor) ? "" : $"&cursor={Uri.EscapeDataString(cursor)}");
+
+        /// <summary>
+        /// Every remote server the registry lists, page by page; null when not even its first page can be read.
+        /// A walk cut short later keeps what it read (logged), so one slow page does not empty the list.
+        /// </summary>
+        private async Task<IReadOnlyList<McpRegistryServerDto>?> FetchAllAsync()
+        {
+            // Shared by every reader (single flight), so no reader's token stops it.
+            using var timeout = new CancellationTokenSource(WalkTimeout);
+            var servers = new List<McpRegistryServerDto>();
+            var urls = new HashSet<string>(StringComparer.Ordinal);
+            var cursors = new HashSet<string>(StringComparer.Ordinal);
+            string? cursor = null;
+            for (var page = 0; page < MaxPages; page++)
+            {
+                RegistryPage read;
+                try
+                {
+                    read = await FetchPageAsync(cursor, timeout.Token);
+                }
+                catch (Exception ex) when (ex is HttpRequestException or JsonException or OperationCanceledException or IOException)
+                {
+                    logger.LogWarning(ex, "MCP registry page {Page} could not be read", page + 1);
+                    return page == 0 ? null : servers;
+                }
+                servers.AddRange(read.Servers.Where(s => urls.Add(s.Url)));
+                // A cursor seen before would walk in a circle.
+                if (read.NextCursor == null || !cursors.Add(read.NextCursor)) return servers;
+                cursor = read.NextCursor;
+            }
+            logger.LogWarning("MCP registry has more than {Pages} pages; the rest is not listed", MaxPages);
+            return servers;
+        }
+
+        private async Task<RegistryPage> FetchPageAsync(string? cursor, CancellationToken ct)
+        {
+            var http = httpClientFactory.CreateClient(HttpClientName);
+            using var response = await http.GetAsync(UrlFor(cursor), HttpCompletionOption.ResponseHeadersRead, ct);
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException($"MCP registry answered {(int)response.StatusCode}");
+            await response.Content.LoadIntoBufferAsync(MaxBytes, ct);
+            await using var body = await response.Content.ReadAsStreamAsync(ct);
+            using var doc = await JsonDocument.ParseAsync(body, default, ct);
+            return Parse(doc.RootElement);
+        }
+
+        /// <summary>One registry page: the servers on it the site can add, and the cursor of the next (null at the end).</summary>
+        internal sealed record RegistryPage(IReadOnlyList<McpRegistryServerDto> Servers, string? NextCursor);
 
         /// <summary>
         /// The entries of one registry page the site can add, read leniently: the registry holds what anyone
         /// published, so a field of the wrong type is skipped, text is cut and kept plain, and only https links
         /// are kept.
         /// </summary>
-        internal static McpRegistrySearchDto Parse(JsonElement root)
+        internal static RegistryPage Parse(JsonElement root)
         {
             var servers = new List<McpRegistryServerDto>();
-            var urls = new HashSet<string>(StringComparer.Ordinal);
             var builtIns = BuiltInMcpConnectors.All
                 .Select(d => (d.Key, Url: McpServerUrl.Normalize(d.Url).Url?.ToString()))
                 .Where(d => d.Url != null)
                 .ToList();
-            var skippedMore = false;
 
             if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("servers", out var list) && list.ValueKind == JsonValueKind.Array)
             {
                 foreach (var item in list.EnumerateArray())
                 {
-                    if (Entry(item) is not { } entry || !urls.Add(entry.Url)) continue;
-                    if (servers.Count == MaxResults)
-                    {
-                        skippedMore = true;
-                        break;
-                    }
-                    servers.Add(entry with { CatalogKey = builtIns.FirstOrDefault(b => b.Url == entry.Url).Key });
+                    if (Entry(item) is { } entry)
+                        servers.Add(entry with { CatalogKey = builtIns.FirstOrDefault(b => b.Url == entry.Url).Key });
                 }
             }
 
-            var nextCursor = root.ValueKind == JsonValueKind.Object && root.TryGetProperty("metadata", out var meta) &&
-                             meta.ValueKind == JsonValueKind.Object && meta.TryGetProperty("nextCursor", out var cursor) &&
-                             cursor.ValueKind == JsonValueKind.String && !string.IsNullOrEmpty(cursor.GetString());
-            return new McpRegistrySearchDto(servers, More: skippedMore || nextCursor);
+            string? nextCursor = null;
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("metadata", out var meta) &&
+                meta.ValueKind == JsonValueKind.Object && Text(meta, "nextCursor") is { Length: > 0 and <= 1000 } next)
+                nextCursor = next;
+            return new RegistryPage(servers, nextCursor);
         }
 
         private static McpRegistryServerDto? Entry(JsonElement item)

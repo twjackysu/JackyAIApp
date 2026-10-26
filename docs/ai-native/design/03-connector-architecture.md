@@ -173,7 +173,7 @@ sequenceDiagram
 
 目錄只放少數幾個本站挑過的 server；其他的，使用者原本得自己知道網址。官方 MCP Registry（registry.modelcontextprotocol.io，MCP 專案營運、`GET /v0.1/servers`）是 2026 年各家客戶端共用的「server 黃頁」，所以 /connectors 直接搜尋它：
 
-- `GET api/connectors/registry?search=`（`IMcpRegistry`）→ `{ servers, more }`。伺服器代查（不讓瀏覽器直接打外站，也才能全站共用快取 30 分鐘），`version=latest`、只留 `active`、有 **Streamable HTTP** remote 且網址沒有 `{變數}`、https；同一個網址只列一次，最多 30 個。
+- `GET api/connectors/registry?search=`（`IMcpRegistry`）→ `{ servers, more }`。伺服器把 Registry（`version=latest`）**整份**依 `nextCursor` 讀完（最多 40 頁、60 秒），只留 `active`、有 **Streamable HTTP** remote 且網址沒有 `{變數}`、https 的，同一個網址只留一個，存成全站共用的一份清單（1 小時）；搜尋是在這份清單裡比對名稱、標題、說明（每個字都要有、不分大小寫，名稱或標題符合的排前面，最多 30 個）。所以使用者打字不會打到 Registry、也不會讓快取變大（審查 D-123）。
 - 每筆是**指標，不是安裝**：前端把網址放進新增對話框、照貼上網址的流程 probe → 認證 → 工具，所以 SSRF（`SafeHttp`）、OAuth、權限預設全部沿用；Registry 的內容不進 AI 的 prompt。
 - 內容是任何人發布的：名稱、說明一行純文字、截斷；連結只留 https；必填 header 只留合法名稱（最多 3 個），用來預填 API key 的 header；跟本站目錄同一個網址的標 `catalogKey`，請使用者從目錄連線（不會加兩次）。
 - 不計 usage（沒有 AI）；Registry 的搜尋只比對英文名稱，畫面上說明。

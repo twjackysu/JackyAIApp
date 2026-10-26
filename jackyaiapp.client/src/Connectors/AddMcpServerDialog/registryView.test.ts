@@ -53,8 +53,8 @@ describe('registryHost', () => {
 });
 
 describe('registryNotice', () => {
-  it('says nothing was found for the search, and that only names are matched', () => {
-    expect(registryNotice({ servers: [], more: false }, ' 天氣 ')).toContain('名稱含「天氣」');
+  it('says nothing was found for the search, and to try English words', () => {
+    expect(registryNotice({ servers: [], more: false }, ' 天氣 ')).toContain('符合「天氣」');
   });
 
   it('says only the first ones are listed when there are more', () => {

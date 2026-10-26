@@ -356,8 +356,11 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   kept and looked up under the server's own name, `AiToolDescriptor.PermissionName`; two that come to one name are offered once). A call the server
   refuses for its credentials marks the connector NeedsAuth
 - A reader who does not know a server's URL finds it in the official MCP Registry (`IMcpRegistry`, `McpRegistry`;
-  `GET api/connectors/registry?search=`, D-122): the registry's `GET /v0.1/servers?version=latest` (its search matches names
-  only), cached 30 minutes per search for every reader (single flight; one that cannot be read is 502 and asked again).
+  `GET api/connectors/registry?search=`, D-122): the registry's `GET /v0.1/servers?version=latest` read whole, page by page
+  by `nextCursor` (at most 40 pages in 60s; a walk cut short keeps what it read), into one list cached an hour for every
+  reader and every search (single flight; a first page that cannot be read is 502 and read again next time), and a search
+  is a filter of that list (every word, any case, in the name, title or description; name and title matches first, 30
+  shown), so no reader's typing reaches the registry or grows the cache.
   Only an active entry with a Streamable HTTP remote at a fixed https URL is listed (canonical as `McpServerUrl` keeps it,
   once an address), with the headers it says are required and the catalog entry at the same address if there is one;
   what was published is read leniently and kept plain (one line, cut, https links only). It is only a pointer: the

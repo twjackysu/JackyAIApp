@@ -178,7 +178,7 @@ describe('AddMcpServerDialog', () => {
 
   it('checks a server picked from the registry, named by its title, with its header ready', async () => {
     mocks.registry.mockReturnValue({
-      data: {
+      currentData: {
         servers: [
           registryServer({ title: 'Weather', requiredHeaders: ['X-API-Key'] }),
           registryServer({
@@ -220,12 +220,42 @@ describe('AddMcpServerDialog', () => {
 
   it('says the registry could not be read, and the URL can still be pasted', () => {
     mocks.registry.mockReturnValue({
-      data: undefined,
+      currentData: undefined,
       error: { status: 502, data: { error: { code: 1050200, message: 'MCP 官方目錄暫時讀不到' } } },
       isFetching: false,
     });
     render(null, true);
     expect(text()).toContain('MCP 官方目錄暫時讀不到');
     expect(input('MCP server 網址')).toBeTruthy();
+  });
+  it("starts each pick from an empty form, so one server's header does not carry to the next", async () => {
+    mocks.registry.mockReturnValue({
+      currentData: {
+        servers: [
+          registryServer({
+            title: 'Keyed',
+            url: 'https://k.example/mcp',
+            requiredHeaders: ['X-Key'],
+          }),
+          registryServer({ title: 'Plain', url: 'https://p.example/mcp' }),
+        ],
+        more: false,
+      },
+      error: undefined,
+      isFetching: false,
+    });
+    mocks.probe.mockReturnValue(probe({ auth: 'apiKey' }));
+    render(null, true);
+    const pick = (title: string) =>
+      act(async () =>
+        (document.body.querySelector(`[aria-label="使用 ${title}"]`) as HTMLButtonElement).click(),
+      );
+    await pick('Keyed');
+    expect(input('Header 名稱').value).toBe('X-Key');
+    type(input('API key'), 'secret');
+    await click('上一步');
+    await pick('Plain');
+    expect(input('Header 名稱')).toBeUndefined();
+    expect(input('Token').value).toBe('');
   });
 });
