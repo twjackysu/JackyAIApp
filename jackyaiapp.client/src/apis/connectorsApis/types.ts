@@ -112,6 +112,32 @@ export interface McpProbeResult {
   serverName: string | null;
 }
 
+/**
+ * A remote MCP server listed in the official MCP Registry that the site can connect to (D-122).
+ * Everything in it is what someone published there: shown as text, its links https only.
+ */
+export interface McpRegistryServer {
+  /** The registry's name, reverse-DNS (io.github.owner/server). */
+  name: string;
+  title: string;
+  description: string;
+  /** Its Streamable HTTP address, as an installation keeps it. */
+  url: string;
+  websiteUrl: string | null;
+  repositoryUrl: string | null;
+  version: string | null;
+  /** Headers it says a client must send: an API key's, or Authorization for a token. */
+  requiredHeaders: string[];
+  /** The site's own catalog entry at the same address, if there is one. */
+  catalogKey: string | null;
+}
+
+export interface McpRegistrySearch {
+  servers: McpRegistryServer[];
+  /** More matches than shown: a longer search narrows them. */
+  more: boolean;
+}
+
 export interface McpCredentials {
   /** For an API key: the header it goes in (Authorization for a bearer token). */
   headerName?: string;

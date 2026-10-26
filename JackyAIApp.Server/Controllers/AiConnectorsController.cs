@@ -15,12 +15,18 @@ namespace JackyAIApp.Server.Controllers
     [Route("api/connectors")]
     [Authorize]
     public class AiConnectorsController(
-        IConnectorCatalogService catalog, IConnectorInstallService installs, IMcpOAuthFlow oauth, IMyResponseFactory responseFactory)
+        IConnectorCatalogService catalog, IConnectorInstallService installs, IMcpOAuthFlow oauth, IMcpRegistry registry,
+        IMyResponseFactory responseFactory)
         : ControllerBase
     {
         [HttpGet("catalog")]
         public async Task<IActionResult> GetCatalog(CancellationToken ct = default) =>
             responseFactory.ToActionResult(await catalog.GetAsync(ct));
+
+        /// <summary>Remote MCP servers in the official MCP Registry whose name holds the search (D-122); saves nothing.</summary>
+        [HttpGet("registry")]
+        public async Task<IActionResult> SearchRegistry([FromQuery] string? search, CancellationToken ct = default) =>
+            responseFactory.ToActionResult(await registry.SearchAsync(search, ct));
 
         /// <summary>Looks at an MCP server's URL; saves nothing.</summary>
         [HttpPost("installations/probe")]

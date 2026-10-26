@@ -3,6 +3,7 @@ import type {
   ConnectorCatalog,
   InstalledConnector,
   McpProbeResult,
+  McpRegistryServer,
 } from '@/apis/connectorsApis/types';
 
 /** Test data for the connectors page; each test overrides only what it is about. */
@@ -56,5 +57,18 @@ export const probe = (patch: Partial<McpProbeResult> = {}): McpProbeResult => ({
   authorizationServer: null,
   registration: null,
   serverName: null,
+  ...patch,
+});
+
+export const registryServer = (patch: Partial<McpRegistryServer> = {}): McpRegistryServer => ({
+  name: 'io.example/weather',
+  title: 'Weather',
+  description: 'Forecasts for anywhere.',
+  url: 'https://mcp.weather.example/mcp',
+  websiteUrl: null,
+  repositoryUrl: 'https://github.com/example/weather-mcp',
+  version: '1.2.0',
+  requiredHeaders: [],
+  catalogKey: null,
   ...patch,
 });

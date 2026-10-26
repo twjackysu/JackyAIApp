@@ -29,6 +29,21 @@ namespace JackyAIApp.Server.DTO
     public sealed record ConnectorCatalogDto(
         IReadOnlyList<CatalogEntryDto> Entries, IReadOnlyList<InstalledConnectorDto> Installed, int CustomLimit);
 
+    /// <summary>
+    /// A remote MCP server listed in the official MCP Registry that the site can connect to (D-122). All of it
+    /// is what someone published there: plain text the client shows as text, links https only.
+    /// </summary>
+    /// <param name="Name">The registry's name (reverse-DNS, e.g. io.github.owner/server).</param>
+    /// <param name="Url">Its Streamable HTTP address, in the form an installation keeps.</param>
+    /// <param name="RequiredHeaders">Headers it says a client must send (an API key's, or Authorization for a token).</param>
+    /// <param name="CatalogKey">The site's own catalog entry at the same address, if there is one.</param>
+    public sealed record McpRegistryServerDto(
+        string Name, string Title, string Description, string Url, string? WebsiteUrl, string? RepositoryUrl,
+        string? Version, IReadOnlyList<string> RequiredHeaders, string? CatalogKey);
+
+    /// <param name="More">The registry has more matches than shown: a longer search narrows them.</param>
+    public sealed record McpRegistrySearchDto(IReadOnlyList<McpRegistryServerDto> Servers, bool More);
+
     /// <summary>The permission the reader picked for one tool.</summary>
     public sealed class ToolPermissionRequestDto
     {

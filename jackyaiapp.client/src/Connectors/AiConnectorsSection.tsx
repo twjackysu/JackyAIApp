@@ -51,7 +51,11 @@ export default function AiConnectorsSection({
   const [setToolPermission, { isLoading: saving }] = useSetToolPermissionMutation();
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<{ open: boolean; preset: CatalogEntry | null }>({
+  const [dialog, setDialog] = useState<{
+    open: boolean;
+    preset: CatalogEntry | null;
+    browseRegistry?: boolean;
+  }>({
     open: false,
     preset: null,
   });
@@ -131,7 +135,14 @@ export default function AiConnectorsSection({
 
       <Box sx={{ mt: 3 }}>
         <InstalledSection connectors={catalog.installed} onOpen={(c) => setSelectedKey(keyOf(c))} />
-        <CatalogSection entries={catalog.entries} busyKey={busyKey} onConnect={connect} />
+        <CatalogSection
+          entries={catalog.entries}
+          busyKey={busyKey}
+          onConnect={connect}
+          onBrowseRegistry={
+            atLimit ? null : () => setDialog({ open: true, preset: null, browseRegistry: true })
+          }
+        />
       </Box>
 
       <ConnectorDetailDrawer
@@ -182,6 +193,7 @@ export default function AiConnectorsSection({
       <AddMcpServerDialog
         open={dialog.open}
         preset={dialog.preset}
+        browseRegistry={dialog.browseRegistry}
         onClose={() => setDialog({ open: false, preset: null })}
         onAuthorize={(c) => {
           setDialog({ open: false, preset: null });

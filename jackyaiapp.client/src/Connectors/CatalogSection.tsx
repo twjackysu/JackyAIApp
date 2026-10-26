@@ -1,3 +1,4 @@
+import { TravelExplore } from '@mui/icons-material';
 import {
   Box,
   Button,
@@ -21,6 +22,8 @@ interface CatalogSectionProps {
   /** The entry whose connect request is on its way, so its button waits. */
   busyKey: string | null;
   onConnect: (entry: CatalogEntry) => void;
+  /** Looks further, in the official MCP Registry (D-122); null when no more servers can be added. */
+  onBrowseRegistry?: (() => void) | null;
 }
 
 const ACTION_LABELS = {
@@ -31,7 +34,12 @@ const ACTION_LABELS = {
 } as const;
 
 /** Ready-made connectors, filtered by category; connecting one is a click (or a sign-in). */
-export default function CatalogSection({ entries, busyKey, onConnect }: CatalogSectionProps) {
+export default function CatalogSection({
+  entries,
+  busyKey,
+  onConnect,
+  onBrowseRegistry,
+}: CatalogSectionProps) {
   const [category, setCategory] = useState<ConnectorCategory | null>(null);
   const shown = catalogEntries(entries, category);
   const categories = catalogCategories(entries);
@@ -99,6 +107,37 @@ export default function CatalogSection({ entries, busyKey, onConnect }: CatalogS
             </Grid>
           );
         })}
+        {onBrowseRegistry && category === null && (
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <Card
+              variant="outlined"
+              sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                borderStyle: 'dashed',
+              }}
+            >
+              <CardContent sx={{ flex: 1 }}>
+                <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 1 }}>
+                  <TravelExplore color="action" />
+                  <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600 }}>
+                    找更多 MCP server
+                  </Typography>
+                </Stack>
+                <Typography variant="body2" color="text.secondary">
+                  在 MCP 官方目錄（registry.modelcontextprotocol.io）搜尋別人做好的 remote MCP
+                  server，選一個就能連線。
+                </Typography>
+              </CardContent>
+              <CardActions>
+                <Button variant="outlined" onClick={onBrowseRegistry}>
+                  搜尋官方目錄
+                </Button>
+              </CardActions>
+            </Card>
+          </Grid>
+        )}
       </Grid>
     </Box>
   );

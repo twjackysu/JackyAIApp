@@ -1,3 +1,4 @@
+import { TravelExplore } from '@mui/icons-material';
 import {
   Alert,
   Button,
@@ -28,11 +29,14 @@ import {
   suggestedName,
   urlProblem,
 } from './addMcpServer';
+import RegistrySearch from './RegistrySearch';
+import { registryCredentials } from './registryView';
 
 import type {
   CatalogEntry,
   InstalledConnector,
   McpProbeResult,
+  McpRegistryServer,
   ToolPermission,
 } from '@/apis/connectorsApis/types';
 
@@ -47,6 +51,8 @@ interface AddMcpServerDialogProps {
   open: boolean;
   /** A catalog entry that needs an API key: the dialog starts at the credentials, for it. */
   preset: CatalogEntry | null;
+  /** Opened to look for a server in the official MCP Registry (D-122): its search shows at once. */
+  browseRegistry?: boolean;
   onClose: () => void;
   /** An OAuth server was added; the page sends the reader to sign in. */
   onAuthorize: (connector: InstalledConnector) => void;
@@ -81,7 +87,12 @@ export default function AddMcpServerDialog(props: AddMcpServerDialogProps) {
   );
 }
 
-function AddMcpServerForm({ preset, onClose, onAuthorize }: AddMcpServerDialogProps) {
+function AddMcpServerForm({
+  preset,
+  browseRegistry = false,
+  onClose,
+  onAuthorize,
+}: AddMcpServerDialogProps) {
   const [step, setStep] = useState<AddMcpStep>(preset ? 'credentials' : 'locate');
   const [url, setUrl] = useState('');
   const [urlTouched, setUrlTouched] = useState(false);
@@ -90,6 +101,7 @@ function AddMcpServerForm({ preset, onClose, onAuthorize }: AddMcpServerDialogPr
   const [form, setForm] = useState<CredentialsForm>(EMPTY_CREDENTIALS);
   const [added, setAdded] = useState<InstalledConnector | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [registryOpen, setRegistryOpen] = useState(browseRegistry);
 
   const [probeServer, { isLoading: probing }] = useProbeMcpServerMutation();
   const [createInstallation, { isLoading: creating }] = useCreateInstallationMutation();
@@ -98,18 +110,25 @@ function AddMcpServerForm({ preset, onClose, onAuthorize }: AddMcpServerDialogPr
   const urlError = urlProblem(url);
   const credentialsError = probe ? credentialsProblem(probe, name, form) : null;
 
-  const detect = async () => {
+  /** Checks the URL typed, or the one of a server picked from the registry (named by its title). */
+  const detect = async (picked?: { url: string; title: string }) => {
     setUrlTouched(true);
-    if (urlError) return;
+    if (!picked && urlError) return;
     setError(null);
     try {
-      const found = await probeServer({ serverUrl: url.trim() }).unwrap();
+      const found = await probeServer({ serverUrl: (picked?.url ?? url).trim() }).unwrap();
       setProbe(found);
-      setName(suggestedName(found));
+      setName(picked && !found.serverName?.trim() ? picked.title : suggestedName(found));
       setStep('credentials');
     } catch (e) {
       setError(getCaughtErrorMessage(e));
     }
+  };
+
+  const pick = (server: McpRegistryServer) => {
+    setUrl(server.url);
+    setForm((f) => ({ ...f, ...registryCredentials(server) }));
+    void detect({ url: server.url, title: server.title });
   };
 
   const add = async () => {
@@ -185,6 +204,17 @@ function AddMcpServerForm({ preset, onClose, onAuthorize }: AddMcpServerDialogPr
               helperText={urlTouched && urlError ? urlError : ' '}
               fullWidth
             />
+            {registryOpen ? (
+              <RegistrySearch onPick={pick} busy={probing} />
+            ) : (
+              <Button
+                startIcon={<TravelExplore />}
+                onClick={() => setRegistryOpen(true)}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                不知道網址？從 MCP 官方目錄找
+              </Button>
+            )}
           </Stack>
         )}
 
@@ -302,7 +332,7 @@ function AddMcpServerForm({ preset, onClose, onAuthorize }: AddMcpServerDialogPr
         {step === 'locate' && (
           <>
             <Button onClick={onClose}>取消</Button>
-            <Button variant="contained" onClick={detect} disabled={probing}>
+            <Button variant="contained" onClick={() => detect()} disabled={probing}>
               {probing ? '檢查中…' : '檢查'}
             </Button>
           </>

@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { entry, installed, probe } from '../testData';
+import { entry, installed, probe, registryServer } from '../testData';
 
 import AddMcpServerDialog from './index';
 
@@ -26,12 +26,14 @@ const mocks = vi.hoisted(() => ({
   probe: vi.fn(),
   create: vi.fn(),
   setPermission: vi.fn(),
+  registry: vi.fn(),
 }));
 
 vi.mock('@/apis/connectorsApis/connectorsApis', () => ({
   useProbeMcpServerMutation: mutation(mocks.probe),
   useCreateInstallationMutation: mutation(mocks.create),
   useSetToolPermissionMutation: mutation(mocks.setPermission),
+  useSearchMcpRegistryQuery: (search: string) => mocks.registry(search),
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -53,10 +55,16 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function render(preset = null as ReturnType<typeof entry> | null) {
+function render(preset = null as ReturnType<typeof entry> | null, browseRegistry = false) {
   act(() =>
     root.render(
-      <AddMcpServerDialog open preset={preset} onClose={onClose} onAuthorize={onAuthorize} />,
+      <AddMcpServerDialog
+        open
+        preset={preset}
+        browseRegistry={browseRegistry}
+        onClose={onClose}
+        onAuthorize={onAuthorize}
+      />,
     ),
   );
 }
@@ -161,5 +169,63 @@ describe('AddMcpServerDialog', () => {
       authKind: 'bearer',
       credentials: { headerName: 'Authorization', value: 'k' },
     });
+  });
+  it('keeps the registry folded until asked, so opening the dialog reads nothing', () => {
+    render();
+    expect(mocks.registry).not.toHaveBeenCalled();
+    expect(text()).toContain('從 MCP 官方目錄找');
+  });
+
+  it('checks a server picked from the registry, named by its title, with its header ready', async () => {
+    mocks.registry.mockReturnValue({
+      data: {
+        servers: [
+          registryServer({ title: 'Weather', requiredHeaders: ['X-API-Key'] }),
+          registryServer({
+            title: 'DeepWiki',
+            url: 'https://mcp.deepwiki.com/mcp',
+            catalogKey: 'deepwiki',
+          }),
+        ],
+        more: false,
+      },
+      error: undefined,
+      isFetching: false,
+    });
+    mocks.probe.mockReturnValue(
+      probe({ serverUrl: 'https://mcp.weather.example/mcp', auth: 'apiKey' }),
+    );
+    render(null, true);
+    expect(text()).toContain('需要 API key（X-API-Key）');
+    // One the catalog already has is connected from there, not added a second time.
+    expect(text()).toContain('上方目錄已有');
+    expect(button('使用')).toBeTruthy();
+    await act(async () =>
+      (document.body.querySelector('[aria-label="使用 Weather"]') as HTMLButtonElement).click(),
+    );
+    expect(mocks.probe).toHaveBeenCalledWith({ serverUrl: 'https://mcp.weather.example/mcp' });
+    expect(input('名稱').value).toBe('Weather');
+    expect(input('Header 名稱').value).toBe('X-API-Key');
+    type(input('API key'), 'k');
+    mocks.create.mockReturnValue(installed());
+    await click('連線');
+    expect(mocks.create).toHaveBeenCalledWith({
+      definitionKey: 'custom',
+      displayName: 'Weather',
+      serverUrl: 'https://mcp.weather.example/mcp',
+      authKind: 'apiKey',
+      credentials: { headerName: 'X-API-Key', value: 'k' },
+    });
+  });
+
+  it('says the registry could not be read, and the URL can still be pasted', () => {
+    mocks.registry.mockReturnValue({
+      data: undefined,
+      error: { status: 502, data: { error: { code: 1050200, message: 'MCP 官方目錄暫時讀不到' } } },
+      isFetching: false,
+    });
+    render(null, true);
+    expect(text()).toContain('MCP 官方目錄暫時讀不到');
+    expect(input('MCP server 網址')).toBeTruthy();
   });
 });

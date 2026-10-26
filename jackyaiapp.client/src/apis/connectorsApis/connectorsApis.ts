@@ -12,6 +12,7 @@ import {
   CustomConnectRequest,
   ConnectorCatalog,
   McpProbeResult,
+  McpRegistrySearch,
   CreateInstallationRequest,
   InstalledConnector,
   ConnectionTestResult,
@@ -80,6 +81,12 @@ export const connectorsApi = createApi({
       transformResponse: unwrapData,
       providesTags: ['ConnectorCatalog'],
     }),
+    /** The official MCP Registry's servers whose name holds the search (D-122); cached by the server. */
+    searchMcpRegistry: builder.query<McpRegistrySearch, string>({
+      query: (search) => ({ url: 'registry', params: search ? { search } : undefined }),
+      transformResponse: unwrapData,
+      keepUnusedDataFor: 600,
+    }),
     probeMcpServer: builder.mutation<McpProbeResult, { serverUrl: string }>({
       query: (body) => ({ url: 'installations/probe', method: 'POST', body }),
       transformResponse: unwrapData,
@@ -143,6 +150,7 @@ export const {
   useLazyGetAccessTokenQuery,
   useLazyGetRefreshTokenQuery,
   useGetConnectorCatalogQuery,
+  useSearchMcpRegistryQuery,
   useProbeMcpServerMutation,
   useCreateInstallationMutation,
   useAuthorizeInstallationMutation,
