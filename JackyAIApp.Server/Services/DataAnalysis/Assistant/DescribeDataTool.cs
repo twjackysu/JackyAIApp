@@ -36,7 +36,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
             if (page.SessionId != null)
             {
                 var schema = sessions.GetSchema(page.SessionId);
-                if (!schema.IsSuccess) return AiToolResult.Error($"讀取失敗：{schema.ErrorMessage}");
+                if (!schema.IsSuccess) return AiToolResult.Error($"讀取失敗：{schema.ErrorMessage}") with { OutsideText = true };
                 fields = schema.Data!.Fields.Select(f => (f.Name, f.CanonicalType)).ToList();
             }
             else

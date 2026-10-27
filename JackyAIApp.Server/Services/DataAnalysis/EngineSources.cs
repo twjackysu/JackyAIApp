@@ -59,9 +59,39 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             logger.Log(source.OwnsEngine ? LogLevel.Warning : LogLevel.Error,
                 "DataAnalysis query failed: source={src} table={t}: {err}",
                 source.OwnsEngine ? "custom" : "default", source.TableName, engineError);
-            var message = source.OwnsEngine && viewerIsOwner && !string.IsNullOrWhiteSpace(engineError) ? engineError : genericMessage;
+            var message = source.OwnsEngine && viewerIsOwner && !string.IsNullOrWhiteSpace(engineError)
+                ? OwnerMessage(engineError)
+                : genericMessage;
             return ServiceResult.Fail(ErrorCodes.InternalServerError, message);
         }
+
+        /// <summary>What the owner is told when their source's server could not be reached at all (D-164).</summary>
+        internal const string ConnectionFailedMessage =
+            "Could not connect to the data source's server. Check its name, port and firewall (it must accept connections from the internet).";
+
+        /// <summary>Parts of the driver's text that mean the connection itself failed, before any SQL ran.</summary>
+        private static readonly string[] ConnectionFailureMarkers =
+        [
+            "network-related or instance-specific error",
+            "TCP Provider",
+            "SSL Provider",
+            "Named Pipes Provider",
+            "pre-login handshake",
+            "Connection Timeout Expired",
+            "transport-level error",
+            "server was not found or was not accessible",
+        ];
+
+        /// <summary>
+        /// The driver's text for the owner, except how a connection failed: refused, timed out, reset or not SQL Server
+        /// are told apart there, and a server can route a login elsewhere (TDS routing) where the site's checks of the
+        /// name do not reach, so those texts would map the network the App Service sits in (D-164). They all become
+        /// <see cref="ConnectionFailedMessage"/>; a login, permission or query error is still shown as the driver says it.
+        /// </summary>
+        internal static string OwnerMessage(string engineError) =>
+            ConnectionFailureMarkers.Any(m => engineError.Contains(m, StringComparison.OrdinalIgnoreCase))
+                ? ConnectionFailedMessage
+                : engineError;
 
         /// <summary>Runs a summarize plan on the source; check it with <see cref="GuardAsync"/> first.</summary>
         public Task<QueryResult<SummarizeResult>> SummarizeAsync(ResolvedSource source, SummarizeRequestDto plan, CancellationToken ct) =>

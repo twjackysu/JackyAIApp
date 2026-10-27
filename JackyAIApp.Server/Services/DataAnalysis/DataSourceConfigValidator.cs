@@ -95,8 +95,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                 return expected;
             if (IPAddress.TryParse(host, out var address))
                 return OutboundAddressPolicy.IsAllowed(address) ? null : expected;
-            // A plain name: letters, digits, '-' and '.', with a dot (a bare word is a machine on the local network).
-            if (!host.Contains('.') || !host.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '.')) return expected;
+            // A plain name: letters, digits, '-', '_' and '.', with a dot (a bare word is a machine on the local network).
+            if (!host.Contains('.') || !host.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.')) return expected;
             return null;
         }
 

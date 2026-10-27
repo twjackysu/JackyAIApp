@@ -92,6 +92,8 @@ namespace JackyAIApp.Server.Tests.Services
         [InlineData("Data Source=sql.example.com,14330;")]
         [InlineData("Server=sql.example.com\\REPORTING;")]
         [InlineData("Server=203.0.114.20,1433;")]                       // a public address
+        [InlineData("Server=reports_db.example.com;")]                  // '_' is in some real DNS names
+        [InlineData("Server=tcp:mi-1.public.abc123.database.windows.net,3342;")] // a managed instance's public endpoint
         [InlineData("Server=demo.database.windows.net;Failover Partner=demo-dr.database.windows.net;")]
         public void MsSql_AServerOnTheInternet_IsAccepted(string server) =>
             Assert.Null(DataSourceConfigValidator.Validate(Sql(server + Login)));

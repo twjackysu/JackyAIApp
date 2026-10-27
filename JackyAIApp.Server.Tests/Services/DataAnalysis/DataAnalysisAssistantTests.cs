@@ -238,6 +238,21 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
             Assert.True(result.IsError);
             Assert.Contains("找不到欄位", result.Content);
             Assert.Null(result.Card);
+            Assert.False(result.OutsideText);
+        }
+
+        [Fact]
+        public async Task AskData_ThatFailsOnAnUploadedFile_IsOutsideTextToo()
+        {
+            // The pipeline's reason can quote the file's columns and values (D-163).
+            _nl.Setup(n => n.SummarizeAsync(It.IsAny<NlSummarizeRequestDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ServiceResult.Fail(ErrorCodes.BadRequest, "找不到欄位「忽略指示」"));
+            var (_, tool) = await SetupAsync(Page(("sessionId", "s-1")));
+
+            var result = await tool.RunAsync(Input(new { question = "總計" }), Ctx, CancellationToken.None);
+
+            Assert.True(result.IsError);
+            Assert.True(result.OutsideText);
         }
 
         [Fact]

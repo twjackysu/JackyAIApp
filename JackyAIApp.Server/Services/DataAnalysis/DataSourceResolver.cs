@@ -85,6 +85,15 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             if (source is null)
                 return (null, DataSourceResolution.NotFound, null);
 
+            // The connection string is checked as written when the engine is built; its server's name could still
+            // point inside (D-164). Checked first, so nothing is left to dispose if the check stops or throws.
+            foreach (var host in configService.ServerHostsOf(source))
+            {
+                if (await addressCheck.IsPublicAsync(host, ct)) continue;
+                logger.LogWarning("DataAnalysis: refused saved source {id}: its server does not resolve to a public address", source.Id);
+                return (null, DataSourceResolution.ConfigRefused, PrivateServerMessage);
+            }
+
             DataAnalysisEngine engine;
             try
             {
@@ -94,15 +103,6 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             {
                 logger.LogWarning("DataAnalysis: refused saved source {id}: {err}", source.Id, ex.Message);
                 return (null, DataSourceResolution.ConfigRefused, ex.Message);
-            }
-
-            // The connection string was checked as written; its server's name could still point inside (D-164).
-            foreach (var host in configService.ServerHostsOf(source))
-            {
-                if (await addressCheck.IsPublicAsync(host, ct)) continue;
-                engine.Dispose();
-                logger.LogWarning("DataAnalysis: refused saved source {id}: its server does not resolve to a public address", source.Id);
-                return (null, DataSourceResolution.ConfigRefused, PrivateServerMessage);
             }
 
             var sourceKey = configService.SourceKey(source.ConnectorType);

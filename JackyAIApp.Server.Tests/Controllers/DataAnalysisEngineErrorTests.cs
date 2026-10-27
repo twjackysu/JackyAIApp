@@ -185,6 +185,24 @@ namespace JackyAIApp.Server.Tests.Controllers
             Assert.StartsWith("Integrated Security is not allowed", message);
         }
 
+        [Theory]
+        [InlineData("A network-related or instance-specific error occurred while establishing a connection to SQL Server. (provider: TCP Provider, error: 35 - An internal exception was caught)")]
+        [InlineData("A connection was successfully established with the server, but then an error occurred during the pre-login handshake. (provider: TCP Provider, error: 0 - Success)")]
+        [InlineData("Connection Timeout Expired.  The timeout period elapsed while attempting to consume the pre-login handshake acknowledgement.")]
+        [InlineData("A transport-level error has occurred when receiving results from the server. (provider: TCP Provider, error: 0 - Connection reset by peer)")]
+        public void HowAConnectionFailed_IsNotToldEvenToTheOwner(string driverText)
+        {
+            // Refused, timed out, reset, not SQL Server: told apart, they map the network the server is in (D-164).
+            Assert.Equal(EngineSources.ConnectionFailedMessage, EngineSources.OwnerMessage(driverText));
+        }
+
+        [Fact]
+        public void ALoginOrQueryError_IsToldToTheOwnerAsTheDriverSaysIt()
+        {
+            Assert.Equal(DriverText, EngineSources.OwnerMessage(DriverText));
+            Assert.Equal("Invalid object name 'dbo.Sales'.", EngineSources.OwnerMessage("Invalid object name 'dbo.Sales'."));
+        }
+
         [Fact]
         public async Task CustomSource_WhoseServerResolvesInside_Is400_AndIsNeverQueried()
         {
@@ -202,6 +220,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             Assert.Equal(400, status);
             Assert.Equal(DataSourceResolver.PrivateServerMessage, message);
             Assert.Equal(new[] { "sql.example.com", "inside.example.com" }, addresses.Checked);
+            config.Verify(c => c.BuildEngine(It.IsAny<DataSourceConfig>()), Times.Never); // checked before any engine exists
         }
 
         [Fact]

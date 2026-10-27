@@ -540,7 +540,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   Before each connection `DataSourceResolver` also resolves the server's names (`IServerAddressCheck`, `DnsServerAddressCheck`:
   every address public, 5s at most) and refuses one that points inside (`PrivateServerMessage`, 400); the driver resolves again
   when it connects, so a DNS answer that changes in between is not stopped (it cannot be handed the checked addresses, as
-  `SafeHttp` connects to them). Saving one is held to `RateLimitPolicies.ConnectorProbe`. Tests give the resolver
+  `SafeHttp` connects to them), nor can a login the server routes elsewhere (TDS routing). So the owner is never told how a
+  connection failed (refused, timed out, reset, not SQL Server): those driver texts become `EngineSources.ConnectionFailedMessage`
+  (`EngineSources.OwnerMessage`); a login, permission or query error is still shown as the driver says it. Saving one is held to
+  `RateLimitPolicies.ConnectorProbe`. Tests give the resolver
   `TestHelpers/PublicAddresses`
 - A dashboard widget's rows (`GET api/dashboard/{id}/widgets/{widgetId}/data`, anonymous for an "Anyone" dashboard) run the
   owner's saved query again on the owner's source, uncharged, so they are held to 600 a minute per reader and 120 per address

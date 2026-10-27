@@ -69,7 +69,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
                 Query = question,
             }, ct);
             if (!result.IsSuccess)
-                return AiToolResult.Error($"查詢失敗：{result.ErrorMessage}");
+                // The pipeline's reason can quote the file's columns and values (D-163).
+                return AiToolResult.Error($"查詢失敗：{result.ErrorMessage}") with { OutsideText = page.SessionId != null };
 
             var answer = result.Data!;
             var rows = answer.Rows.Select(ToRow).ToList();
