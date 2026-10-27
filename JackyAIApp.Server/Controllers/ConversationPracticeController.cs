@@ -32,14 +32,31 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> SummarizeConversation([FromBody] ConversationSummaryRequest request) =>
             responseFactory.ToActionResult(await conversations.SummarizeAsync(request));
 
+        /// <summary>
+        /// The largest recording transcribed, in bytes. A transcription costs one unit of the budget
+        /// whatever its length, while Whisper bills by the minute and takes up to 25 MB, which at a low
+        /// bitrate is hours of audio (D-159). The exam pages stop a recording at two minutes and record at
+        /// 64 kbps (the client's <c>MAX_RECORDING_SECONDS</c>, <c>RECORDING_BITS_PER_SECOND</c>), about 1 MB,
+        /// so 4 MB leaves room for a browser that ignores the bitrate it was asked for.
+        /// </summary>
+        public const int MaxAudioBytes = 4 * 1024 * 1024;
+
         /// <summary>Transcribes audio to text using OpenAI Whisper.</summary>
         [HttpPost("whisper/transcribe")]
         [UsageLimit(UsageFeature.AudioTranscription)]
+        [RequestSizeLimit(MaxAudioBytes + 64 * 1024)]
         public async Task<IActionResult> TranscribeAudio(IFormFile audioFile)
         {
             if (audioFile == null || audioFile.Length == 0)
             {
                 return responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "No audio file provided.");
+            }
+
+            // The body limit above also counts the form's own bytes; the recording itself is held to
+            // MaxAudioBytes. Refused before Whisper is asked, so the charge is refunded.
+            if (audioFile.Length > MaxAudioBytes)
+            {
+                return responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "The recording is too long.");
             }
 
             using var stream = audioFile.OpenReadStream();

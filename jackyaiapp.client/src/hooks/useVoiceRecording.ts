@@ -1,7 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useTranscribeAudioMutation } from '@/apis/examApis';
 import { DeliveryFeedback } from '@/apis/examApis/types';
+
+/**
+ * A recording stops by itself after this long and is transcribed as it is. A transcription costs one
+ * unit of the usage budget whatever its length, while Whisper bills by the minute; an exam answer is
+ * a sentence or two. The server refuses a recording over `ConversationPracticeController.MaxAudioBytes`
+ * (4 MB), which two minutes at {@link RECORDING_BITS_PER_SECOND} (about 1 MB) stays well under (D-159).
+ */
+export const MAX_RECORDING_SECONDS = 120;
+
+/** The microphone button's hint before recording, so the two-minute stop is no surprise. */
+export const START_RECORDING_LABEL = `點擊開始錄音（最長 ${MAX_RECORDING_SECONDS / 60} 分鐘）`;
+
+/** The bitrate asked of the browser's recorder: plenty for speech, and keeps two minutes near 1 MB. */
+export const RECORDING_BITS_PER_SECOND = 64_000;
 
 interface UseVoiceRecordingProps {
   onTranscriptionComplete: (text: string, deliveryFeedback?: DeliveryFeedback) => void;
@@ -19,6 +33,14 @@ export function useVoiceRecording({ onTranscriptionComplete }: UseVoiceRecording
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [transcribeAudio, { isLoading: isTranscribing }] = useTranscribeAudioMutation();
+  const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearStopTimer = () => {
+    if (stopTimer.current !== null) {
+      clearTimeout(stopTimer.current);
+      stopTimer.current = null;
+    }
+  };
 
   useEffect(() => {
     // Tracked outside React state so the cleanup below can always reach them, including when
@@ -43,7 +65,7 @@ export function useVoiceRecording({ onTranscriptionComplete }: UseVoiceRecording
           return;
         }
 
-        recorder = new MediaRecorder(stream);
+        recorder = new MediaRecorder(stream, { audioBitsPerSecond: RECORDING_BITS_PER_SECOND });
 
         const chunks: Blob[] = [];
 
@@ -71,6 +93,7 @@ export function useVoiceRecording({ onTranscriptionComplete }: UseVoiceRecording
 
     return () => {
       cancelled = true;
+      clearStopTimer();
 
       if (recorder) {
         // Drop the handlers first: a recording abandoned by navigating away should not fire a
@@ -106,12 +129,23 @@ export function useVoiceRecording({ onTranscriptionComplete }: UseVoiceRecording
     if (!mediaRecorder) return;
 
     if (isRecording) {
-      mediaRecorder.stop();
+      clearStopTimer();
+      if (mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
       setIsRecording(false);
     } else {
       if (mediaRecorder.state === 'inactive') {
         mediaRecorder.start();
         setIsRecording(true);
+        // Stopping fires onstop, which sends what was said so far, as pressing the button would.
+        stopTimer.current = setTimeout(() => {
+          stopTimer.current = null;
+          if (mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+          }
+          setIsRecording(false);
+        }, MAX_RECORDING_SECONDS * 1000);
       }
     }
   };

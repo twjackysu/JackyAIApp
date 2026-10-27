@@ -4,6 +4,7 @@ import { IconButton, Paper, Stack, TextField, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
 import { ActionTooltip } from '@/components/hints';
+import { START_RECORDING_LABEL } from '@/hooks/useVoiceRecording';
 
 interface MessageInputProps {
   input: string;
@@ -71,7 +72,13 @@ function MessageInput({
           }}
         />
         <ActionTooltip
-          title={mediaRecorder ? (isRecording ? '點擊停止錄音' : '點擊開始錄音') : '麥克風無法使用'}
+          title={
+            mediaRecorder
+              ? isRecording
+                ? '點擊停止錄音'
+                : START_RECORDING_LABEL
+              : '麥克風無法使用'
+          }
           arrow
         >
           <IconButton

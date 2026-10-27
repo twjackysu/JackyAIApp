@@ -21,7 +21,7 @@ import { ActionTooltip, InfoPopover } from '@/components/hints';
 import ExamRoundShell from '@/Exam/components/ExamRoundShell';
 import WordRecap from '@/Exam/components/WordRecap';
 import { useExamRound } from '@/Exam/hooks/useExamRound';
-import { useVoiceRecording } from '@/hooks/useVoiceRecording';
+import { START_RECORDING_LABEL, useVoiceRecording } from '@/hooks/useVoiceRecording';
 
 type Phase = 'answering' | 'revealed' | 'graded';
 
@@ -182,7 +182,11 @@ function TranslationCard() {
             />
             <ActionTooltip
               title={
-                mediaRecorder ? (isRecording ? '點擊停止錄音' : '點擊開始錄音') : '麥克風無法使用'
+                mediaRecorder
+                  ? isRecording
+                    ? '點擊停止錄音'
+                    : START_RECORDING_LABEL
+                  : '麥克風無法使用'
               }
               arrow
             >
