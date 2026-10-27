@@ -1,5 +1,17 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-27 13:42 – 第 42 輪（合併前安全巡檢：上傳檔案與 chat 附件）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，直接 fetch／push。
+- **第四次巡檢：上傳與附件**（subagent 唯讀，D-158）：3 高 4 中 2 低，6 項是 master 既有的。已修：
+  - 高：xlsx 一格寫 `ZZZZZZ1` 就補 3 億個空格、zip 解開沒上限 → `AttachmentTextExtractor` 每個 XML 部分 1600 萬字、超過 XFD 的格子不收、讀超過上限就停。測試 4 個（含 1600 萬字的 inline string、2 萬列）。
+  - 高：chat 訊息沒有長度上限（失敗會退款但訊息已存，可灌爆 DB）→ 2 萬字、請求 1 MB，計費前 400；前端輸入框與編輯框說「訊息太長」並不送出（`messageTooLongNote`，測試讀 `ChatbotController.cs`）。
+  - 高：匿名 session 上傳 32 MB 的空列會讀成約 1 GB → `SessionRowsJsonConverter` 邊讀邊估，超過 128 MB 就停。測試 `SessionRowsJsonConverterTests`。
+  - 中：chat 附件上傳每人每分鐘 20 次、PDF 解鎖每個位址每分鐘 10 次（`ConnectorProbeRateLimitTests` 加一個）。
+  - 不改（NEXT）：Whisper 依長度計費、匿名上傳共用預算、PDF `/Count`、附件不 taint。
+- 驗證：前端 lint、test（160 檔 1748 個）、build 全過；CI 40457519350（8d3b7138：附件與訊息上限）、40458314485（745540c6：前端＋頻率限制）、**40458717202（f0c38d74，含 session 上傳的 d7901bcf，本輪最後一次含程式碼的 push）都第一次就綠**。截圖 `too-long-*`（新腳本 `.loop/shots/too-long.cjs`：/finance 貼 20,050 字 → 送出鈕停用、輸入框下方說明；桌機與手機都不擠）。
+- 問題：一次 push 的最後一個 commit 是 `[skip ci]` 的文件，整個 push 沒跑 CI（第 38 輪記過的坑）→ 補一個說明文字的 .cs commit（f0c38d74）讓它跑。
+
 ## 2026-10-27 11:42 – 第 41 輪（合併前安全巡檢）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，直接 fetch／push。
