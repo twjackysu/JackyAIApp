@@ -11,6 +11,7 @@
 
 ## 1. CI 狀態
 
+- 第 50 輪：後端＋前端（D-191～D-193）；cscheck 0 個新診斷；CI 每次都第一次就綠（最後 40594358867，8682b3ed）。新的 fetch 替身若列對話又會打 `GET conversations/search?profile=&q=`：`index.test.tsx` 的替身已處理（`messageHits`、`failSearch`）。截圖腳本新增 `.loop/shots/search.cjs`。**片段之類含「…」的字串別整段 NFKC 再對位置**（… 會變三個字元）。
 - 第 49 輪：前端（D-186～D-189）＋後端（D-190）；cscheck 0 個新診斷；CI 40577752025（44eda73b）綠。一次紅在新測試自己：**焦點測試別檢查中間狀態**（CI 上回合在 `act` 內就完成）。**MUI 的焦點陷阱在 jsdom 不會動**（`document.hasFocus()` 是 false）：抽屜／Modal 裡的焦點行為要在測試裡自己模擬（把焦點放到 `.MuiDrawer-paper`），或檢查元素是不是在 paper 裡。`rename.cjs` 的列現在是 `li`（開啟按鈕是 `li .MuiListItemButton-root`，改名／刪除在它旁邊）；測試的 `row()` 仍回開啟按鈕，按鈕用 `rowItem()`。
 - 第 48 輪：後端（D-177、D-178、D-180）＋前端（D-179、D-181～D-185）。cscheck 0 個新診斷，後端 CI 40555167455 第一次就綠。**前端測試沒有 `@testing-library/react`**：hook 的測試自己用 `createRoot`＋`act` 包一個 Probe 元件（`useChatAnnouncer.test.tsx`）。`git pull` 在這個環境可能卡住（沒有 `GIT_TERMINAL_PROMPT=0` 時）：用 `GIT_TERMINAL_PROMPT=0 timeout 60 git pull --no-rebase`。
 - 第 47 輪：前端（D-172、D-176）＋後端（D-173、D-174）；CI 每次都第一次就綠（最後一次 40542669764），cscheck 0 個新診斷（測試裡 `using var db = new AzureSQLDBContext` 的 CS1674、`UseInMemoryDatabase(name, root)` 的 CS1503 是雜訊；後者為保險改用只給名稱）。jsdom 的 `HTMLMediaElement.play()` 會印「Not implemented」，是對話練習頁測試的既有雜訊。
@@ -47,6 +48,7 @@
 
 ## 2. 下一步（依序）
 
+00. **第 50 輪的收尾（小）**：(a) 手機寬（抽屜裡的紀錄）與 Studio 抽屜拍一次內容搜尋＋打開後捲到（`search.cjs` 加 390 寬與 Studio 情境；抽屜關掉後 `MessageArea` 才 active，確認仍會捲到）；(b) 若有時間，請 subagent 唯讀審查 D-193（`MessageArea` 的 `reveal`：抽屜、收合的 inline 面板 `active` 為 false 時、同一個結果再按一次）。之後回到下面的 0／0.5／1，或做 2 的截圖巡檢。
 0. **巡檢的未修項目**：第 47 輪做了第七次巡檢（登入登出、帳號連線、匿名端點；D-175），修了 TTS 的上限（D-173）、帳號連線 refresh 的競爭與 callback 的 provider（D-174），並把全站 `console.error` 收完（麥克風、對話開始、語音播放、登出，D-172；剩下的都有自己的錯誤畫面）；字典的發音被擋時改用瀏覽器的聲音（D-176）。**還剩（交給 Jacky，FOR_JACKY 18）**：匿名查字典可無限產生新字（產品決定，D-175(a)）；`StateService` 與 token MAC 共用 key、帳號連線沒 PKCE（低）。**還沒巡過的面**：幾乎都巡過了；若還有時間，可看 Studio AI 工具在本站 MCP server 的權限以外的 `SiteOAuthServer` 細節（D-156 已看過一次）。第 46 輪留下的：Job Finder 的頻率限制以位址計（同一個 NAT 後的人共用，低）。以下是之前的紀錄：第 44 輪做了第五次巡檢（D-163、D-164），新的未修（低，凍結前不做）：DNS rebinding 與 TDS routing 仍能讓自訂 SQL 資料源連到內網（只剩時間差旁路，因為連線失敗原因已不回報；要完全擋得靠 App Service 的出站網路限制，FOR_JACKY 17）；dashboard 分享仍看得出哪些 email 有帳號（要改成邀請制＝新表）；`MaskMsSql` 遇到含 `;` 的引號密碼會露出後半（只給擁有者看，可改用 `SqlConnectionStringBuilder` 遮罩）。**還沒巡過的面**：Job Finder（104／Cake 的外部內容進頁面）、Portfolio 的匯入／AI 摘要、English 的 AI 評分端點（prompt injection 只影響自己）。第 43 輪：第 43 輪修完了 D-158 的兩個中風險（錄音 4 MB＋2 分鐘、匿名上傳每人 128 MB；D-159）與 D-157 的三個低風險（連結卡片寫主機 D-160、Portfolio tooltip 跳脫 D-161、OAuth 提示只寫自己的名稱 D-162）。**還剩、凍結前不做的低風險**：PDF 頁數由 `/Count` 決定（Anthropic 每次最多 100 頁，未驗證）；附件文字不 taint 對話（D-083 的決定）；`ask_data` 依結果動態 taint（要動 `ClientToolRunner`）；匿名上傳的 IPv6 換位址可多拿份額（有總額與共用頻率限制兜底）；錄音 body 太大時回的是 ASP.NET 的 ProblemDetails 而不是 app 的錯誤格式（前端不讀 body，只顯示「語音沒有轉成文字」）。D-131（之後新增的讀取工具自動給已發出的 token）仍是合併後的事。新的 ECharts 函式 formatter 一定要 `escapeHtml`。若還有時間想再巡：可以看「Studio AI 的工具在本站 MCP server 上的權限」以外還沒看過的面（例如 dashboard 的公開分享、`/admin/listening`），但 11/3 之後只修 bug。
 0.5 **第九次巡檢（無障礙）的未修項目**：(a)(b) 第 49 輪已做（D-186～D-189）。剩 (c) 一行框「focus 就展開」維持（D-182）；若實測仍覺得鍵盤使用者被拉進去，改成點擊／打字／Enter 才展開，要改 `AiAssistantLauncher.test.tsx` 的 `focusBox()`。第十次巡檢（本站 OAuth，D-190）沒有留下未修項目（loopback 連接埠精確比對是刻意的）。**還沒巡過的面**：幾乎沒有了；剩下的時間（11/3 前）可以做選做（下面 1）或 2 的截圖巡檢。
 1. **選做（少而精，11/3 前）**——確認卡已收尾（D-105～D-109），MCP prompts 與「/」已完成（D-110～D-112）。挑一個做完、能 demo、有測試，或者不做、改做巡檢。候選：
@@ -62,7 +64,7 @@
    - Jira 留言（D-132／D-133）已完成。轉狀態（transition）評估後不做：各專案 workflow 不同、出錯後果比留言大。
    - Outlook 行事曆（D-134／D-135）已完成。Outlook 信件（`Mail.Read`）不做：信件是最容易被注入的外部文字。本站 MCP prompt `daily_briefing` 的文字已含 Outlook（第 34 輪；`Tools` 仍只列 Google，免得關掉 Outlook 的 token 看不到這個 prompt）。
    - 思考摘要（D-136／D-137）已完成，只在 session 內（重開對話看不到，跟工具步驟一樣）。每則訊息 memo 已做（D-138）。未做（低）：pause_turn 重試時前一次的思考仍留著（以新段落接上）。
-   - 對話標題（D-141／D-142）、搜尋（D-143）、手動改名（D-144／D-145／D-146）已完成。未做（低）：搜尋訊息內容（要伺服器查詢）；輸入框 `maxLength` 以 UTF-16 計（emoji 最多 20 個，D-146 決定不改）。
+   - 對話標題（D-141／D-142）、搜尋標題（D-143）與**內容**（D-191～D-193，含打開後捲到那則）、手動改名（D-144／D-145／D-146）已完成。未做（低）：內容搜尋不搜附件與卡片（刻意）；只搜最近 300 個對話；片段只取第一則符合的訊息；輸入框 `maxLength` 以 UTF-16 計（emoji 最多 20 個，D-146 決定不改）。
    - 表格卡片畫成圖（D-153／D-154）已完成。未做（低）：多欄一起畫（尺度不同，刻意一次一欄）、記住上次選的圖（重開對話回到表格，刻意）、匯出對話不含圖（是表格）；`chat.cjs` 沒有折線情境——若要 demo 折線，在 `table-chart.cjs` 加一個每月數字的表格卡片（例如 /finance 以外的 Studio 工具）。
    - 表格卡片的複製／CSV（D-150／D-151）、排序（D-152）、**複製成文件表格**（HTML＋TSV，D-168，另一顆按鈕：別把 HTML 加進原本的複製，試算表會優先讀 HTML 而繞過 D-151）已完成。未做（低）：排序不記住（重開對話回到工具順序，刻意）；沒排序時欄名不顯示箭頭，靠游標變手指與 `aria-sort` 提示（若實測不知道能排，可在 hover 時顯示淡箭頭——要確認手機不會加寬）；Data Analysis 的圖表卡片不排序（是圖）。
    - 匯出對話（D-147／D-148）已完成：Markdown 只在前端產生。未做：「分享連結」（要伺服器存公開副本，對話有私人資料，凍結前不做）；匯出思考摘要（刻意不做）。圖表卡片匯出成資料表已做（D-149，`AiChatConfig.cardTables`）；新的 app 卡片種類要匯出就在該 app 的 config 加一項。「每個對話只取一次」只在同一個 process、一天內成立（重啟後仍是問題開頭的舊對話可再取一次，成本有上限，D-142 接受）。
@@ -78,6 +80,7 @@
 
 ## 3. 已經做好的零件
 
+- 第 50 輪：後端 `ChatConversationService.SearchAsync`／`SearchWords`／`SnippetOf`（`MaxSearchLength`、`MaxSearchWords`、`MaxSearchHits`、`SearchedConversations`）、`ChatSearchHitDto`、`RateLimitPolicies.ChatSearch`。前端 `chatbotApis.searchConversations`、`utils/conversationSearch` 的 `findConversations`／`highlightParts`／`MAX_SEARCH_LENGTH`／`SEARCH_PAUSE_MS`、`ConversationRow` 的 `snippet`／`query`、`MessageArea` 的 `reveal`（`MessageReveal`、`REVEAL_MS`）。
 - 第 49 輪：前端 `aiChat/components/ConversationRow`、`aiChat/utils/focusAfterDelete`、`aiChat/selection/selectionShortcut`（`SELECTION_BAR_SHORTCUT`、`isSelectionBarShortcut`、`selectionHint`）；Studio 的 `SelectionBar` 抽屜開著時掛在抽屜裡。後端 `Common/FrameGuardMiddleware`（`GuardedPaths`）、`RateLimitPolicies.SiteOAuthConsent`。
 - 第 48 輪：後端 `ChatTurnRegistry.SettleAsync`／`SettleTimeout`（`Turn.Dispose` 完成 `Done`）、`ModelTurn` 輪數用完設 `no_answer`、`ChatbotController.MessageRefusal` 用 `IsNullOrWhiteSpace`。前端 `aiChat/utils/announcement`＋`hooks/useChatAnnouncer`（live region 的文字）、`style.visuallyHidden`、`CompactChatBar` 的 `openButtonRef`、`ApprovalCard` 的 `decidedHere`、`QuizCardView` 的焦點（`nextRef`／`promptRef`／`summaryRef`）、`settleToolSteps` 只把沒有 id 的步驟當完成。
 - 第 47 輪：前端 `useAudioPlayback` 的 `failedMessageId`／`playRefusalIsFailure`（`auto` 播放被擋不算失敗）、`MICROPHONE_UNAVAILABLE_NOTE`、`START_FAILED_*`、`UserProfileMenu` 的 `LOGOUT_FAILED_NOTE`、`Dictionary/utils/audio` 的 `playSiteVoice`（失敗改用 `playBrowserTts`）；截圖 `.loop/shots/practice-errors.cjs`。後端 `TtsCache`（singleton、`MaxBytes`）、`RateLimitPolicies.TextToSpeech`、`ConnectorService.RefreshLocks`＋`RefreshLockedAsync`。

@@ -1,5 +1,13 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-28 05:43 – 第 50 輪（對話紀錄搜尋內容、打開後捲到那則訊息）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，用既有的 clone 切到 `feature/ai-native`（`--unshallow`）。
+- **NEXT 1 的選做「搜尋訊息內容」**（D-191）：`GET api/chatbot/conversations/search`（`ChatConversationService.SearchAsync`：自己的、該助理的、一則訊息含全部字，最多 20 則、附片段；字 NFKC、最多 5 個、超過 100 字 400；`RateLimitPolicies.ChatSearch`），前端停止打字 350 ms 後查、找到的對話依原順序插入、片段在標題下方並標出搜尋的字（`findConversations`、`highlightParts`）。不需要 migration、不花 AI。
+- **審查**（subagent 唯讀）：無高風險；修了標題已找到的佔名額、5 DTU 成本（只搜最近 300 個對話、20 次／分）、舊搜尋的失敗、emoji 在 collation 下符合全部、「C#」找不到位置、片段變成按鈕名稱（D-192）。自己截圖發現片段有「…」時搜尋的字標不出來（NFKC 把 … 變三個字元）→ 逐字折疊。
+- **打開內容找到的對話捲到那則訊息並亮一下**（D-193）：結果多帶 `messageId`，`MessageArea` 的 `reveal`（以欄的第 n 個子元素找，不動 `MessageItem`，memo 不受影響）。
+- 驗證：前端 lint、全套測試（176 檔 1841 個）、build 全過；cscheck 0 個新診斷（`DbSet.Single` 是已知雜訊）；截圖 `.loop/shots/search.cjs`（搜尋中、內容找到、打開後捲到、只標題），`rename.cjs` 重拍與 repo 比對差異 0.03%（列高不變）。CI 40590848034（05420a95）、40592243852（02eec8f6）、40593209177（a33de762）、**40594358867（8682b3ed，本輪最後一次含程式碼的 push）都第一次就綠**。
+
 ## 2026-10-28 03:42 – 第 49 輪（無障礙收尾：對話紀錄的列、選取工具列的鍵盤入口；第十次巡檢：本站 OAuth 授權伺服器）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，用既有的 clone 切到 `feature/ai-native`（完整歷史）。
