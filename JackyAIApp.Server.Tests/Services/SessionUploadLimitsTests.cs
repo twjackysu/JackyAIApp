@@ -208,6 +208,7 @@ namespace JackyAIApp.Server.Tests.Services
             {
                 MaxTotalBytes = perUpload * 4,
                 MaxBytesPerCaller = perUpload * 2,
+                MaxSessionBytes = perUpload,
             });
 
             Assert.True(store.Upload(new SessionUploadDto { Rows = rows }, "address:1.2.3.4").IsSuccess);
@@ -243,6 +244,7 @@ namespace JackyAIApp.Server.Tests.Services
             {
                 MaxTotalBytes = perUpload,
                 MaxBytesPerCaller = perUpload * 2,
+                MaxSessionBytes = perUpload,
             });
 
             Assert.True(store.Upload(new SessionUploadDto { Rows = rows }, "address:1.2.3.4").IsSuccess);
@@ -260,6 +262,7 @@ namespace JackyAIApp.Server.Tests.Services
             {
                 MaxTotalBytes = 1_000,
                 MaxBytesPerCaller = 300,
+                MaxSessionBytes = 1,
             }));
             var granted = 0;
 
