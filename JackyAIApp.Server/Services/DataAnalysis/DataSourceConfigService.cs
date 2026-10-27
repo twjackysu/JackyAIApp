@@ -6,6 +6,7 @@ using DataAnalysisLibrary.Core.Engine;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO.DataAnalysis;
 using JackyAIApp.Server.Services;
+using Microsoft.Data.SqlClient;
 
 namespace JackyAIApp.Server.Services.DataAnalysis
 {
@@ -123,10 +124,28 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         {
             var c = JsonSerializer.Deserialize<MsSqlSourceConfigDto>(json, opts);
             if (c is null) return new { };
-            // Mask password in connection string but keep Server/Database visible.
-            var masked = Regex.Replace(
-                c.ConnectionString, @"(?i)(password|pwd)\s*=\s*[^;]+", "Password=***");
-            return new MsSqlSourceConfigDto { ConnectionString = masked };
+            return new MsSqlSourceConfigDto { ConnectionString = MaskPassword(c.ConnectionString) };
+        }
+
+        /// <summary>
+        /// The connection string with its password as <c>Password=***</c> (what <see cref="MergeConfigSecrets"/> takes back),
+        /// Server and Database still visible. Read by the driver's own parser, so a quoted password holding a <c>;</c>
+        /// (<c>Password="a;b"</c>) is masked whole rather than up to its first <c>;</c>. A string the parser refuses (every
+        /// stored one passed it when saved) falls back to masking everything after the keyword.
+        /// </summary>
+        internal static string MaskPassword(string connectionString)
+        {
+            try
+            {
+                var builder = new SqlConnectionStringBuilder(connectionString);
+                if (!string.IsNullOrEmpty(builder.Password))
+                    builder.Password = "***";
+                return builder.ConnectionString;
+            }
+            catch (ArgumentException)
+            {
+                return Regex.Replace(connectionString, @"(?is)(password|pwd)\s*=.*", "Password=***");
+            }
         }
 
         private static object MaskAdx(string json, JsonSerializerOptions opts)

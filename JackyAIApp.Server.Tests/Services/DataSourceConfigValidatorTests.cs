@@ -229,6 +229,17 @@ namespace JackyAIApp.Server.Tests.Services
         }
 
         [Fact]
+        public void Update_TheMaskedStringAsShown_KeepsTheStoredPassword()
+        {
+            var existing = Stored(DataSourceConnectorType.MsSql, new { connectionString = Server + "User ID=u;Password=\"re;al\";" });
+            var shown = DataSourceConfigService.MaskPassword(Server + "User ID=u;Password=\"re;al\";");
+
+            var merged = Service().MergeAndEncrypt(Json(new { connectionString = shown }), existing, DataSourceConnectorType.MsSql);
+
+            Assert.Contains("re;al", merged);
+        }
+
+        [Fact]
         public void Update_SwitchingToIntegratedSecurity_Throws()
         {
             var existing = Stored(DataSourceConnectorType.MsSql, new { connectionString = Server + "User ID=u;Password=real;" });
@@ -285,6 +296,22 @@ namespace JackyAIApp.Server.Tests.Services
             using var engine = Service().BuildEngine(stored);
 
             Assert.NotNull(engine);
+        }
+
+        [Theory]
+        [InlineData("Server=tcp:db.example.com,1433;Database=d;User ID=u;Password=real;")]
+        [InlineData("Server=tcp:db.example.com,1433;Database=d;User ID=u;Password=\"se;cret\";")]
+        [InlineData("Server=tcp:db.example.com,1433;Database=d;User ID=u;Pwd='a;b;c'")]
+        public void AShownConnectionString_HidesTheWholePassword_AndKeepsTheServer(string connectionString)
+        {
+            // A quoted password holding ";" was masked only up to it, showing the rest (D-165).
+            var masked = DataSourceConfigService.MaskPassword(connectionString);
+
+            Assert.Contains("Password=***", masked);
+            Assert.Contains("db.example.com", masked);
+            Assert.DoesNotContain("real", masked);
+            Assert.DoesNotContain("cret", masked);
+            Assert.DoesNotContain("b;c", masked);
         }
     }
 }
