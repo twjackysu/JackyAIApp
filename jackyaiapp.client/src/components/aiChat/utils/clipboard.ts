@@ -20,3 +20,19 @@ export const copyText = async (text: string) => {
     area.remove();
   }
 };
+
+/**
+ * Copies `html` for a rich paste (a document, a mail) with `text` beside it for a place that takes text only. Throws when
+ * the browser cannot put HTML on the clipboard (no `ClipboardItem`, not a secure context): there is no older way that
+ * keeps the markup without putting it into the page.
+ */
+export const copyHtml = async (html: string, text: string) => {
+  if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write)
+    throw new Error('rich copy unavailable');
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      'text/html': new Blob([html], { type: 'text/html' }),
+      'text/plain': new Blob([text], { type: 'text/plain' }),
+    }),
+  ]);
+};

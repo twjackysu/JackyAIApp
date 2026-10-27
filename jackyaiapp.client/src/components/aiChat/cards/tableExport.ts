@@ -83,3 +83,43 @@ export const exportedRowsNotice = (card: TableCard, done: string) =>
   card.totalRows !== null
     ? `${done}畫面上的 ${card.rows.length} 筆（共找到 ${card.totalRows.toLocaleString('zh-TW')} 筆）`
     : `${done} ${card.rows.length} 筆`;
+
+// Every character that could end a text or an attribute: the cells are a tool's words, from anywhere.
+const html = (text: string) =>
+  text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const BORDER = 'border:1px solid #bbb;padding:4px 8px';
+
+/**
+ * The table as HTML for a document's paste (D-168): Word, Gmail, Google Docs and Notion keep it as a table with its
+ * header, where the tab-separated copy would land as lines of text. Cells read as on screen (1,234, — for none),
+ * numbers aligned right, every value escaped and nothing but the table's own markup. A text cell is marked as text for
+ * Excel (`mso-number-format:"\@"`), which then neither runs it as a formula nor drops a code's leading zeros, should the
+ * reader paste it there after all; one a spreadsheet would read as a formula is defused as in the other copy.
+ */
+export const tableHtml = (card: TableCard) => {
+  const cell = (value: CardCell, numeric: boolean) => {
+    if (typeof value === 'number')
+      return `<td style="${BORDER};text-align:right">${html(value.toLocaleString('zh-TW'))}</td>`;
+    if (value === null)
+      return `<td style="${BORDER};text-align:${numeric ? 'right' : 'left'}">—</td>`;
+    // A number written as text (49.5%, 1,200) lines up with the numbers in its column.
+    const align = numeric ? ';text-align:right' : '';
+    return `<td style="${BORDER}${align};mso-number-format:'\\@'">${html(guardFormula(value))}</td>`;
+  };
+  const head = card.columns
+    .map(
+      (c) =>
+        `<th style="${BORDER};text-align:${c.numeric ? 'right' : 'left'};background:#f2f2f2">${html(guardFormula(c.label))}</th>`,
+    )
+    .join('');
+  const body = card.rows
+    .map((row) => `<tr>${card.columns.map((c) => cell(row[c.key], c.numeric)).join('')}</tr>`)
+    .join('');
+  return `<table style="border-collapse:collapse"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+};

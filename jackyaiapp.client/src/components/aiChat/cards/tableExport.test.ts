@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { exportedRowsNotice, guardFormula, tableCsv, tableFileName, tableTsv } from './tableExport';
+import {
+  exportedRowsNotice,
+  guardFormula,
+  tableCsv,
+  tableFileName,
+  tableHtml,
+  tableTsv,
+} from './tableExport';
 
 import type { TableCard } from './toolCard';
 
@@ -142,5 +149,61 @@ describe('exportedRowsNotice', () => {
     expect(exportedRowsNotice(card({ rows, totalRows: 4000 }), '已下載')).toBe(
       '已下載畫面上的 1 筆（共找到 4,000 筆）',
     );
+  });
+});
+
+describe('tableHtml (D-168)', () => {
+  const parse = (markup: string) => new DOMParser().parseFromString(markup, 'text/html');
+
+  it('is one table whose cells read as on screen, numbers on the right', () => {
+    const doc = parse(
+      tableHtml(
+        card({
+          rows: [
+            { a: '台積電', b: 1234567 },
+            { a: '0050', b: null },
+          ],
+        }),
+      ),
+    );
+    expect([...doc.querySelectorAll('th')].map((c) => c.textContent)).toEqual(['名稱', '數量']);
+    const cells = [...doc.querySelectorAll('tbody td')];
+    expect(cells.map((c) => c.textContent)).toEqual(['台積電', '1,234,567', '0050', '—']);
+    expect(cells[1].getAttribute('style')).toContain('text-align:right');
+    expect(cells[3].getAttribute('style')).toContain('text-align:right');
+    // Text for Excel, so 0050 keeps its zeros there too.
+    expect(cells[2].getAttribute('style')).toContain("mso-number-format:'\\@'");
+  });
+
+  it('carries a tool’s words as text only: no element, attribute or formula of theirs', () => {
+    const markup = tableHtml(
+      card({
+        columns: [
+          { key: 'a', label: '<b>名稱</b>', numeric: false },
+          { key: 'b', label: '數量', numeric: true },
+        ],
+        rows: [
+          { a: '<img src=x onerror=alert(1)>', b: 1 },
+          { a: '"><script>x</script>', b: 2 },
+          { a: "' style='x", b: 3 },
+          { a: '=HYPERLINK("http://evil")', b: 4 },
+        ],
+      }),
+    );
+    const doc = parse(markup);
+    expect(doc.querySelectorAll('img, script, b')).toHaveLength(0);
+    const allowed = new Set(['table', 'thead', 'tbody', 'tr', 'th', 'td']);
+    for (const e of doc.body.querySelectorAll('*'))
+      expect(allowed).toContain(e.tagName.toLowerCase());
+    const cells = [...doc.querySelectorAll('tbody td:first-child')].map((c) => c.textContent);
+    expect(cells).toEqual([
+      '<img src=x onerror=alert(1)>',
+      '"><script>x</script>',
+      "' style='x",
+      '\'=HYPERLINK("http://evil")',
+    ]);
+    expect(doc.querySelector('th')!.textContent).toBe('<b>名稱</b>');
+    for (const td of doc.querySelectorAll('td'))
+      expect([...td.attributes].map((a) => a.name)).toEqual(['style']);
   });
 });

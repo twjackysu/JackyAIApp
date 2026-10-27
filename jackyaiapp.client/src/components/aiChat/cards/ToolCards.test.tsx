@@ -227,6 +227,49 @@ describe('ToolCards: a table to take out (D-150)', () => {
     expect(container.querySelector('[role="status"]')!.textContent).toBe('已複製 2 筆');
   });
 
+  it('copies it as a table for a document, with the tab-separated text beside it (D-168)', async () => {
+    const items: Record<string, Blob>[] = [];
+    vi.stubGlobal(
+      'ClipboardItem',
+      class {
+        constructor(public parts: Record<string, Blob>) {
+          items.push(parts);
+        }
+      },
+    );
+    const write = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { write }, configurable: true });
+    try {
+      render([step('t', table)]);
+      await act(async () => button('複製成文件表格')!.click());
+      expect(write).toHaveBeenCalledTimes(1);
+      const html = await items[0]['text/html'].text();
+      expect(html.startsWith('<table')).toBe(true);
+      expect(html).toContain('>12,345</td>');
+      expect(await items[0]['text/plain'].text()).toBe(
+        '代號\t買賣超\n2330\t12345\n"\'=HYPERLINK(""x"")"\t',
+      );
+      expect(container.querySelector('[role="status"]')!.textContent).toBe(
+        '已複製 2 筆，可貼到文件',
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('says so when the browser cannot copy a table for a document', async () => {
+    vi.stubGlobal('ClipboardItem', undefined);
+    try {
+      render([step('t', table)]);
+      await act(async () => button('複製成文件表格')!.click());
+      expect(container.querySelector('[role="status"]')!.textContent).toBe(
+        '這個瀏覽器不能複製成文件表格，請改用複製表格',
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('says nothing was copied when the copy fails, rather than 已複製', async () => {
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },

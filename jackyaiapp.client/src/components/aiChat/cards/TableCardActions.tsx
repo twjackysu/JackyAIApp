@@ -1,13 +1,14 @@
 import ChartIcon from '@mui/icons-material/BarChartOutlined';
 import CopyIcon from '@mui/icons-material/ContentCopyOutlined';
+import DocumentIcon from '@mui/icons-material/DescriptionOutlined';
 import DownloadIcon from '@mui/icons-material/FileDownloadOutlined';
 import TableIcon from '@mui/icons-material/TableChartOutlined';
 import { Box, IconButton, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 
-import { copyText } from '../utils/clipboard';
+import { copyHtml, copyText } from '../utils/clipboard';
 
-import { csvBlob, exportedRowsNotice, tableFileName, tableTsv } from './tableExport';
+import { csvBlob, exportedRowsNotice, tableFileName, tableHtml, tableTsv } from './tableExport';
 
 import type { TableCard } from './toolCard';
 
@@ -49,6 +50,16 @@ export default function TableCardActions({
       setNotice(exportedRowsNotice(table, '已複製'));
     } catch {
       setNotice('沒有複製成功，請改用下載 CSV');
+    }
+  };
+
+  // For a document or a mail (D-168): the rich copy, the tab-separated one beside it for a place that takes text only.
+  const copyForDocument = async () => {
+    try {
+      await copyHtml(tableHtml(table), tableTsv(table));
+      setNotice(`${exportedRowsNotice(table, '已複製')}，可貼到文件`);
+    } catch {
+      setNotice('這個瀏覽器不能複製成文件表格，請改用複製表格');
     }
   };
 
@@ -99,6 +110,16 @@ export default function TableCardActions({
           sx={{ color: 'text.secondary' }}
         >
           <CopyIcon sx={{ fontSize: 16 }} />
+        </IconButton>
+      </ActionTooltip>
+      <ActionTooltip title="複製成文件表格（可貼到 Word、Gmail、Google 文件）">
+        <IconButton
+          size="small"
+          aria-label="複製成文件表格"
+          onClick={() => void copyForDocument()}
+          sx={{ color: 'text.secondary' }}
+        >
+          <DocumentIcon sx={{ fontSize: 16 }} />
         </IconButton>
       </ActionTooltip>
       <ActionTooltip title="下載 CSV">
