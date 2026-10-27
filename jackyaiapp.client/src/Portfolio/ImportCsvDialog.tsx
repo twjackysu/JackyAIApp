@@ -18,18 +18,20 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useRef, useState } from 'react';
 
-import { buildImportPreview, ImportPreviewRow } from './csvImport';
+import { buildImportPreview, ImportPreviewRow, previewRowsShown } from './csvImport';
 import { EditorRow } from './editorTypes';
 
 import { parseTabular } from '@/utils/tabularParse';
 
 interface Props {
   onImport: (rows: EditorRow[]) => void;
+  /** Rows the editor can still take in one save (the server's limit less what it holds). */
+  room?: number;
 }
 
 const PREVIEW_LIMIT = 10;
 
-export function ImportCsvDialog({ onImport }: Props) {
+export function ImportCsvDialog({ onImport, room }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const [open, setOpen] = useState(false);
@@ -53,7 +55,7 @@ export function ImportCsvDialog({ onImport }: Props) {
         setPreview(null);
         return;
       }
-      setPreview(buildImportPreview(parsed.rows));
+      setPreview(buildImportPreview(parsed.rows, room));
     };
     reader.readAsText(file, 'UTF-8');
   };
@@ -105,12 +107,13 @@ export function ImportCsvDialog({ onImport }: Props) {
             <Box>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                 偵測到 {preview.length} 列，{validRows.length} 筆可匯入
-                {invalidCount > 0 && `，${invalidCount} 筆略過，欄位有誤`}。
+                {invalidCount > 0 && `，${invalidCount} 筆略過（原因見下表）`}。
               </Typography>
               <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 260 }}>
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
+                      <TableCell>列</TableCell>
                       <TableCell>類型</TableCell>
                       <TableCell>代號</TableCell>
                       <TableCell>名稱</TableCell>
@@ -119,8 +122,9 @@ export function ImportCsvDialog({ onImport }: Props) {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {preview.slice(0, PREVIEW_LIMIT).map((p, i) => (
-                      <TableRow key={i}>
+                    {previewRowsShown(preview, PREVIEW_LIMIT).map(({ row: p, line }) => (
+                      <TableRow key={line}>
+                        <TableCell>{line}</TableCell>
                         <TableCell>{p.raw['類型']}</TableCell>
                         <TableCell>{p.raw['代號']}</TableCell>
                         <TableCell>{p.raw['名稱']}</TableCell>
@@ -143,7 +147,7 @@ export function ImportCsvDialog({ onImport }: Props) {
               </TableContainer>
               {preview.length > PREVIEW_LIMIT && (
                 <Typography variant="caption" color="text.secondary">
-                  僅顯示前 {PREVIEW_LIMIT} 列，其餘 {preview.length - PREVIEW_LIMIT} 列不影響匯入。
+                  只列出前 {PREVIEW_LIMIT} 列與有誤的列；「列」是檔案裡的行數（標題是第 1 行）。
                 </Typography>
               )}
             </Box>

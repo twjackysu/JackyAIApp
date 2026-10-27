@@ -19,6 +19,7 @@ import { AmountRow } from './AmountRow';
 import { downloadImportTemplateCsv } from './csvImport';
 import { EditorRow, isRowEmpty, makeRow, rowError, toRow } from './editorTypes';
 import { FundRow } from './FundRow';
+import { MAX_POSITIONS, tooManyPositionsMessage } from './holdingsLimits';
 import { ImportCsvDialog } from './ImportCsvDialog';
 import { useEditorTour } from './onboardingTour';
 import { StockRow } from './StockRow';
@@ -91,7 +92,8 @@ export function HoldingsEditor() {
   // Rows the user actually started filling in (blank ones are dropped silently).
   const meaningfulRows = rows.filter((r) => !isRowEmpty(r));
   const invalidRows = meaningfulRows.filter((r) => rowError(r) !== null);
-  const canSave = meaningfulRows.length > 0 && invalidRows.length === 0;
+  const tooMany = meaningfulRows.length > MAX_POSITIONS;
+  const canSave = meaningfulRows.length > 0 && invalidRows.length === 0 && !tooMany;
 
   const handleSave = async () => {
     setSubmitted(true);
@@ -149,7 +151,10 @@ export function HoldingsEditor() {
             >
               下載匯入範本
             </Button>
-            <ImportCsvDialog onImport={(imported) => setRows((rs) => [...rs, ...imported])} />
+            <ImportCsvDialog
+              onImport={(imported) => setRows((rs) => [...rs, ...imported])}
+              room={Math.max(0, MAX_POSITIONS - meaningfulRows.length)}
+            />
           </Box>
         </DialogTitle>
         <DialogContent
@@ -159,7 +164,9 @@ export function HoldingsEditor() {
             <Alert severity="error">
               {meaningfulRows.length === 0
                 ? '請至少填入一筆持倉'
-                : '有欄位未填完整，請確認標紅的項目'}
+                : invalidRows.length > 0
+                  ? '有欄位未填完整，請確認標紅的項目'
+                  : tooManyPositionsMessage(meaningfulRows.length)}
             </Alert>
           )}
           {saveError && <Alert severity="error">{saveError}</Alert>}

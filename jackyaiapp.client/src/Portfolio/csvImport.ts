@@ -1,4 +1,5 @@
 import { EditorRow, rowError, toRow } from './editorTypes';
+import { MAX_POSITIONS, OVER_POSITIONS_LIMIT } from './holdingsLimits';
 import { downloadCsv, TYPE_LABEL } from './portfolioExport';
 
 import { AssetType, PositionInput } from '@/apis/portfolioApis/types';
@@ -113,9 +114,23 @@ export interface ImportPreviewRow {
   error: string | null;
 }
 
+/** The preview's rows: the first `limit`, then every row that will be left out wherever it is, each
+ * with its line in the file (the header is line 1), so a reader can find and fix it. */
+export function previewRowsShown(preview: ImportPreviewRow[], limit: number) {
+  return preview
+    .map((row, i) => ({ row, line: i + 2 }))
+    .filter(({ row }, i) => i < limit || !row.editorRow);
+}
+
 /** Maps + validates a parsed CSV's rows, reusing `toRow`/`rowError` as-is so an imported row is
- * held to exactly the same rules as a manually-typed one. */
-export function buildImportPreview(rows: Record<string, string>[]): ImportPreviewRow[] {
+ * held to exactly the same rules as a manually-typed one. `room` is how many rows the editor can still
+ * take before one save holds more than the server's `MAX_POSITIONS`: valid rows past it are marked, each
+ * by itself, rather than the save failing later for all of them. */
+export function buildImportPreview(
+  rows: Record<string, string>[],
+  room: number = MAX_POSITIONS,
+): ImportPreviewRow[] {
+  let accepted = 0;
   return rows.map((raw) => {
     const { position, error } = mapImportRow(raw);
     if (!position) return { raw, editorRow: null, error };
@@ -124,6 +139,8 @@ export function buildImportPreview(rows: Record<string, string>[]): ImportPrevie
     const editorErr = rowError(editorRow);
     if (editorErr) return { raw, editorRow: null, error: editorErr };
 
+    if (accepted >= room) return { raw, editorRow: null, error: OVER_POSITIONS_LIMIT };
+    accepted++;
     return { raw, editorRow, error: null };
   });
 }

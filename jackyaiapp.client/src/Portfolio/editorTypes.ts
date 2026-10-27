@@ -1,3 +1,5 @@
+import { lengthProblem } from './holdingsLimits';
+
 import { AssetType, PositionInput } from '@/apis/portfolioApis/types';
 
 export interface EditorRow extends PositionInput {
@@ -80,7 +82,7 @@ export const isRowEmpty = (r: EditorRow): boolean =>
 /** Validation message for a non-empty row, or null when valid. */
 export const rowError = (r: EditorRow): string | null => {
   if (r.assetType === 'CASH' || r.assetType === 'LIABILITY' || r.assetType === 'REAL_ESTATE') {
-    return r.quantity > 0 ? null : '請輸入金額';
+    return r.quantity > 0 ? lengthProblem(r) : '請輸入金額';
   }
   if (!r.symbol) {
     return r.assetType === 'FUND' ? '請選擇基金' : '請選擇股票';
@@ -88,5 +90,5 @@ export const rowError = (r: EditorRow): string | null => {
   if (!(r.quantity > 0)) {
     return r.assetType === 'FUND' ? '請輸入單位數' : '請輸入股數';
   }
-  return null;
+  return lengthProblem(r);
 };
