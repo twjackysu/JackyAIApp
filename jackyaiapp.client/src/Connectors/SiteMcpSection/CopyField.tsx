@@ -18,7 +18,11 @@ interface CopyFieldProps {
 export default function CopyField({ text, label, block = false }: CopyFieldProps) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
-    await copyText(text);
+    try {
+      await copyText(text);
+    } catch {
+      return; // Nothing was copied: the button does not say so.
+    }
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1500);
   };

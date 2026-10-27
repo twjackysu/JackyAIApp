@@ -1,4 +1,4 @@
-// 第 39 輪：表格卡片的複製表格／下載 CSV（D-150）：Studio 問持股 → 表格卡片下的兩顆按鈕 → 下載的 CSV、複製後的提示。以下沿用 export.cjs。
+// 第 39 輪：表格卡片的複製表格／下載 CSV（D-150）與排序（D-152）：Studio 問持股 → 按「損益 %」兩下（虧最多的在上）→ 下載的 CSV、複製後的提示。以下沿用 export.cjs。
 // 原註：第 38 輪：匯出對話（D-147）：Studio 問持股 → 標題列「匯出對話」→ 選單、下載的 .md 內容、複製後的提示。以下沿用 rename.cjs。
 // 第 37 輪：對話手動改名（D-144）：/finance 紀錄列按鉛筆 → 輸入框 → Enter 存。以下沿用 title.cjs。
 // 原註：第 36 輪：AI 替對話取標題（D-141）：/finance 問完第一個問題 → 紀錄列表由問題開頭換成 AI 取的短標題。以下沿用 retry.cjs。
@@ -364,6 +364,13 @@ const busyTurn = [{ type: 'start', conversationId: 'c1', userMessageId: 1 }, { t
     await page.waitForTimeout(1200);
     await ask(page, '我的持股表現如何？虧最多的是哪幾檔？');
     await page.waitForTimeout(1500);
+    const sortBy = page.locator('[data-testid="tool-card"] th', { hasText: '損益 %' }).locator('.MuiTableSortLabel-root');
+    console.log('before-sort', name, await page.locator('[data-testid="tool-card"] .MuiTableContainer-root').first().evaluate((e) => [e.scrollWidth, e.clientWidth, [...e.querySelectorAll('th')].map((t) => t.offsetWidth), [...e.querySelectorAll('tbody tr:first-child td')].map((t) => t.scrollWidth)]));
+    if (await sortBy.count()) {
+      await sortBy.click();
+      await sortBy.click();
+    }
+    await page.waitForTimeout(300);
     const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: '下載 CSV' }).click()]);
     const saved = path.join(out, 'table-sample.csv');
     await download.saveAs(saved);
@@ -377,6 +384,9 @@ const busyTurn = [{ type: 'start', conversationId: 'c1', userMessageId: 1 }, { t
     console.log('clipboard', JSON.stringify(await page.evaluate(() => navigator.clipboard.readText().catch((e) => String(e)))));
     const card = page.locator('[data-testid="tool-card"]').first();
     await card.scrollIntoViewIfNeeded();
+    console.log('overflow', name, await card.locator('.MuiTableContainer-root').evaluate((e) => [e.scrollWidth, e.clientWidth, e.scrollLeft]));
+    await page.mouse.move(5, 5);
+    await page.waitForTimeout(400);
     await page.screenshot({ path: `${out}/table-export-${name}.png` });
     await page.close();
   }

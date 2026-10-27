@@ -82,11 +82,46 @@ describe('tableTsv', () => {
   });
 });
 
+describe('a code with leading zeros (a TW ETF)', () => {
+  it('keeps its zeros in both: a spreadsheet would read 0050 as 50', () => {
+    const c = card({
+      rows: [
+        { a: '0050', b: 50 },
+        { a: '0.5', b: null },
+      ],
+    });
+    expect(tableCsv(c)).toBe("名稱,數量\r\n'0050,50\r\n0.5,\r\n");
+    expect(tableTsv(c)).toBe("名稱\t數量\n'0050\t50\n0.5\t");
+  });
+});
+
+describe('tableTsv and quotes', () => {
+  it('quotes a cell with a quote in it, so a quoted formula lands as text and a lone quote takes no tabs', () => {
+    const c = card({
+      rows: [
+        { a: '"=HYPERLINK(""x"")"', b: 1 },
+        { a: '"abc', b: 2 },
+      ],
+    });
+    expect(tableTsv(c)).toBe('名稱\t數量\n"""=HYPERLINK(""""x"""")"""\t1\n"""abc"\t2');
+  });
+
+  it('quotes a header with a quote in it too', () => {
+    expect(tableTsv(card({ columns: [{ key: 'a', label: '"x', numeric: false }] }))).toBe('"""x"');
+  });
+});
+
 describe('tableFileName', () => {
   it('is the title and the day in Taipei, without characters a file system refuses', () => {
     // 16:30 UTC is already the next day in Taipei.
     expect(tableFileName('A/B: "外資"', new Date('2026-10-26T16:30:00Z'))).toBe(
       'A B 外資 2026-10-27.csv',
+    );
+  });
+
+  it('drops bidi controls, which could make the name read otherwise than it is', () => {
+    expect(tableFileName('a‮fdp.exe', new Date('2026-10-27T01:00:00Z'))).toBe(
+      'a fdp.exe 2026-10-27.csv',
     );
   });
 

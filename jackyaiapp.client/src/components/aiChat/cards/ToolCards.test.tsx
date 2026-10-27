@@ -187,8 +187,68 @@ describe('ToolCards: a table to take out (D-150)', () => {
     render([step('t', table)]);
     expect(button('下載 CSV')).not.toBeNull();
     await act(async () => button('複製表格')!.click());
-    expect(writeText).toHaveBeenCalledWith('代號\t買賣超\n2330\t12345\n\'=HYPERLINK("x")\t');
+    expect(writeText).toHaveBeenCalledWith('代號\t買賣超\n2330\t12345\n"\'=HYPERLINK(""x"")"\t');
     expect(container.querySelector('[role="status"]')!.textContent).toBe('已複製 2 筆');
+  });
+
+  it('says nothing was copied when the copy fails, rather than 已複製', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+      configurable: true,
+    });
+    document.execCommand = vi.fn(() => false);
+    render([step('t', table)]);
+    await act(async () => button('複製表格')!.click());
+    expect(container.querySelector('[role="status"]')!.textContent).toBe(
+      '沒有複製成功，請改用下載 CSV',
+    );
+  });
+
+  it('says it again for its full time on a second press with the same words', async () => {
+    vi.useFakeTimers();
+    try {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: vi.fn().mockResolvedValue(undefined) },
+        configurable: true,
+      });
+      render([step('t', table)]);
+      const status = () => container.querySelector('[role="status"]')!.textContent;
+      await act(async () => button('複製表格')!.click());
+      await act(async () => vi.advanceTimersByTime(2500));
+      await act(async () => button('複製表格')!.click());
+      await act(async () => vi.advanceTimersByTime(2500));
+      expect(status()).toBe('已複製 2 筆');
+      await act(async () => vi.advanceTimersByTime(600));
+      expect(status()).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('sorts by a header it is pressed on, and copies the rows in the order on screen', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const rows = {
+      ...table,
+      rows: [
+        { code: '2603', net: -500 },
+        { code: '2330', net: 12345 },
+      ],
+    };
+    render([step('t', rows)]);
+    const header = () => [...container.querySelectorAll('th')][1];
+    const codes = () =>
+      [...container.querySelectorAll('tbody tr')].map((r) => r.firstChild!.textContent);
+    expect(codes()).toEqual(['2603', '2330']);
+    act(() => header().querySelector<HTMLElement>('.MuiTableSortLabel-root')!.click());
+    expect(header().getAttribute('aria-sort')).toBe('descending');
+    expect(codes()).toEqual(['2330', '2603']);
+    await act(async () => button('複製表格')!.click());
+    expect(writeText).toHaveBeenCalledWith('代號\t買賣超\n2330\t12345\n2603\t-500');
+    act(() => header().querySelector<HTMLElement>('.MuiTableSortLabel-root')!.click());
+    act(() => header().querySelector<HTMLElement>('.MuiTableSortLabel-root')!.click());
+    expect(header().getAttribute('aria-sort')).toBeNull();
+    expect(codes()).toEqual(['2603', '2330']);
   });
 
   it('downloads a CSV named after the card, with a BOM, and says the tool found more when it did', async () => {

@@ -77,8 +77,12 @@ function MessageActions({ text, onEdit, readAloud, autoReadKey, align }: Message
           size="small"
           aria-label={copied ? '已複製' : '複製'}
           onClick={async () => {
-            await copyText(text);
-            setCopied(true);
+            try {
+              await copyText(text);
+              setCopied(true);
+            } catch {
+              // Nothing was copied: the button does not say 已複製.
+            }
           }}
           sx={buttonSx}
         >

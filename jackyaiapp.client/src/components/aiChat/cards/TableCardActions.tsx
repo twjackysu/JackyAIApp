@@ -20,10 +20,12 @@ export const NOTICE_MS = 3000;
  * and nothing is charged.
  */
 export default function TableCardActions({ table }: { table: TableCard }) {
-  const [notice, setNotice] = useState('');
+  // Each press says it anew, its own full time, even when the words are the same as the last one's.
+  const [notice, setNoticeState] = useState({ text: '', n: 0 });
+  const setNotice = (text: string) => setNoticeState((prev) => ({ text, n: prev.n + 1 }));
   useEffect(() => {
-    if (!notice) return;
-    const timer = setTimeout(() => setNotice(''), NOTICE_MS);
+    if (!notice.text) return;
+    const timer = setTimeout(() => setNoticeState((prev) => ({ ...prev, text: '' })), NOTICE_MS);
     return () => clearTimeout(timer);
   }, [notice]);
 
@@ -59,7 +61,7 @@ export default function TableCardActions({ table }: { table: TableCard }) {
         color="text.secondary"
         sx={{ mr: 0.5, minWidth: 0 }}
       >
-        {notice}
+        {notice.text}
       </Typography>
       <ActionTooltip title="複製表格（可貼到 Excel、Google 試算表）">
         <IconButton

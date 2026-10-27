@@ -98,7 +98,11 @@ jackyaiapp.client/src/
   Data Analysis's chart) has 複製表格 and 下載 CSV under it (`cards/TableCardActions`, `cards/tableExport`, D-150): tab-separated
   cells for a spreadsheet's paste, or a CSV with a BOM (so Excel reads Chinese), numbers plain, the rows on screen only (and it says
   when the tool found more); a text cell or header a spreadsheet would run as a formula (=, +, -, @, a tab or CR first, and not a
-  number) gets a leading apostrophe, the server's `CsvExportWriter` rule, since the cells are a tool's. Nothing goes to the server. Each message is `memo(MessageItem)` (D-138): while an answer streams (every piece of text or thinking a new
+  number) gets a leading apostrophe, the server's `CsvExportWriter` rule, since the cells are a tool's, and so does a code with
+  leading zeros (0050, else read as 50); a pasted cell with a `"` in it is quoted, since a paste unquotes a cell that starts with one
+  (D-151). A table card's header sorts by its column (`cards/tableSort`, D-152: a number column from the largest first, text
+  in zh-TW order, numbers written as text — 49.5%, 1,200 — by value, empty cells last, a third press back to the tool's order); only
+  on screen, and the two buttons take that order. Nothing goes to the server. `utils/clipboard`'s `copyText` throws when nothing was copied, so no button says 已複製 then. Each message is `memo(MessageItem)` (D-138): while an answer streams (every piece of text or thinking a new
   `messages` array, the other messages kept as the same objects by `useChatConversation`) and while the reader types,
   only the message that changed is drawn again; the page's callbacks reach the messages through one `handlers` object
   `MessageArea` keeps for the conversation's life (calling the latest ones). A new `MessageItem` prop must not be an

@@ -184,7 +184,7 @@ export function conversationMarkdown(
 export const conversationFileName = (title: string | undefined, exportedAt: Date) => {
   const name = (title ?? '')
     // eslint-disable-next-line no-control-regex
-    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ')
+    .replace(/[\\/:*?"<>|\u0000-\u001f\u007f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   // Cut by characters, not UTF-16 units: half an emoji is no character at all.

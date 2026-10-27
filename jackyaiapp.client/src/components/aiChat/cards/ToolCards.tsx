@@ -1,5 +1,6 @@
 import { Box } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import { useMemo } from 'react';
 
 import { useAiChatConfig } from '../config';
 import { hairline } from '../style';
@@ -25,16 +26,20 @@ export default function ToolCards({
 }) {
   const theme = useTheme();
   const { cardRenderers, cardTables } = useAiChatConfig();
-  const items = steps
-    ? steps.map((s) => ({ key: s.key, card: s.card }))
-    : (cards ?? []).map((card, i) => ({ key: `saved-${i}`, card }));
-  const drawn = items
-    .map((s) => ({
-      key: s.key,
-      view: s.card ? cardView(s.card, cardRenderers, !steps) : null,
-      table: s.card ? tableOf(s.card, cardTables) : null,
-    }))
-    .filter((c) => c.view !== null);
+  // Kept while the cards are: the answer's text streams on through this component, and reading a chart as a table
+  // parses it again.
+  const drawn = useMemo(() => {
+    const items = steps
+      ? steps.map((s) => ({ key: s.key, card: s.card }))
+      : (cards ?? []).map((card, i) => ({ key: `saved-${i}`, card }));
+    return items
+      .map((s) => ({
+        key: s.key,
+        view: s.card ? cardView(s.card, cardRenderers, !steps) : null,
+        table: s.card ? tableOf(s.card, cardTables) : null,
+      }))
+      .filter((c) => c.view !== null);
+  }, [steps, cards, cardRenderers, cardTables]);
   if (drawn.length === 0) return null;
 
   return (
@@ -58,12 +63,14 @@ export default function ToolCards({
   );
 }
 
-/** The card as a table to copy or download (D-150): a table card itself, or an app's card it says how to read as one. */
+/**
+ * An app's card as a table to copy or download (D-150), when the app says how to read it as one. A table card has the
+ * buttons inside its own view, under the rows in the order the reader sorted them.
+ */
 function tableOf(
   card: ToolCard,
   cardTables: ReturnType<typeof useAiChatConfig>['cardTables'],
 ): TableCard | null {
-  if (card.kind === 'table' && 'columns' in card) return card;
   return 'data' in card ? (cardTables?.[card.kind]?.(card as CustomCard) ?? null) : null;
 }
 
