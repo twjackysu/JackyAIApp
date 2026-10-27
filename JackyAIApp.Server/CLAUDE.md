@@ -133,6 +133,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   `WordGenerator` is the pattern: a singleton holding one run per key (`SingleFlight`), each in its own scope
 - To drop several entries together, set them with `options.AddExpirationToken(cache.GroupToken(group))`
   and call `cache.InvalidateGroup(group)`
+- The one exception is text to speech's clips: `TtsCache` (`Services/Speech`, a singleton both providers share) is its own
+  `MemoryCache` bounded by the bytes it holds (`MaxBytes`, 128 MB; past it a new clip is not kept), since `api/audio` takes a
+  visitor's text and every new text is a new clip of up to a megabyte kept 30 days. That endpoint is also held to 30 requests a
+  minute per address without a sign-in, 120 per reader (`RateLimitPolicies.TextToSpeech`; D-173)
 
 ## External data
 

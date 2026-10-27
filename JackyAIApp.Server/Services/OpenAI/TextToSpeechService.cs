@@ -2,7 +2,6 @@ using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
 using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.Speech;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Services.OpenAI
 {
@@ -14,10 +13,10 @@ namespace JackyAIApp.Server.Services.OpenAI
         IOpenAIService openAIService,
         ILogger<TextToSpeechService> logger,
         IAiUsageLogger usageLogger,
-        IMemoryCache memoryCache) : ITextToSpeechService
+        TtsCache ttsCache) : ITextToSpeechService
     {
         public bool TryGetCached(string text, string voice, string model, float speed, out byte[]? audio) =>
-            TtsCache.TryGet(memoryCache, text, voice, model, speed, out audio);
+            ttsCache.TryGet(text, voice, model, speed, out audio);
 
         public async Task<TtsResult> SynthesizeAsync(string text, string voice, string model, float speed, string? userId)
         {
@@ -38,7 +37,7 @@ namespace JackyAIApp.Server.Services.OpenAI
                 return new TtsResult(false, null);
             }
 
-            TtsCache.Set(memoryCache, text, voice, model, speed, response.Data);
+            ttsCache.Set(text, voice, model, speed, response.Data);
             return new TtsResult(true, response.Data);
         }
     }

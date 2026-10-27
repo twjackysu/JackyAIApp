@@ -3,7 +3,6 @@ using System.Net.Http.Headers;
 using System.Security;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Services.AiUsage;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
 namespace JackyAIApp.Server.Services.Speech
@@ -28,7 +27,7 @@ namespace JackyAIApp.Server.Services.Speech
         IOptions<AzureSpeechOptions> options,
         ILogger<AzureSpeechTextToSpeechService> logger,
         IAiUsageLogger usageLogger,
-        IMemoryCache memoryCache) : ITextToSpeechService
+        TtsCache ttsCache) : ITextToSpeechService
     {
         public const string HttpClientName = "AzureSpeech";
 
@@ -63,7 +62,7 @@ namespace JackyAIApp.Server.Services.Speech
         private const string DefaultAzureVoice = "en-US-AlloyTurboMultilingualNeural";
 
         public bool TryGetCached(string text, string voice, string model, float speed, out byte[]? audio) =>
-            TtsCache.TryGet(memoryCache, text, voice, model, speed, out audio);
+            ttsCache.TryGet(text, voice, model, speed, out audio);
 
         public async Task<TtsResult> SynthesizeAsync(string text, string voice, string model, float speed, string? userId)
         {
@@ -127,7 +126,7 @@ namespace JackyAIApp.Server.Services.Speech
                 return new TtsResult(false, null);
             }
 
-            TtsCache.Set(memoryCache, text, voice, model, speed, audio);
+            ttsCache.Set(text, voice, model, speed, audio);
             return new TtsResult(true, audio);
         }
 

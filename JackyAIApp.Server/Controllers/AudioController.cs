@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Betalgo.Ranul.OpenAI.ObjectModels;
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Extensions;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Speech;
@@ -9,6 +11,7 @@ namespace JackyAIApp.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [EnableRateLimiting(RateLimitPolicies.TextToSpeech)]
     public class AudioController(
         ITextToSpeechService ttsService,
         ILogger<AudioController> logger,
@@ -54,8 +57,8 @@ namespace JackyAIApp.Server.Controllers
             }
 
             // Only charge on an actual cache miss, and only for logged-in users — anonymous
-            // dictionary pronunciation stays free (length cap + cache are the anti-abuse gate
-            // there), matching the pattern used for the NL-summarize and market-digest endpoints.
+            // dictionary pronunciation stays free (length cap, cache and the per-address rate
+            // limit, RateLimitPolicies.TextToSpeech, are the anti-abuse gate there), matching the pattern used for the NL-summarize and market-digest endpoints.
             var userId = _currentUser.Id;
             if (!string.IsNullOrEmpty(userId) &&
                 !await _usageLimitService.TryConsumeAsync(userId, UsageFeature.TextToSpeech))

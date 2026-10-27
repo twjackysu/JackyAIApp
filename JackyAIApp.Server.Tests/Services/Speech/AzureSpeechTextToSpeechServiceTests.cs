@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Caching.Memory;
 using System.Net;
 using System.Xml.Linq;
 using JackyAIApp.Server.Configuration;
@@ -24,7 +23,7 @@ namespace JackyAIApp.Server.Tests.Services.Speech
         private const string Text = "Hello there.";
         private static readonly byte[] Mp3 = [0xFF, 0xFB, 0x90, 0x00];
 
-        private readonly MemoryCache _cache = new(new MemoryCacheOptions());
+        private readonly TtsCache _cache = new();
         private readonly Mock<IAiUsageLogger> _usage = new();
         private readonly Mock<ILogger<AzureSpeechTextToSpeechService>> _logger = new();
         private readonly CapturingHandler _handler = new();
@@ -41,7 +40,8 @@ namespace JackyAIApp.Server.Tests.Services.Speech
             // The caller's model — not this provider's — keeps the key, because AudioController
             // computes the same key via TryGetCached to decide whether to bill.
             Assert.Equal(1, _cache.Count);
-            Assert.Equal(Mp3, _cache.Get<byte[]>(TtsCache.Key(Text, "alloy", "tts-1", 1.0f)));
+            Assert.True(_cache.TryGet(Text, "alloy", "tts-1", 1.0f, out var cached));
+            Assert.Equal(Mp3, cached);
         }
 
         [Fact]
@@ -175,7 +175,7 @@ namespace JackyAIApp.Server.Tests.Services.Speech
         [Fact]
         public void TryGetCached_HitReturnsTheStoredAudioWithoutCallingAzure()
         {
-            _cache.Set(TtsCache.Key(Text, "alloy", "tts-1", 1.0f), Mp3);
+            _cache.Set(Text, "alloy", "tts-1", 1.0f, Mp3);
 
             Assert.True(Create().TryGetCached(Text, "alloy", "tts-1", 1.0f, out var audio));
             Assert.Equal(Mp3, audio);

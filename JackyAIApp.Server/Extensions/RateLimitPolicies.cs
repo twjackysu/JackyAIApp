@@ -79,6 +79,17 @@ namespace JackyAIApp.Server.Extensions
         internal const int DashboardWidgetDataPermitsPerMinuteSignedIn = 600;
 
         /// <summary>
+        /// Text to speech (GET /api/audio/normal, /slow), per reader, or per address without a sign-in: a visitor's clip is
+        /// free (only a signed-in reader's new clip is charged), and every new text is a call to the speech service, whose free
+        /// tier is a monthly character allowance shared by everyone. A dictionary page plays a clip on each press, so a person
+        /// stays far inside (D-173).
+        /// </summary>
+        public const string TextToSpeech = "text-to-speech";
+
+        internal const int TextToSpeechPermitsPerMinuteAnonymous = 30;
+        internal const int TextToSpeechPermitsPerMinuteSignedIn = 120;
+
+        /// <summary>
         /// The visitor's address as Cloudflare saw it. The site only takes requests from Cloudflare's ranges (the App
         /// Service's access restrictions, root CLAUDE.md "Deployment"), so the header is Cloudflare's own; without it (a
         /// developer's machine) the connection's address.
@@ -149,6 +160,17 @@ namespace JackyAIApp.Server.Extensions
                     { PermitLimit = DashboardWidgetDataPermitsPerMinuteSignedIn, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
         }
 
+        /// <summary>A signed-in reader their own window; a visitor without a sign-in, their address's.</summary>
+        internal static RateLimitPartition<string> TextToSpeechPartition(HttpContext http)
+        {
+            var userId = http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return userId is null
+                ? RateLimitPartition.GetFixedWindowLimiter("address:" + ClientAddress(http), _ => new FixedWindowRateLimiterOptions
+                    { PermitLimit = TextToSpeechPermitsPerMinuteAnonymous, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 })
+                : RateLimitPartition.GetFixedWindowLimiter("user:" + userId, _ => new FixedWindowRateLimiterOptions
+                    { PermitLimit = TextToSpeechPermitsPerMinuteSignedIn, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+        }
+
         internal static string ClientAddress(HttpContext http)
         {
             var forwarded = http.Request.Headers[CloudflareClientIpHeader].ToString().Trim();
@@ -175,6 +197,7 @@ namespace JackyAIApp.Server.Extensions
                 options.AddPolicy(PdfUnlock, PdfUnlockPartition);
                 options.AddPolicy(DashboardWidgetData, DashboardWidgetDataPartition);
                 options.AddPolicy(JobSearch, JobSearchPartition);
+                options.AddPolicy(TextToSpeech, TextToSpeechPartition);
             });
 
         /// <summary>The same envelope <see cref="IMyResponseFactory"/> gives every other API error.</summary>

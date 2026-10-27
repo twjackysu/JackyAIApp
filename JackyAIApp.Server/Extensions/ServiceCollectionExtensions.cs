@@ -78,6 +78,8 @@ namespace JackyAIApp.Server.Extensions
             // TTS provider: Azure AI Speech when a key is configured (its F0 tier is free and is
             // not tied to the OpenAI credit balance), otherwise the original OpenAI path. Same
             // interface and same cache either way, so no caller changes when this flips.
+            // One bounded cache of clips for whichever provider is registered below (D-173).
+            services.AddSingleton<TtsCache>();
             services.Configure<AzureSpeechOptions>(configuration.GetSection(AzureSpeechOptions.SectionName));
             var azureSpeech = configuration.GetSection(AzureSpeechOptions.SectionName).Get<AzureSpeechOptions>();
             if (!string.IsNullOrWhiteSpace(azureSpeech?.Key) && !string.IsNullOrWhiteSpace(azureSpeech.Region))
