@@ -5,6 +5,7 @@ using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 using System.Web;
@@ -16,6 +17,14 @@ namespace JackyAIApp.Server.Services
     /// </summary>
     public class ConnectorService : IConnectorService
     {
+        /// <summary>
+        /// One refresh at a time per reader and provider, in this process (the app runs one instance). Two turns or tabs
+        /// that find the token expired together would otherwise both spend the same refresh token, and a provider that
+        /// rotates them (Atlassian) refuses the second or ends the connection (D-174); <c>McpOAuthTokens</c> does the same
+        /// for MCP servers. One small semaphore per pair that ever refreshed.
+        /// </summary>
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> RefreshLocks = new();
+
         private readonly AzureSQLDBContext _context;
         private readonly ITokenEncryptionService _tokenEncryption;
         private readonly IStateService _stateService;
@@ -304,37 +313,63 @@ namespace JackyAIApp.Server.Services
                     return false;
                 }
 
-                // Use custom config if available
-                var clientId = !string.IsNullOrWhiteSpace(userConnector.CustomClientId)
-                    ? userConnector.CustomClientId
-                    : config.ClientId;
-                var clientSecret = !string.IsNullOrWhiteSpace(userConnector.EncryptedCustomClientSecret)
-                    ? _tokenEncryption.DecryptToken(userConnector.EncryptedCustomClientSecret)
-                    : config.ClientSecret;
-                var tokenUrl = config.TokenUrl;
-                if (provider == ConnectorProviders.Microsoft && !string.IsNullOrWhiteSpace(userConnector.CustomTenantId))
+                var expiresBefore = userConnector.TokenExpiresAt;
+                var gate = RefreshLocks.GetOrAdd($"{userId}\n{provider}", _ => new SemaphoreSlim(1, 1));
+                await gate.WaitAsync();
+                try
                 {
-                    tokenUrl = tokenUrl.Replace("{YOUR_TENANT_ID}", userConnector.CustomTenantId);
+                    // Another request may have refreshed it while this one waited: read the row again, and use its tokens.
+                    await _context.Entry(userConnector).ReloadAsync();
+                    if (!userConnector.IsActive || string.IsNullOrEmpty(userConnector.EncryptedRefreshToken))
+                    {
+                        return false;
+                    }
+                    if (userConnector.TokenExpiresAt != expiresBefore)
+                    {
+                        return true;
+                    }
+
+                    return await RefreshLockedAsync(userConnector, userId, provider, userConnector.EncryptedRefreshToken, config);
                 }
-
-                var refreshToken = _tokenEncryption.DecryptToken(userConnector.EncryptedRefreshToken);
-                var tokenResponse = await RefreshAccessTokenAsync(clientId, clientSecret, tokenUrl, refreshToken);
-
-                if (tokenResponse != null)
+                finally
                 {
-                    await UpdateUserConnectorTokensAsync(userConnector, tokenResponse);
-                    _logger.LogInformation("Refreshed tokens for user {UserId} and provider {Provider}", userId, provider);
-                    return true;
+                    gate.Release();
                 }
-
-                _logger.LogWarning("Failed to refresh tokens for user {UserId} and provider {Provider}", userId, provider);
-                return false;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error refreshing tokens for user {UserId} and provider {Provider}", userId, provider);
                 return false;
             }
+        }
+
+        private async Task<bool> RefreshLockedAsync(UserConnector userConnector, string userId, string provider, string encryptedRefreshToken, ProviderConfig config)
+        {
+            // Use custom config if available
+            var clientId = !string.IsNullOrWhiteSpace(userConnector.CustomClientId)
+                ? userConnector.CustomClientId
+                : config.ClientId;
+            var clientSecret = !string.IsNullOrWhiteSpace(userConnector.EncryptedCustomClientSecret)
+                ? _tokenEncryption.DecryptToken(userConnector.EncryptedCustomClientSecret)
+                : config.ClientSecret;
+            var tokenUrl = config.TokenUrl;
+            if (provider == ConnectorProviders.Microsoft && !string.IsNullOrWhiteSpace(userConnector.CustomTenantId))
+            {
+                tokenUrl = tokenUrl.Replace("{YOUR_TENANT_ID}", userConnector.CustomTenantId);
+            }
+
+            var refreshToken = _tokenEncryption.DecryptToken(encryptedRefreshToken);
+            var tokenResponse = await RefreshAccessTokenAsync(clientId, clientSecret, tokenUrl, refreshToken);
+
+            if (tokenResponse != null)
+            {
+                await UpdateUserConnectorTokensAsync(userConnector, tokenResponse);
+                _logger.LogInformation("Refreshed tokens for user {UserId} and provider {Provider}", userId, provider);
+                return true;
+            }
+
+            _logger.LogWarning("Failed to refresh tokens for user {UserId} and provider {Provider}", userId, provider);
+            return false;
         }
 
         private async Task<OAuthTokenResponse?> ExchangeCodeForTokensAsync(string clientId, string clientSecret, string tokenUrl, string code, string provider)

@@ -38,6 +38,17 @@ namespace JackyAIApp.Server.Controllers
 
             try
             {
+                // First, so every address below names one of the site's providers as the site spells it: the route value
+                // is anyone's, and written into the query unchecked it could add parameters of its own
+                // (callback/Google%26success%3Dtrue) to the page that says how the connection went (D-174).
+                var normalizedProvider = ConnectorProviders.Normalize(provider);
+                if (normalizedProvider == null)
+                {
+                    _logger.LogWarning("Invalid provider name in callback: {Provider}", provider);
+                    return Redirect($"{frontendBaseUrl}/connectors?error=invalid_provider");
+                }
+                provider = normalizedProvider;
+
                 // Check for OAuth errors
                 if (!string.IsNullOrEmpty(error))
                 {
@@ -53,15 +64,6 @@ namespace JackyAIApp.Server.Controllers
                     _logger.LogWarning("Missing required parameters in OAuth callback for provider {Provider}", provider);
                     return Redirect($"{frontendBaseUrl}/connectors?error=missing_parameters&provider={provider}");
                 }
-
-                // Normalize provider name
-                var normalizedProvider = ConnectorProviders.Normalize(provider);
-                if (normalizedProvider == null)
-                {
-                    _logger.LogWarning("Invalid provider name in callback: {Provider}", provider);
-                    return Redirect($"{frontendBaseUrl}/connectors?error=invalid_provider");
-                }
-                provider = normalizedProvider;
 
                 // Handle the callback
                 var success = await _connectorService.HandleCallbackAsync(provider, code, state);
