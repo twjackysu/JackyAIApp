@@ -92,6 +92,56 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         [Fact]
+        public void ACellSaidToBeFarPastTheLastColumn_IsLeftOut_RatherThanPaddedTo()
+        {
+            // "ZZZZZZ1" would be column 321 million: lining it up would take gigabytes of empty cells.
+            using var file = Workbook(new Row(NumberCell("A1", "1"), NumberCell("ZZZZZZ1", "2"), NumberCell("XFE1", "3")));
+
+            var result = AttachmentTextExtractor.Extract(AttachmentKinds.Excel, file);
+
+            Assert.Equal("## 工作表：表\n1", Normalize(result.Text));
+        }
+
+        [Fact]
+        public void TheLastColumn_IsStillKeptInPlace()
+        {
+            using var file = Workbook(new Row(NumberCell("A1", "1"), NumberCell("XFD1", "2")));
+
+            var result = AttachmentTextExtractor.Extract(AttachmentKinds.Excel, file);
+
+            var row = Normalize(result.Text).Split('\n')[1];
+            Assert.Equal(AttachmentTextExtractor.MaxColumns, row.Split(',').Length);
+            Assert.EndsWith(",2", row);
+        }
+
+        [Fact]
+        public void APartLargerThanTheLimitOnceUnzipped_IsUnreadable()
+        {
+            // A few hundred KB zipped, far more unzipped: the SDK would read the whole part into memory.
+            var huge = new string('a', (int)AttachmentTextExtractor.MaxCharactersInPart + 1);
+            using var file = Workbook(new Row(new Cell
+            {
+                CellReference = "A1",
+                DataType = CellValues.InlineString,
+                InlineString = new InlineString(new Text(huge)),
+            }));
+
+            Assert.Throws<UnreadableAttachmentException>(() => AttachmentTextExtractor.Extract(AttachmentKinds.Excel, file));
+        }
+
+        [Fact]
+        public void ALongSheet_StopsBeingReadPastTheLimit_AndIsMarkedAsCut()
+        {
+            var rows = Enumerable.Range(1, 20_000).Select(i => new Row(NumberCell($"A{i}", "1234567890"))).ToArray();
+            using var file = Workbook(rows);
+
+            var result = AttachmentTextExtractor.Extract(AttachmentKinds.Excel, file);
+
+            Assert.Equal(AttachmentTextExtractor.MaxChars, result.Text.Length);
+            Assert.True(result.Truncated);
+        }
+
+        [Fact]
         public void AUtf8Csv_IsReadWithItsBomDropped()
         {
             var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes("代號,名稱\n2330,台積電")).ToArray();
@@ -171,6 +221,21 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
 
         private static W.TableRow Row(params string[] cells) =>
             new(cells.Select(c => new W.TableCell(Paragraph(c))));
+
+        private static MemoryStream Workbook(params Row[] rows)
+        {
+            var file = new MemoryStream();
+            using (var doc = SpreadsheetDocument.Create(file, SpreadsheetDocumentType.Workbook))
+            {
+                var workbook = doc.AddWorkbookPart();
+                workbook.Workbook = new Workbook(new Sheets());
+                var sheet = workbook.AddNewPart<WorksheetPart>();
+                sheet.Worksheet = new Worksheet(new SheetData(rows));
+                workbook.Workbook.Sheets!.Append(new Sheet { Id = workbook.GetIdOfPart(sheet), SheetId = 1, Name = "表" });
+            }
+            file.Position = 0;
+            return file;
+        }
 
         private static Cell SharedCell(string reference, int index) => new()
         {

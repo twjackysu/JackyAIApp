@@ -44,6 +44,23 @@ namespace JackyAIApp.Server.Services.Chatbot
         /// again with every message, so one large file is paid for on every turn after it.</summary>
         public const int MaxChars = 100_000;
 
+        /// <summary>
+        /// Most characters one XML part of a Word or Excel file may hold. The file is a zip, so 10 MB
+        /// uploaded can unzip to gigabytes, and the SDK reads a part whole into memory; past this the
+        /// file is unreadable. A part this size is far more text than <see cref="MaxChars"/> keeps.
+        /// </summary>
+        public const long MaxCharactersInPart = 16_000_000;
+
+        /// <summary>Columns a sheet can have (Excel's last is XFD). A cell said to be further right is
+        /// left out, since keeping the columns lined up would add an empty cell for every column before it.</summary>
+        public const int MaxColumns = 16_384;
+
+        /// <summary>Text read before a reader stops: past <see cref="MaxChars"/>, so the file is still
+        /// marked as cut once its ends are trimmed, without building the rest of a large file.</summary>
+        private const int ReadLimit = MaxChars + 10_000;
+
+        private static readonly OpenSettings PartLimits = new() { MaxCharactersInPart = MaxCharactersInPart };
+
         private static readonly Dictionary<string, string> KindByExtension = new(StringComparer.OrdinalIgnoreCase)
         {
             [".docx"] = AttachmentKinds.Word,
@@ -98,13 +115,14 @@ namespace JackyAIApp.Server.Services.Chatbot
 
         private static string ReadWord(Stream content)
         {
-            using var doc = WordprocessingDocument.Open(content, false);
+            using var doc = WordprocessingDocument.Open(content, false, PartLimits);
             var body = doc.MainDocumentPart?.Document?.Body
                 ?? throw new UnreadableAttachmentException("The document has no body.");
 
             var sb = new StringBuilder();
             foreach (var element in body.ChildElements)
             {
+                if (sb.Length > ReadLimit) break;
                 switch (element)
                 {
                     case Word.Paragraph p:
@@ -123,7 +141,7 @@ namespace JackyAIApp.Server.Services.Chatbot
 
         private static string ReadExcel(Stream content)
         {
-            using var doc = SpreadsheetDocument.Open(content, false);
+            using var doc = SpreadsheetDocument.Open(content, false, PartLimits);
             var workbookPart = doc.WorkbookPart ?? throw new UnreadableAttachmentException("The workbook has no data.");
             var sharedStrings = workbookPart.SharedStringTablePart?.SharedStringTable?
                 .Elements<SharedStringItem>().Select(s => s.InnerText).ToArray() ?? [];
@@ -131,16 +149,20 @@ namespace JackyAIApp.Server.Services.Chatbot
             var sb = new StringBuilder();
             foreach (var sheet in workbookPart.Workbook?.Sheets?.Elements<Sheet>() ?? [])
             {
+                if (sb.Length > ReadLimit) break;
                 if (sheet.Id?.Value is not { } relId || workbookPart.GetPartById(relId) is not WorksheetPart part) continue;
 
                 sb.AppendLine($"## 工作表：{sheet.Name?.Value}");
                 foreach (var row in part.Worksheet?.Descendants<Row>() ?? [])
                 {
+                    if (sb.Length > ReadLimit) break;
                     var cells = new List<string>();
                     foreach (var cell in row.Elements<Cell>())
                     {
+                        if (cells.Count >= MaxColumns) break;
                         // Cells can be skipped in the file when empty; keep the columns lined up.
                         var column = ColumnIndex(cell.CellReference?.Value);
+                        if (column >= MaxColumns) continue;
                         while (column > 0 && cells.Count < column) cells.Add("");
                         cells.Add(CsvField(CellText(cell, sharedStrings)));
                     }
@@ -164,7 +186,8 @@ namespace JackyAIApp.Server.Services.Chatbot
             return raw;
         }
 
-        /// <summary>Zero-based column of a reference like "C12", or -1 when there is none.</summary>
+        /// <summary>Zero-based column of a reference like "C12", or -1 when there is none; at most
+        /// <see cref="MaxColumns"/>, which no column is.</summary>
         private static int ColumnIndex(string? reference)
         {
             if (string.IsNullOrEmpty(reference)) return -1;
@@ -173,6 +196,8 @@ namespace JackyAIApp.Server.Services.Chatbot
             {
                 if (!char.IsLetter(ch)) break;
                 column = column * 26 + (char.ToUpperInvariant(ch) - 'A' + 1);
+                // Past the last column already; more letters would only overflow.
+                if (column > MaxColumns) return MaxColumns;
             }
             return column - 1;
         }
