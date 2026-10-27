@@ -361,7 +361,8 @@ const busyTurn = [{ type: 'start', conversationId: 'c1', userMessageId: 1 }, { t
     await page.waitForTimeout(2000);
     await page.locator('input[aria-label]').first().click();
     await page.waitForTimeout(1000);
-    const row = page.locator('.MuiListItemButton-root', { hasText: '台積電近一個月走勢' });
+    // 第 49 輪（D-186）：改名／刪除在 li 裡、開啟按鈕的旁邊。
+    const row = page.locator('li', { hasText: '台積電近一個月走勢' });
     await row.hover();
     await page.waitForTimeout(300);
     await page.screenshot({ path: `${out}/rename-hover-${name}.png` });
@@ -372,6 +373,10 @@ const busyTurn = [{ type: 'start', conversationId: 'c1', userMessageId: 1 }, { t
     await page.getByLabel('對話標題').press('Enter');
     await page.waitForTimeout(800);
     await page.screenshot({ path: `${out}/rename-done-${name}.png` });
+    // 鍵盤焦點在另一列的開啟按鈕上：那一列的按鈕也要出現（:focus-within 在 li 上）。
+    await page.locator('li .MuiListItemButton-root').nth(1).focus();
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${out}/rename-focus-${name}.png` });
     console.log('renamedTo', renamedTo);
     await page.close();
   }

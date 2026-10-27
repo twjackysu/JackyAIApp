@@ -338,6 +338,10 @@ const row = (title: string, within: ParentNode = container) =>
     r.textContent?.includes(title),
   )!;
 
+/** The list item holding a conversation's row and, beside it, its rename and delete buttons (D-186). */
+const rowItem = (title: string, within: ParentNode = container) =>
+  row(title, within).closest('li')!;
+
 /** Waits for a conversation to be listed, then opens it. Waiting for its title's text is not
  *  enough: the greeting's suggestions ("分析台積電最近的走勢") can hold the same words, so the
  *  wait passes before the history has loaded. */
@@ -2418,7 +2422,7 @@ describe('AiAssistantPanel — conversation history column', () => {
     await waitFor(() => expect(row('台積電財報')).toBeDefined());
 
     // The pencil opens a box holding the title; it does not open the conversation.
-    await act(async () => buttonByLabel('重新命名對話', row('台積電財報'))!.click());
+    await act(async () => buttonByLabel('重新命名對話', rowItem('台積電財報'))!.click());
     expect(titleBox()!.value).toBe('台積電財報');
     expect(container.textContent).not.toContain('毛利率 59%');
 
@@ -2430,7 +2434,7 @@ describe('AiAssistantPanel — conversation history column', () => {
     expect(renamed).toEqual([]);
 
     // Enter: saved as one line, shown at once.
-    await act(async () => buttonByLabel('重新命名對話', row('台積電財報'))!.click());
+    await act(async () => buttonByLabel('重新命名對話', rowItem('台積電財報'))!.click());
     type('  2330\t財報   重點 ');
     press('Enter');
     expect(titleBox()).toBeNull();
@@ -2439,7 +2443,7 @@ describe('AiAssistantPanel — conversation history column', () => {
     await waitFor(() => expect(renamed).toEqual([{ id: 'c1', title: '2330 財報 重點' }]));
 
     // An empty title, or the same one, sends nothing.
-    await act(async () => buttonByLabel('重新命名對話', row('ETF 比較'))!.click());
+    await act(async () => buttonByLabel('重新命名對話', rowItem('ETF 比較'))!.click());
     type('   ');
     press('Enter');
     expect(renamed).toHaveLength(1);
@@ -2451,7 +2455,7 @@ describe('AiAssistantPanel — conversation history column', () => {
     await mount();
     await waitFor(() => expect(row('ETF 比較')).toBeDefined());
 
-    await act(async () => buttonByLabel('重新命名對話', row('ETF 比較'))!.click());
+    await act(async () => buttonByLabel('重新命名對話', rowItem('ETF 比較'))!.click());
     const box = container.querySelector<HTMLInputElement>('input[aria-label="對話標題"]')!;
     act(() => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
@@ -2469,19 +2473,19 @@ describe('AiAssistantPanel — conversation history column', () => {
     expect(row('新名字')).toBeUndefined();
     // The column says the title did not change (D-146), until the next rename starts.
     await waitForText(RENAME_FAILED_TEXT);
-    await act(async () => buttonByLabel('重新命名對話', row('ETF 比較'))!.click());
+    await act(async () => buttonByLabel('重新命名對話', rowItem('ETF 比較'))!.click());
     expect(container.textContent).not.toContain(RENAME_FAILED_TEXT);
   });
 
   it('a rename ended from the keyboard gives the focus back to its pencil (D-146)', async () => {
     await mount();
     await waitFor(() => expect(row('ETF 比較')).toBeDefined());
-    await act(async () => buttonByLabel('重新命名對話', row('ETF 比較'))!.click());
+    await act(async () => buttonByLabel('重新命名對話', rowItem('ETF 比較'))!.click());
     const box = container.querySelector<HTMLInputElement>('input[aria-label="對話標題"]')!;
     act(() => {
       box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     });
-    expect(document.activeElement).toBe(buttonByLabel('重新命名對話', row('ETF 比較')));
+    expect(document.activeElement).toBe(buttonByLabel('重新命名對話', rowItem('ETF 比較')));
     expect(container.textContent).not.toContain(RENAME_FAILED_TEXT);
   });
 
@@ -2580,12 +2584,55 @@ describe('AiAssistantPanel — conversation history column', () => {
     await openConversation('台積電財報');
     await waitForText('毛利率 59%');
 
-    await act(async () => buttonByLabel('刪除對話', row('台積電財報'))!.click());
+    await act(async () => buttonByLabel('刪除對話', rowItem('台積電財報'))!.click());
 
     await waitFor(() => expect(deleted).toEqual(['c1']));
     await waitFor(() => expect(container.textContent).not.toContain('毛利率 59%'));
     expect(container.textContent).toContain('今天想研究哪一檔？');
     await waitFor(() => expect(container.textContent).not.toContain('台積電財報'));
+  });
+
+  it('keeps the rename and delete buttons beside the row, not inside its button (D-186)', async () => {
+    await mount();
+    await waitFor(() => expect(row('ETF 比較')).toBeDefined());
+
+    expect(row('ETF 比較').querySelector('button')).toBeNull();
+    expect(buttonByLabel('重新命名對話', rowItem('ETF 比較'))).not.toBeNull();
+    expect(buttonByLabel('刪除對話', rowItem('ETF 比較'))).not.toBeNull();
+  });
+
+  it('a delete pressed from the keyboard gives the focus to the row that took its place (D-187)', async () => {
+    await mount();
+    await waitFor(() => expect(row('ETF 比較')).toBeDefined());
+
+    const del = buttonByLabel('刪除對話', rowItem('台積電財報'))!;
+    del.focus();
+    await act(async () => del.click());
+    await waitFor(() => expect(container.textContent).not.toContain('台積電財報'));
+    await waitFor(() => expect(document.activeElement).toBe(row('ETF 比較')));
+
+    // The last one gone, 新對話 in the column has it.
+    const last = buttonByLabel('刪除對話', rowItem('ETF 比較'))!;
+    last.focus();
+    await act(async () => last.click());
+    await waitForText('還沒有任何對話');
+    const newChatInColumn = [...container.querySelectorAll('button')].find(
+      (b) => b.textContent === '新對話',
+    )!;
+    await waitFor(() => expect(document.activeElement).toBe(newChatInColumn));
+  });
+
+  it('a delete pressed with the mouse leaves the focus alone (D-187)', async () => {
+    await mount();
+    await waitFor(() => expect(row('ETF 比較')).toBeDefined());
+
+    await act(async () =>
+      buttonByLabel('刪除對話', rowItem('台積電財報'))!.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, detail: 1 }),
+      ),
+    );
+    await waitFor(() => expect(container.textContent).not.toContain('台積電財報'));
+    expect(document.activeElement).not.toBe(row('ETF 比較'));
   });
 
   it('cannot be switched or restarted while a reply is being written', async () => {

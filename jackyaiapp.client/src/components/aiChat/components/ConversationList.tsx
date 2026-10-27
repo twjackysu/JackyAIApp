@@ -1,18 +1,6 @@
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditNoteIcon from '@mui/icons-material/EditNote';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import SearchIcon from '@mui/icons-material/Search';
-import {
-  Box,
-  Button,
-  IconButton,
-  InputAdornment,
-  List,
-  ListItem,
-  ListItemButton,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Box, Button, InputAdornment, List, ListItem, TextField, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
@@ -21,8 +9,10 @@ import { noSelectionAsk } from '../selection/readSelection';
 import { ACCENT, accentWash, hairline } from '../style';
 import { matchConversations, SEARCH_FROM } from '../utils/conversationSearch';
 import { RENAME_FAILED_TEXT } from '../utils/conversationTitle';
+import { focusAfterDelete } from '../utils/focusAfterDelete';
 import { periodOf } from '../utils/period';
 
+import ConversationRow from './ConversationRow';
 import ConversationTitleEditor from './ConversationTitleEditor';
 
 import {
@@ -103,26 +93,43 @@ const ConversationList = ({
   const searchable = conversations.length >= SEARCH_FROM;
   const shown = searchable ? matchConversations(conversations, query) : conversations;
 
-  const handleEdit = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
+  const handleEdit = (id: string) => {
     setRenameFailed(false);
     setEditingId(id);
   };
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    await deleteConversation(id);
-    if (id === activeConversationId) onNewChat();
+  // After a delete pressed from the keyboard, the row that took its place gets the focus, or 新對話 when none is
+  // left (D-187), once the list is drawn without it. Not when the reader has moved on meanwhile.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const newChatRef = useRef<HTMLButtonElement>(null);
+  const refocusRow = useRef<string | null>(null);
+  const focusIsOurs = () => {
+    const at = document.activeElement;
+    return !at || at === document.body || !!rootRef.current?.contains(at);
+  };
+
+  const handleDelete = async (id: string, byKey: boolean) => {
+    const next = focusAfterDelete(
+      shown.map((c) => c.id),
+      id,
+    );
+    const result = await deleteConversation(id);
+    if (id === activeConversationId && !('error' in result)) onNewChat();
+    if (!byKey || 'error' in result) return;
+    if (next !== null) refocusRow.current = next;
+    else if (focusIsOurs()) newChatRef.current?.focus();
   };
 
   return (
     // The list of conversations is not one of the answers: a title selected here is not asked about.
     <Box
+      ref={rootRef}
       {...noSelectionAsk()}
       sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
     >
       <Box sx={{ p: 1.5, pb: 1 }}>
         <Button
+          ref={newChatRef}
           fullWidth
           variant="outlined"
           disabled={busy}
@@ -239,77 +246,31 @@ const ConversationList = ({
                       </ListItem>
                     );
                   return (
-                    <ListItemButton
+                    <ConversationRow
                       key={c.id}
-                      selected={active}
-                      disabled={busy && !active}
-                      onClick={() => {
+                      conversation={c}
+                      active={active}
+                      busy={busy}
+                      deleting={isDeleting}
+                      onSelect={() => {
                         onSelect(c.id);
                         onDone?.();
                       }}
-                      sx={{
-                        position: 'relative',
-                        borderRadius: 2,
-                        mb: 0.25,
-                        py: 0.75,
-                        pl: 1.25,
-                        pr: 0.5,
-                        minHeight: 38,
-                        // The rename and delete buttons show on hover, on keyboard focus, on the open
-                        // conversation, and always where there is no hover (touch screens).
-                        '& .conversation-action': { opacity: 0, transition: 'opacity 120ms' },
-                        '&:hover .conversation-action, &:focus-within .conversation-action, &.Mui-selected .conversation-action':
-                          { opacity: 1 },
-                        '@media (hover: none)': { '& .conversation-action': { opacity: 1 } },
-                        '&.Mui-selected, &.Mui-selected:hover': {
-                          bgcolor: accentWash(theme, 0.14),
-                        },
-                        '&.Mui-selected::before': {
-                          content: '""',
-                          position: 'absolute',
-                          left: 0,
-                          top: 8,
-                          bottom: 8,
-                          width: 3,
-                          borderRadius: 3,
-                          bgcolor: ACCENT,
-                        },
+                      onEdit={() => handleEdit(c.id)}
+                      onDelete={(byKey) => void handleDelete(c.id, byKey)}
+                      selectRef={(el) => {
+                        if (el && refocusRow.current === c.id) {
+                          refocusRow.current = null;
+                          if (focusIsOurs()) el.focus();
+                        }
                       }}
-                    >
-                      <Typography
-                        variant="body2"
-                        noWrap
-                        title={c.title}
-                        sx={{ flex: 1, minWidth: 0, fontWeight: active ? 600 : 400 }}
-                      >
-                        {c.title}
-                      </Typography>
-                      <IconButton
-                        className="conversation-action"
-                        size="small"
-                        onClick={(e) => handleEdit(e, c.id)}
-                        ref={(el: HTMLButtonElement | null) => {
-                          if (el && refocusPencil.current === c.id) {
-                            refocusPencil.current = null;
-                            el.focus();
-                          }
-                        }}
-                        aria-label="重新命名對話"
-                        sx={{ color: 'text.secondary', '&:hover': { color: ACCENT } }}
-                      >
-                        <EditOutlinedIcon sx={{ fontSize: 16 }} />
-                      </IconButton>
-                      <IconButton
-                        className="conversation-action"
-                        size="small"
-                        disabled={isDeleting || busy}
-                        onClick={(e) => handleDelete(e, c.id)}
-                        aria-label="刪除對話"
-                        sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}
-                      >
-                        <DeleteOutlineIcon sx={{ fontSize: 18 }} />
-                      </IconButton>
-                    </ListItemButton>
+                      pencilRef={(el) => {
+                        if (el && refocusPencil.current === c.id) {
+                          refocusPencil.current = null;
+                          el.focus();
+                        }
+                      }}
+                    />
                   );
                 })}
               </List>

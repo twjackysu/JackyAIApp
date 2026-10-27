@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 
 import { noSelectionAsk, readSelection, SELECTION_SETTLE_MS } from './readSelection';
 import SelectionBar from './SelectionBar';
+import { selectionHint } from './selectionShortcut';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -230,6 +231,79 @@ describe('SelectionBar', () => {
     await renderBar(false);
     await selectAndSettle('The market rallied today.', document.getElementById('text')!);
     expect(bar()).toBeNull();
+  });
+});
+
+describe('SelectionBar from the keyboard (D-188)', () => {
+  const key = (
+    init: KeyboardEventInit,
+    on: EventTarget = document.activeElement ?? document.body,
+  ) =>
+    act(async () => {
+      on.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }));
+    });
+
+  it('says, without taking the focus, that Alt+A goes to the bar', async () => {
+    await renderBar();
+    const status = () => document.querySelector('[role="status"]');
+    expect(status()!.textContent).toBe('');
+
+    await selectAndSettle('The market rallied today.', document.getElementById('text')!);
+    expect(status()!.textContent).toBe(selectionHint('Studio AI'));
+    expect(bar()!.getAttribute('aria-keyshortcuts')).toBe('Alt+A');
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it('Alt+A goes into the bar, the arrows move along it, Escape goes back', async () => {
+    const onAction = await renderBar();
+    const link = document.createElement('a');
+    link.href = '#';
+    link.textContent = 'where the reader was';
+    page.appendChild(link);
+    link.focus();
+    await selectAndSettle('The market rallied today.', document.getElementById('text')!);
+
+    await key({ key: 'å', code: 'KeyA', altKey: true });
+    expect(document.activeElement).toBe(buttons()[0]);
+
+    await key({ key: 'ArrowRight' });
+    expect(document.activeElement).toBe(buttons()[1]);
+    await key({ key: 'ArrowLeft' });
+    await key({ key: 'ArrowLeft' });
+    expect(document.activeElement).toBe(buttons()[2]);
+    await key({ key: 'Home' });
+    expect(document.activeElement).toBe(buttons()[0]);
+
+    // A selection change meanwhile (the focus moving) does not take the bar away.
+    await act(async () => {
+      document.dispatchEvent(new Event('selectionchange'));
+      vi.advanceTimersByTime(SELECTION_SETTLE_MS);
+    });
+    expect(bar()).not.toBeNull();
+
+    await key({ key: 'Escape' });
+    expect(bar()).toBeNull();
+    expect(document.activeElement).toBe(link);
+    expect(onAction).not.toHaveBeenCalled();
+  });
+
+  it('a button pressed from the keyboard hands the text over as a click does', async () => {
+    const onAction = await renderBar();
+    await selectAndSettle('The market rallied today.', document.getElementById('text')!);
+    await key({ key: 'a', code: 'KeyA', altKey: true });
+    await act(async () => (document.activeElement as HTMLButtonElement).click());
+    expect(onAction).toHaveBeenCalledWith('explain', 'The market rallied today.', false);
+  });
+
+  it('takes no other key, and nothing without a bar', async () => {
+    await renderBar();
+    await key({ key: 'a', code: 'KeyA', altKey: true });
+    expect(document.activeElement).toBe(document.body);
+
+    await selectAndSettle('The market rallied today.', document.getElementById('text')!);
+    await key({ key: 'a', code: 'KeyA', ctrlKey: true, altKey: true });
+    await key({ key: 'a', code: 'KeyA' });
+    expect(document.activeElement).toBe(document.body);
   });
 });
 

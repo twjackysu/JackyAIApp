@@ -223,7 +223,15 @@ sent or stored, so a reopened conversation shows a plain message. A site tool's 
   decided here (a module-level `decidedHere`), its result captions `role="status"`. `QuizCardView` moves it to 下一題 after a
   press (the options are `aria-disabled`, not `disabled`, which would drop it), then to the next prompt and to the score, its
   right/wrong in a live region that is always there and its summary icons titled. `QuickChips` is not live itself: a hidden
-  status says how many chips there are. A tool chip's status is text in its list item, not an `aria-label`
+  status says how many chips there are. A tool chip's status is text in its list item, not an `aria-label`.
+  A history row (`ConversationRow`, D-186) is a list item holding the button that opens the conversation and, beside it
+  rather than inside it, its rename and delete buttons (a button in a button is one control to a screen reader); they show
+  on hover, on focus anywhere in the row, on the open conversation, and always on a touch screen. A delete pressed from the
+  keyboard (a click with `detail` 0) gives the focus to the row that took its place, else the one above, else 新對話
+  (`utils/focusAfterDelete`, D-187), and not when the focus has meanwhile left the column. The selection bar is reached
+  with Alt+A (`selectionShortcut`, by `code`, since a Mac's Option+A types å; `aria-keyshortcuts` on the toolbar, D-188):
+  a hidden status always mounted beside it says so when a selection settles, the arrows and Home/End move along its
+  buttons, a selection change while the focus is in it is not the reader's, and Escape gives the focus back to where it was
 - A dashboard is read on a phone one chart a row (`Dashboard/viewLayout`, below 600px, in the saved layout's reading
   order): only the view; editing, and wider screens, keep the layout as saved
 - An answer's HTML preview (`HtmlViewer`) is a `sandbox=""` iframe, never markup in the page: the answer can
