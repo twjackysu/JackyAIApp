@@ -82,6 +82,14 @@ describe('highlightParts', () => {
     expect(highlightParts('ＥＴＦ溢價', 'etf')[0]).toEqual({ text: 'ＥＴＦ', match: true });
     expect(highlightParts('文字', ' ')).toEqual([{ text: '文字', match: false }]);
   });
+
+  it('keeps its places where a character folds to more than one (…)', () => {
+    expect(highlightParts('…毛利率 59%…', '毛利率')).toEqual([
+      { text: '…', match: false },
+      { text: '毛利率', match: true },
+      { text: ' 59%…', match: false },
+    ]);
+  });
 });
 
 describe('MAX_SEARCH_LENGTH', () => {

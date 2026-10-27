@@ -63,13 +63,20 @@ export const findConversations = <T extends { id: string; title: string }>(
 };
 
 /**
- * A snippet in parts, those that are one of the query's words (any case) marked, to show what was found. Full-width
- * forms are only matched when folding them keeps the snippet's length (so the parts stay where they were).
+ * The text folded one UTF-16 unit at a time, a unit whose fold is not one unit kept as it is (… folds to ...), so each
+ * place in it is the same place in the text.
  */
+const foldInPlace = (text: string) =>
+  Array.from({ length: text.length }, (_, i) => {
+    const folded = fold(text[i]);
+    return folded.length === 1 ? folded : text[i];
+  }).join('');
+
+/** A snippet in parts, those that are one of the query's words (any case or width) marked, to show what was found. */
 export const highlightParts = (text: string, query: string): { text: string; match: boolean }[] => {
-  const folded = fold(text);
+  const folded = foldInPlace(text);
   const words = fold(query).split(/\s+/).filter(Boolean);
-  if (words.length === 0 || folded.length !== text.length) return [{ text, match: false }];
+  if (words.length === 0) return [{ text, match: false }];
   const marked = new Array<boolean>(text.length).fill(false);
   for (const word of words) {
     for (let at = folded.indexOf(word); at >= 0; at = folded.indexOf(word, at + word.length))
