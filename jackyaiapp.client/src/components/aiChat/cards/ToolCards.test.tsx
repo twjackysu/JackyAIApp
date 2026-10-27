@@ -9,6 +9,16 @@ import ToolCards from './ToolCards';
 
 import type { CustomCard, TableCard, ToolCard } from './toolCard';
 import type { ToolStep } from '../utils/toolActivity';
+import type { ECOption } from '@/charts/echarts';
+
+const charts = vi.hoisted(() => ({ drawn: [] as ECOption[], fail: false }));
+vi.mock('@/charts/ReactECharts', () => ({
+  default: ({ option }: { option: ECOption }) => {
+    if (charts.fail) throw new Error('chunk gone');
+    charts.drawn.push(option);
+    return <div data-testid="echarts" />;
+  },
+}));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -300,5 +310,111 @@ describe('ToolCards: a table to take out (D-150)', () => {
       config({ cardRenderers: { quiz: Quiz }, cardTables: { quiz: () => null } }),
     );
     expect(button('下載 CSV')).toBeNull();
+  });
+});
+
+describe('ToolCards: 畫成圖 (D-153)', () => {
+  const holdings: TableCard = {
+    kind: 'table',
+    title: '持倉',
+    columns: [
+      { key: 'name', label: '持倉', numeric: false },
+      { key: 'value', label: '市值', numeric: true },
+      { key: 'pct', label: '損益 %', numeric: true },
+    ],
+    rows: [
+      { name: '長榮（2603）', value: 98000, pct: '-18.0%' },
+      { name: '台積電（2330）', value: 1245000, pct: '49.5%' },
+    ],
+    totalRows: null,
+  };
+  const button = (label: string) =>
+    container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+  const lastChart = () =>
+    charts.drawn[charts.drawn.length - 1] as unknown as {
+      series: { type: string; data: unknown[] }[];
+      yAxis?: { data: string[] };
+    };
+  const settle = async () => {
+    // The chart is loaded on the first press (React.lazy).
+    for (let i = 0; i < 5 && !container.querySelector('[data-testid="echarts"]'); i++) {
+      await act(async () => new Promise((r) => setTimeout(r, 10)));
+    }
+  };
+
+  beforeEach(() => {
+    charts.drawn = [];
+  });
+
+  it('draws the rows in place of the table, in the order sorted, starting with the sorted column', async () => {
+    render([step('t', holdings)]);
+    const header = () => [...container.querySelectorAll('th')][2];
+    act(() => header().querySelector<HTMLElement>('.MuiTableSortLabel-root')!.click());
+    await act(async () => button('畫成圖')!.click());
+    await settle();
+    expect(container.querySelector('table')).toBeNull();
+    expect(container.querySelector('[role="img"]')!.getAttribute('aria-label')).toBe(
+      '損益 %的長條圖',
+    );
+    expect(lastChart().yAxis!.data).toEqual(['台積電（2330）', '長榮（2603）']);
+    // A column of percentages is no pie: only one kind, so no kind picker; two columns, so a column picker.
+    expect(container.querySelector('[aria-label="換一種圖表"]')).toBeNull();
+    expect(container.querySelector('[aria-label="畫哪一欄"]')).not.toBeNull();
+    expect(button('畫成圖')!.getAttribute('aria-pressed')).toBe('true');
+    await act(async () => button('畫成圖')!.click());
+    expect(container.querySelector('table')).not.toBeNull();
+  });
+
+  it('switches to another column and to a pie where it fits, with no question to the AI', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    render([step('t', holdings)]);
+    await act(async () => button('畫成圖')!.click());
+    await settle();
+    const pick = (group: string, label: string) =>
+      [...container.querySelectorAll(`[aria-label="${group}"] button`)].find(
+        (b) => b.textContent === label,
+      ) as HTMLButtonElement;
+    expect(lastChart().series[0].type).toBe('bar');
+    await act(async () => pick('換一種圖表', '圓餅圖').click());
+    expect(lastChart().series[0].type).toBe('pie');
+    await act(async () => pick('畫哪一欄', '損益 %').click());
+    // 損益 % cannot be a pie: back to bars.
+    expect(lastChart().series[0].type).toBe('bar');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('shows the table, saying so, when the chart cannot be loaded or drawn', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    render([step('t', { ...holdings, title: 'boom' })]);
+    // The mocked chart throws for this card, as a chunk gone after a deploy would.
+    charts.fail = true;
+    try {
+      await act(async () => button('畫成圖')!.click());
+      await settle();
+      expect(container.querySelector('table')).not.toBeNull();
+      expect(container.textContent).toContain('圖表沒有載入成功');
+    } finally {
+      charts.fail = false;
+    }
+  });
+
+  it('offers no chart for a table with nothing to draw', () => {
+    render([
+      step('t', {
+        kind: 'table',
+        title: null,
+        columns: [
+          { key: 'time', label: '時間', numeric: false },
+          { key: 'title', label: '行程', numeric: false },
+        ],
+        rows: [
+          { time: '09:00', title: '週會' },
+          { time: '14:00', title: '面試' },
+        ],
+        totalRows: null,
+      }),
+    ]);
+    expect(button('下載 CSV')).not.toBeNull();
+    expect(button('畫成圖')).toBeNull();
   });
 });

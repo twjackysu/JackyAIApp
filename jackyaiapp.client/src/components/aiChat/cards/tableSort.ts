@@ -27,8 +27,8 @@ export function nextSort(current: TableSort | null, column: TableColumn): TableS
 // would come before 8.9% and 10% before 9%.
 const NUMBER_TEXT = /^[+-]?(\d{1,3}(,\d{3})+|\d+)?(\.\d+)?%?$/;
 
-/** A cell as the number it shows, when it is one. */
-const numberOf = (value: CardCell): number | null => {
+/** A cell as the number it shows, when it is one (also what 畫成圖 draws, `tableChart`). */
+export const cellNumber = (value: CardCell): number | null => {
   if (typeof value === 'number') return value;
   if (value === null) return null;
   const text = value.trim();
@@ -54,13 +54,13 @@ export function sortTableRows<T extends Record<string, CardCell>>(
   const { key, direction } = sort;
   const filled = rows.filter((r) => !isEmpty(r[key] ?? null));
   const empty = rows.filter((r) => isEmpty(r[key] ?? null));
-  const asNumbers = filled.every((r) => numberOf(r[key] ?? null) !== null);
+  const asNumbers = filled.every((r) => cellNumber(r[key] ?? null) !== null);
   const sign = direction === 'asc' ? 1 : -1;
   const sorted = [...filled].sort((a, b) => {
     const av = a[key] ?? null;
     const bv = b[key] ?? null;
     const cmp = asNumbers
-      ? (numberOf(av) as number) - (numberOf(bv) as number)
+      ? (cellNumber(av) as number) - (cellNumber(bv) as number)
       : collator.compare(String(av), String(bv));
     return sign * cmp;
   });

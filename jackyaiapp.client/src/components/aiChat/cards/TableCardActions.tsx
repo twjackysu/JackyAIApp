@@ -1,5 +1,7 @@
+import ChartIcon from '@mui/icons-material/BarChartOutlined';
 import CopyIcon from '@mui/icons-material/ContentCopyOutlined';
 import DownloadIcon from '@mui/icons-material/FileDownloadOutlined';
+import TableIcon from '@mui/icons-material/TableChartOutlined';
 import { Box, IconButton, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 
@@ -14,12 +16,24 @@ import { ActionTooltip } from '@/components/hints';
 /** How long what was done stays said beside the buttons. */
 export const NOTICE_MS = 3000;
 
+/** 畫成圖 (D-153): offered by a table card whose rows can be drawn; `on` while the chart is shown in the table's place. */
+export interface TableChartToggle {
+  on: boolean;
+  toggle: () => void;
+}
+
 /**
  * Under a card that is a table (a table card, or an app's card it says how to read as one, `AiChatConfig.cardTables`):
  * copy it for a spreadsheet, or download it as CSV (D-150). On the reader's device only: nothing goes to the server
  * and nothing is charged.
  */
-export default function TableCardActions({ table }: { table: TableCard }) {
+export default function TableCardActions({
+  table,
+  chart,
+}: {
+  table: TableCard;
+  chart?: TableChartToggle;
+}) {
   // Each press says it anew, its own full time, even when the words are the same as the last one's.
   const [notice, setNoticeState] = useState({ text: '', n: 0 });
   const setNotice = (text: string) => setNoticeState((prev) => ({ text, n: prev.n + 1 }));
@@ -63,6 +77,20 @@ export default function TableCardActions({ table }: { table: TableCard }) {
       >
         {notice.text}
       </Typography>
+      {chart && (
+        <ActionTooltip title={chart.on ? '看表格' : '畫成圖（不問 AI）'}>
+          <IconButton
+            size="small"
+            // One name, pressed or not: a screen reader says 畫成圖, pressed.
+            aria-label="畫成圖"
+            aria-pressed={chart.on}
+            onClick={chart.toggle}
+            sx={{ color: chart.on ? 'primary.main' : 'text.secondary' }}
+          >
+            {chart.on ? <TableIcon sx={{ fontSize: 16 }} /> : <ChartIcon sx={{ fontSize: 16 }} />}
+          </IconButton>
+        </ActionTooltip>
+      )}
       <ActionTooltip title="複製表格（可貼到 Excel、Google 試算表）">
         <IconButton
           size="small"
