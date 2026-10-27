@@ -133,8 +133,14 @@ namespace JackyAIApp.Server.Services.Chatbot
         /// <summary>The longest search the history column sends (its box holds the same).</summary>
         internal const int MaxSearchLength = 100;
 
-        /// <summary>Words of a search past these are not looked for: each is one more scan of the reader's messages.</summary>
+        /// <summary>Words of a search past these are not looked for: each is one more condition on every message scanned.</summary>
         internal const int MaxSearchWords = 5;
+
+        /// <summary>
+        /// Only the reader's most recently updated conversations of the assistant are searched: each search reads every
+        /// message of them (a LIKE on the text), and the database is small.
+        /// </summary>
+        internal const int SearchedConversations = 300;
 
         /// <summary>Conversations a search answers at most.</summary>
         internal const int MaxSearchHits = 20;
@@ -153,13 +159,23 @@ namespace JackyAIApp.Server.Services.Chatbot
             if (words.Count == 0)
                 return ServiceResult.Ok(new List<ChatSearchHitDto>());
 
+            var recent = dbContext.ChatConversations
+                .Where(c => c.UserId == userId && c.Profile == profile)
+                .OrderByDescending(c => c.UpdatedAt)
+                .Take(SearchedConversations)
+                .Select(c => c.Id);
             // SQL Server's collation ignores case and width, as the client's title search does.
-            var matching = dbContext.ChatMessages
-                .Where(m => m.Conversation!.UserId == userId && m.Conversation.Profile == profile);
+            var matching = dbContext.ChatMessages.Where(m => recent.Contains(m.ConversationId));
             foreach (var word in words)
                 matching = matching.Where(m => m.Content.Contains(word));
 
+            // One the client's title search already shows would only take a place another could have: left out. The
+            // words padded to five with the first, so it is one condition whatever their number.
+            var w = Enumerable.Range(0, MaxSearchWords).Select(i => i < words.Count ? words[i] : words[0]).ToArray();
+            string w0 = w[0], w1 = w[1], w2 = w[2], w3 = w[3], w4 = w[4];
             var conversations = await matching
+                .Where(m => m.Conversation!.Title == null || !(m.Conversation.Title.Contains(w0) && m.Conversation.Title.Contains(w1)
+                    && m.Conversation.Title.Contains(w2) && m.Conversation.Title.Contains(w3) && m.Conversation.Title.Contains(w4)))
                 .Select(m => new { m.ConversationId, m.Conversation!.UpdatedAt })
                 .Distinct()
                 .OrderByDescending(c => c.UpdatedAt)
@@ -189,12 +205,14 @@ namespace JackyAIApp.Server.Services.Chatbot
 
         /// <summary>
         /// A search's words: split on white space (a control character counts as one), full-width forms made plain (NFKC),
-        /// each once whatever its case, at most <see cref="MaxSearchWords"/>.
+        /// each once whatever its case, at most <see cref="MaxSearchWords"/>. A character outside the BMP (an emoji, 𠮷) is
+        /// left out: the default collation gives it no weight, so a LIKE on it would match every message.
         /// </summary>
         internal static List<string> SearchWords(string? query)
         {
             if (string.IsNullOrWhiteSpace(query)) return [];
-            var spaced = new string(query.Normalize(NormalizationForm.FormKC)
+            var bmp = new string(query.Where(c => !char.IsSurrogate(c)).ToArray());
+            var spaced = new string(bmp.Normalize(NormalizationForm.FormKC)
                 .Select(c => char.IsControl(c) ? ' ' : c).ToArray());
             return spaced
                 .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
@@ -219,8 +237,9 @@ namespace JackyAIApp.Server.Services.Chatbot
                 .Select(c => BlockMarks.Contains(c) || char.IsWhiteSpace(c) || char.IsControl(c) ? ' ' : c)
                 .ToArray());
             var text = string.Join(' ', plain.Split(' ', StringSplitOptions.RemoveEmptyEntries));
-            var at = CultureInfo.InvariantCulture.CompareInfo.IndexOf(
-                text, word, CompareOptions.IgnoreCase | CompareOptions.IgnoreWidth);
+            var plainWord = new string(word.Where(c => !InlineMarks.Contains(c) && !BlockMarks.Contains(c)).ToArray());
+            var at = plainWord.Length == 0 ? -1 : CultureInfo.InvariantCulture.CompareInfo.IndexOf(
+                text, plainWord, CompareOptions.IgnoreCase | CompareOptions.IgnoreWidth);
             var start = Math.Max(0, at - SnippetBefore);
             if (start > 0 && char.IsLowSurrogate(text[start])) start--;
             var end = Math.Min(text.Length, start + SnippetLength);

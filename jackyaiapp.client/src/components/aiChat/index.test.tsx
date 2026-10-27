@@ -2453,6 +2453,9 @@ describe('AiAssistantPanel — conversation history column', () => {
     const snippet = row('台指期籌碼').querySelector('[data-conversation-snippet]')!;
     expect(snippet.textContent).toBe('台積電的權重最大');
     expect(snippet.querySelector('mark')!.textContent).toBe('台積電');
+    // It describes the row's button; the title still names it.
+    expect(row('台指期籌碼').getAttribute('aria-describedby')).toBe(snippet.id);
+    expect(snippet.getAttribute('aria-hidden')).toBe('true');
     // A row its title found shows no snippet.
     expect(row('台積電財報體檢').querySelector('[data-conversation-snippet]')).toBeNull();
 

@@ -60,11 +60,11 @@ namespace JackyAIApp.Server.Extensions
 
         /// <summary>
         /// Searching one's own conversations by their messages, per reader (D-191): free, and each search scans the
-        /// reader's stored messages; the history column asks once typing pauses, so a minute's searching stays well within.
+        /// reader's stored messages; the history column asks once typing pauses, so a reader looking for one stays within.
         /// </summary>
         public const string ChatSearch = "chat-search";
 
-        internal const int ChatSearchPermitsPerMinute = 60;
+        internal const int ChatSearchPermitsPerMinute = 20;
 
         /// <summary>
         /// The PDF unlocker, per address: it takes no sign-in and reads and rewrites a whole document in memory, so a

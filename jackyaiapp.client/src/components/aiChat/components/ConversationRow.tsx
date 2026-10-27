@@ -2,6 +2,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Box, IconButton, ListItem, ListItemButton, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import { useId } from 'react';
 
 import { ACCENT, accentWash } from '../style';
 import { highlightParts } from '../utils/conversationSearch';
@@ -53,6 +54,8 @@ const ConversationRow = ({
 }: ConversationRowProps) => {
   const theme = useTheme();
   const locked = busy && !active;
+  // The snippet describes the button rather than naming it: its name stays the title (D-191).
+  const snippetId = useId();
   return (
     <ListItem
       disablePadding
@@ -77,6 +80,7 @@ const ConversationRow = ({
         disabled={locked}
         onClick={onSelect}
         ref={selectRef}
+        aria-describedby={snippet ? snippetId : undefined}
         sx={{
           position: 'relative',
           borderRadius: 2,
@@ -114,6 +118,8 @@ const ConversationRow = ({
               variant="caption"
               color="text.secondary"
               data-conversation-snippet
+              id={snippetId}
+              aria-hidden
               sx={{
                 display: '-webkit-box',
                 WebkitLineClamp: 2,

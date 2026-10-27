@@ -326,6 +326,21 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         [Fact]
+        public async Task Search_LeavesOutTheConversationsWhoseTitleTheClientAlreadyFinds()
+        {
+            await SeedSearchAsync();
+            var db = Db();
+            db.ChatConversations.Single(c => c.Id == "a").Title = "台積電今天";
+            await db.SaveChangesAsync();
+
+            var hits = (await As("alice").SearchAsync("finance", "台積電", default)).Data!;
+
+            Assert.Equal(["b"], hits.Select(h => h.ConversationId));
+            // A title holding only some of the words is no find of the client's.
+            Assert.Equal(["a"], (await As("alice").SearchAsync("finance", "台積電 上漲", default)).Data!.Select(h => h.ConversationId));
+        }
+
+        [Fact]
         public async Task Search_OfNothingFindsNothing_AndATooLongOneIsRefused()
         {
             await SeedSearchAsync();
@@ -341,6 +356,18 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         {
             Assert.Equal(["ETF", "0050"], ChatConversationService.SearchWords("ＥＴＦ\t０050 etf"));
             Assert.Equal(ChatConversationService.MaxSearchWords, ChatConversationService.SearchWords("a b c d e f g").Count);
+            // Outside the BMP the collation would match anything.
+            Assert.Equal(["台積電"], ChatConversationService.SearchWords("😀 台積電📈"));
+            Assert.Empty(ChatConversationService.SearchWords("😀 𠮷"));
+        }
+
+        [Fact]
+        public void Snippet_FindsAWordWithAMarkTheSnippetDrops()
+        {
+            var snippet = ChatConversationService.SnippetOf(new string('字', 40) + " 用 `C#` 寫", "c#");
+
+            Assert.StartsWith("…", snippet);
+            Assert.Contains("用 C 寫", snippet);
         }
 
         [Fact]

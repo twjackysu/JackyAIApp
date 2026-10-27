@@ -111,9 +111,12 @@ const ConversationList = ({
     { profile, query: paused },
     { skip: paused === '' },
   );
-  const messageHits = paused === typed ? messageSearch.currentData?.data : undefined;
+  // Only what was asked for the words in the box now: an answer, or a failure, for the words before is not theirs.
+  const current = paused === typed;
+  const messageHits = current ? messageSearch.currentData?.data : undefined;
+  const messagesFailed = current && messageSearch.isError;
   const lookingInMessages =
-    typed !== '' && !messageSearch.isError && (paused !== typed || messageSearch.isFetching);
+    typed !== '' && (!current || (messageSearch.isFetching && !messagesFailed));
   const shown: Find[] = searchable
     ? findConversations(conversations, query, messageHits)
     : conversations.map((conversation) => ({ conversation }));
@@ -239,7 +242,7 @@ const ConversationList = ({
         >
           {lookingInMessages
             ? `沒有標題含「${typed}」的對話，正在找對話內容…`
-            : messageSearch.isError
+            : messagesFailed
               ? `沒有標題含「${typed}」的對話（對話內容這次沒有搜尋到）`
               : `沒有標題或內容含「${typed}」的對話`}
         </Typography>
