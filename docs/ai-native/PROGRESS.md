@@ -7,7 +7,7 @@
 - **審查**（subagent）：編譯與測試推演無問題；建議兩項已做：持倉名稱放寬到 200 字（基金名稱含警語可達 80 字，請求上限隨之 512 KB）、對話練習太長時從最舊的回合刪到符合（`TrimOldestTurns`；頁面每回合送完整歷史、失敗時只有 console.error）。
 - **寫作與造句的批改失敗會說原因**（原本只有 console.error，跟翻譯測驗一樣顯示錯誤，有伺服器的原因就用它；新增兩個元件的測試）。
 - **D-164 留下的低風險**：`MaskMsSql` 改用 `SqlConnectionStringBuilder` 遮密碼（D-166）。
-- 驗證：cscheck 每次 0 個新診斷（EF 與 SqlClient 的已知雜訊）；前端 lint、`src/JobSearch`＋`src/Portfolio` 的 vitest（34 檔 565 個）、build 全過；CI 40500457635（3ed1b9d8）綠、40501738683（5fd77ced）綠、CI_LAST。
+- 驗證：cscheck 每次 0 個新診斷（EF 與 SqlClient 的已知雜訊）；前端 lint、`src/JobSearch`＋`src/Portfolio` 的 vitest（34 檔 565 個）、build 全過；CI 40500457635（3ed1b9d8）綠、40501738683（5fd77ced）綠、40502128403（37247433）綠、**40503637714（179f5aa9，本輪最後一次含程式碼的 push）綠**；全套前端測試 165 檔 1770 個。
 
 ## 2026-10-27 17:42 – 第 44 輪（第五次合併前巡檢：dashboard、資料分析的 AI 工具、自訂資料源）
 
