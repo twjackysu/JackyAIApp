@@ -4,11 +4,16 @@ import { Box, IconButton, ListItem, ListItemButton, Typography } from '@mui/mate
 import { useTheme } from '@mui/material/styles';
 
 import { ACCENT, accentWash } from '../style';
+import { highlightParts } from '../utils/conversationSearch';
 
 import { ChatConversation } from '@/apis/chatbotApis/types';
 
 interface ConversationRowProps {
   conversation: ChatConversation;
+  /** Found by a message, not its title (D-191): the words around the find, shown under the title. */
+  snippet?: string;
+  /** The search, to mark its words in the snippet. */
+  query?: string;
   active: boolean;
   /** A reply is being written: only the open conversation's row may be used. */
   busy: boolean;
@@ -35,6 +40,8 @@ const ROW_HEIGHT = 40;
  */
 const ConversationRow = ({
   conversation: c,
+  snippet,
+  query = '',
   active,
   busy,
   deleting,
@@ -93,14 +100,46 @@ const ConversationRow = ({
           },
         }}
       >
-        <Typography
-          variant="body2"
-          noWrap
-          title={c.title}
-          sx={{ flex: 1, minWidth: 0, fontWeight: active ? 600 : 400 }}
-        >
-          {c.title}
-        </Typography>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            variant="body2"
+            noWrap
+            title={c.title}
+            sx={{ fontWeight: active ? 600 : 400 }}
+          >
+            {c.title}
+          </Typography>
+          {snippet && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              data-conversation-snippet
+              sx={{
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                overflowWrap: 'anywhere',
+                lineHeight: 1.45,
+                mt: 0.25,
+              }}
+            >
+              {highlightParts(snippet, query).map((part, i) =>
+                part.match ? (
+                  <Box
+                    key={i}
+                    component="mark"
+                    sx={{ bgcolor: 'transparent', color: ACCENT, fontWeight: 600 }}
+                  >
+                    {part.text}
+                  </Box>
+                ) : (
+                  part.text
+                ),
+              )}
+            </Typography>
+          )}
+        </Box>
       </ListItemButton>
       <Box
         sx={{

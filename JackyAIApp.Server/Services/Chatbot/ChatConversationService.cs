@@ -4,6 +4,7 @@ using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 
 namespace JackyAIApp.Server.Services.Chatbot
@@ -20,6 +21,15 @@ namespace JackyAIApp.Server.Services.Chatbot
 
         /// <summary>A conversation's messages, oldest first.</summary>
         Task<ServiceResult<List<ChatMessageDto>>> GetMessagesAsync(string conversationId, CancellationToken ct);
+
+        /// <summary>
+        /// The user's conversations with one assistant that have a message holding every word of <paramref name="query"/>
+        /// (D-191), most recently updated first, at most <see cref="ChatConversationService.MaxSearchHits"/>, each with a
+        /// snippet of its first such message around the first word. The history column's title search finds the rest on
+        /// the client. An empty query finds nothing; one longer than <see cref="ChatConversationService.MaxSearchLength"/>
+        /// is refused. Read only from what is stored: the visible text of each question and answer, not attachments.
+        /// </summary>
+        Task<ServiceResult<List<ChatSearchHitDto>>> SearchAsync(string profile, string? query, CancellationToken ct);
 
         /// <summary>
         /// Gives a conversation the title the reader typed (D-144): one line, its spaces run together, at most
@@ -118,6 +128,104 @@ namespace JackyAIApp.Server.Services.Chatbot
             }).ToList();
 
             return ServiceResult.Ok(result);
+        }
+
+        /// <summary>The longest search the history column sends (its box holds the same).</summary>
+        internal const int MaxSearchLength = 100;
+
+        /// <summary>Words of a search past these are not looked for: each is one more scan of the reader's messages.</summary>
+        internal const int MaxSearchWords = 5;
+
+        /// <summary>Conversations a search answers at most.</summary>
+        internal const int MaxSearchHits = 20;
+
+        /// <summary>Characters of a snippet before the word it was found by, and in all.</summary>
+        internal const int SnippetBefore = 16;
+        internal const int SnippetLength = 72;
+
+        public async Task<ServiceResult<List<ChatSearchHitDto>>> SearchAsync(string profile, string? query, CancellationToken ct)
+        {
+            var userId = currentUser.RequireId();
+            if (query != null && query.Length > MaxSearchLength)
+                return ServiceResult.Fail(ErrorCodes.BadRequest, $"搜尋最多 {MaxSearchLength} 個字。");
+
+            var words = SearchWords(query);
+            if (words.Count == 0)
+                return ServiceResult.Ok(new List<ChatSearchHitDto>());
+
+            // SQL Server's collation ignores case and width, as the client's title search does.
+            var matching = dbContext.ChatMessages
+                .Where(m => m.Conversation!.UserId == userId && m.Conversation.Profile == profile);
+            foreach (var word in words)
+                matching = matching.Where(m => m.Content.Contains(word));
+
+            var conversations = await matching
+                .Select(m => new { m.ConversationId, m.Conversation!.UpdatedAt })
+                .Distinct()
+                .OrderByDescending(c => c.UpdatedAt)
+                .Take(MaxSearchHits)
+                .Select(c => c.ConversationId)
+                .ToListAsync(ct);
+            if (conversations.Count == 0)
+                return ServiceResult.Ok(new List<ChatSearchHitDto>());
+
+            // Each one's first matching message, read whole only for those.
+            var firstIds = await matching
+                .Where(m => conversations.Contains(m.ConversationId))
+                .GroupBy(m => m.ConversationId)
+                .Select(g => g.Min(m => m.Id))
+                .ToListAsync(ct);
+            var contents = await dbContext.ChatMessages
+                .Where(m => firstIds.Contains(m.Id))
+                .Select(m => new { m.ConversationId, m.Content })
+                .ToDictionaryAsync(m => m.ConversationId, m => m.Content, ct);
+
+            var hits = conversations
+                .Where(contents.ContainsKey)
+                .Select(id => new ChatSearchHitDto(id, SnippetOf(contents[id], words[0])))
+                .ToList();
+            return ServiceResult.Ok(hits);
+        }
+
+        /// <summary>
+        /// A search's words: split on white space (a control character counts as one), full-width forms made plain (NFKC),
+        /// each once whatever its case, at most <see cref="MaxSearchWords"/>.
+        /// </summary>
+        internal static List<string> SearchWords(string? query)
+        {
+            if (string.IsNullOrWhiteSpace(query)) return [];
+            var spaced = new string(query.Normalize(NormalizationForm.FormKC)
+                .Select(c => char.IsControl(c) ? ' ' : c).ToArray());
+            return spaced
+                .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(MaxSearchWords)
+                .ToList();
+        }
+
+        /// <summary>Markdown's marks around words in a stored answer (dropped) and between parts of it (a space).</summary>
+        private static readonly char[] InlineMarks = ['*', '`'];
+        private static readonly char[] BlockMarks = ['#', '|', '>'];
+
+        /// <summary>
+        /// A message on one line, without markdown's marks, cut to about <see cref="SnippetLength"/> characters around the
+        /// first place <paramref name="word"/> is (any case or width; the start when it is not there), with … where it was cut.
+        /// A cut never splits a surrogate pair.
+        /// </summary>
+        internal static string SnippetOf(string content, string word)
+        {
+            var plain = new string(content
+                .Where(c => !InlineMarks.Contains(c))
+                .Select(c => BlockMarks.Contains(c) || char.IsWhiteSpace(c) || char.IsControl(c) ? ' ' : c)
+                .ToArray());
+            var text = string.Join(' ', plain.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+            var at = CultureInfo.InvariantCulture.CompareInfo.IndexOf(
+                text, word, CompareOptions.IgnoreCase | CompareOptions.IgnoreWidth);
+            var start = Math.Max(0, at - SnippetBefore);
+            if (start > 0 && char.IsLowSurrogate(text[start])) start--;
+            var end = Math.Min(text.Length, start + SnippetLength);
+            if (end < text.Length && char.IsLowSurrogate(text[end])) end--;
+            return (start > 0 ? "…" : "") + text[start..end].Trim() + (end < text.Length ? "…" : "");
         }
 
         /// <summary>The longest title a reader may give a conversation (the client's box holds the same, D-144).</summary>

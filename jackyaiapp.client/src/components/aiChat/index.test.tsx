@@ -107,6 +107,10 @@ let aiTitle: string;
 /** The titles the reader gave conversations by hand (D-144), and whether the server refuses them. */
 let renamed: Array<{ id: string; title: string }>;
 let refuseRename: boolean;
+/** What the server finds in the messages for each search (D-191), the searches it was asked, and whether it fails. */
+let messageHits: Record<string, Array<{ conversationId: string; snippet: string }>>;
+let searches: string[];
+let failSearch: boolean;
 /** Called while a chat turn is being answered, to let a test change the server's state first. */
 let whileAnswering: (() => void) | undefined;
 
@@ -125,6 +129,9 @@ beforeEach(() => {
   aiTitle = '';
   renamed = [];
   refuseRename = false;
+  messageHits = {};
+  searches = [];
+  failSearch = false;
   stops = [];
   approvals = [];
   whileAnswering = undefined;
@@ -197,6 +204,13 @@ beforeEach(() => {
         deleted.push(id);
         conversations = conversations.filter((c) => c.id !== id);
         return json({ data: null });
+      }
+      const search = url.match(/conversations\/search\?(.*)$/);
+      if (search) {
+        const q = new URLSearchParams(search[1]).get('q') ?? '';
+        searches.push(q);
+        if (failSearch) return new Response('busy', { status: 500 });
+        return json({ data: messageHits[q] ?? [] });
       }
       const messages = url.match(/conversations\/([^/]+)\/messages$/);
       if (messages) return json({ data: messagesOf[messages[1]] ?? [] });
@@ -2403,6 +2417,58 @@ describe('AiAssistantPanel — conversation history column', () => {
     });
     expect(searchBox()!.value).toBe('');
     expect(row('外資買賣超')).toBeTruthy();
+  });
+
+  it('also finds a conversation by what was said in it, once the typing pauses (D-191)', async () => {
+    const searchBox = () =>
+      container.querySelector<HTMLInputElement>('input[aria-label="搜尋對話"]');
+    const search = (text: string) =>
+      act(() => {
+        const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+        setValue.call(searchBox(), text);
+        searchBox()!.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    conversations = [
+      conversation('c1', '台積電近一個月走勢'),
+      conversation('c2', '0050 定期定額'),
+      conversation('c3', 'ETF 溢價比較'),
+      conversation('c4', '台積電財報體檢'),
+      conversation('c5', '台指期籌碼'),
+      conversation('c6', '外資買賣超'),
+    ];
+    messageHits = {
+      毛利: [{ conversationId: 'c4', snippet: '…今年的毛利率是 59%…' }],
+      台積電: [{ conversationId: 'c5', snippet: '台積電的權重最大' }],
+    };
+    await mount();
+    await waitForText('外資買賣超');
+    expect(searches).toEqual([]);
+
+    // The titles answer at once; the messages once the typing pauses, joining them in the list's order.
+    search('台積電');
+    expect(row('台指期籌碼')).toBeUndefined();
+    await waitFor(() => expect(row('台指期籌碼')).toBeTruthy());
+    expect(searches).toEqual(['台積電']);
+    expect(row('台積電近一個月走勢')).toBeTruthy();
+    const snippet = row('台指期籌碼').querySelector('[data-conversation-snippet]')!;
+    expect(snippet.textContent).toBe('台積電的權重最大');
+    expect(snippet.querySelector('mark')!.textContent).toBe('台積電');
+    // A row its title found shows no snippet.
+    expect(row('台積電財報體檢').querySelector('[data-conversation-snippet]')).toBeNull();
+
+    // While the next search is on its way, its title finds say so; then what was said finds the rest.
+    search('毛利');
+    expect(container.textContent).toContain('沒有標題含「毛利」的對話，正在找對話內容…');
+    await waitFor(() => expect(row('台積電財報體檢')).toBeTruthy());
+    expect(row('台指期籌碼')).toBeUndefined();
+
+    search('美股');
+    await waitForText('沒有標題或內容含「美股」的對話');
+
+    // A search the server cannot answer leaves the titles' finds and says the messages were not searched.
+    failSearch = true;
+    search('債券');
+    await waitForText('沒有標題含「債券」的對話（對話內容這次沒有搜尋到）');
   });
 
   it('renames a conversation in its row: Enter saves, Escape keeps it as it was (D-144)', async () => {

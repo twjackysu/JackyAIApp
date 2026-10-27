@@ -126,8 +126,12 @@ jackyaiapp.client/src/
   is still named; a stopped answer is stored and counts), and the list is read again, so the history column's row changes from the question's
   first words to a short title (「持股的外資買賣超」) a moment later. Every assistant, no settings
   With six or more conversations the history column has a search box (D-143): titles holding every word typed
-  (`utils/conversationSearch`' `matchConversations`, case and full-width forms ignored), on the client only; Escape
-  empties it before it closes anything. Each row's pencil (shown as its delete button is) turns its title into a box,
+  (`utils/conversationSearch`' `matchConversations`, case and full-width forms ignored), at once on the client; once the
+  typing pauses (`SEARCH_PAUSE_MS`) the server also looks in the messages (`searchConversations`, D-191), and the
+  conversations it finds join the list in its order (`findConversations`; only finds for the words in the box now), each
+  with its snippet under the title, the words marked (`highlightParts`); the box takes `MAX_SEARCH_LENGTH` (held to the
+  server's by its test); with nothing found the column says whether the messages are still being searched or could not be;
+  Escape empties it before it closes anything. Each row's pencil (shown as its delete button is) turns its title into a box,
   `ConversationTitleEditor` (D-144): Enter or leaving the box saves, Escape keeps the title and goes no further;
   `utils/conversationTitle`' `renamedTitle` sends one line, nothing when empty, unchanged or past `MAX_TITLE_LENGTH`
   (held to the server's by its test). `renameConversation` patches the list at once and puts it back if the server refuses,

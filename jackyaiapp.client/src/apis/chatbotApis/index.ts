@@ -3,7 +3,7 @@ import { createApi } from '@reduxjs/toolkit/query/react';
 import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
-import { ChatAttachment, ChatConversation, ChatHistoryMessage } from './types';
+import { ChatAttachment, ChatConversation, ChatHistoryMessage, ChatSearchHit } from './types';
 
 export const chatbotApis = createApi({
   reducerPath: 'chatbotApis',
@@ -14,6 +14,22 @@ export const chatbotApis = createApi({
     getConversations: builder.query<ApiOkResponse<ChatConversation[]>, string>({
       query: (profile) => ({ url: 'conversations', params: { profile } }),
       providesTags: ['Conversations'],
+    }),
+
+    /**
+     * Find the reader's conversations with one assistant by the words in their messages (D-191), most recently updated
+     * first, each with a snippet around the find. Read again whenever the list is (a new answer may hold the words).
+     */
+    searchConversations: builder.query<
+      ApiOkResponse<ChatSearchHit[]>,
+      { profile: string; query: string }
+    >({
+      query: ({ profile, query }) => ({
+        url: 'conversations/search',
+        params: { profile, q: query },
+      }),
+      providesTags: ['Conversations'],
+      keepUnusedDataFor: 30,
     }),
 
     /** Load the message history for a single conversation (oldest → newest). */
@@ -87,6 +103,7 @@ export const chatbotApis = createApi({
 
 export const {
   useGetConversationsQuery,
+  useSearchConversationsQuery,
   useLazyGetConversationMessagesQuery,
   useDeleteConversationMutation,
   useNameConversationMutation,

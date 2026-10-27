@@ -276,5 +276,97 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         [InlineData("\n\t ", null)]
         public void CleanTitle_IsOneLine(string typed, string? expected) =>
             Assert.Equal(expected, ChatConversationService.CleanTitle(typed));
+    
+        /// <summary>
+        /// alice's finance conversations: older "a" (台積電 in a question and an answer), newer "b" (台積電 毛利 in an
+        /// answer), "c" with neither; a studio one and bob's, both saying 台積電.
+        /// </summary>
+        private async Task SeedSearchAsync()
+        {
+            var db = Db();
+            db.ChatConversations.AddRange(
+                new SQL.ChatConversation { Id = "a", UserId = "alice", Title = "第一個", UpdatedAt = _t0 },
+                new SQL.ChatConversation { Id = "b", UserId = "alice", Title = "第二個", UpdatedAt = _t0.AddHours(1) },
+                new SQL.ChatConversation { Id = "c", UserId = "alice", Title = "第三個", UpdatedAt = _t0.AddHours(2) },
+                new SQL.ChatConversation { Id = "s", UserId = "alice", Title = "studio", Profile = "studio", UpdatedAt = _t0 },
+                new SQL.ChatConversation { Id = "x", UserId = "bob", Title = "bob", UpdatedAt = _t0 });
+            db.ChatMessages.AddRange(
+                Message(1, "a", "user", "台積電今天怎麼了"),
+                Message(2, "a", "assistant", "台積電收盤上漲"),
+                Message(3, "b", "user", "幫我看財報"),
+                Message(4, "b", "assistant", "**台積電**的毛利率是 59%"),
+                Message(5, "c", "user", "鴻海呢"),
+                Message(6, "s", "user", "台積電"),
+                Message(7, "x", "user", "台積電"));
+            await db.SaveChangesAsync();
+        }
+
+        [Fact]
+        public async Task Search_FindsYourOwnConversationsOfThatAssistant_ByTheirMessages_MostRecentlyUpdatedFirst()
+        {
+            await SeedSearchAsync();
+
+            var hits = (await As("alice").SearchAsync("finance", "台積電", default)).Data!;
+
+            Assert.Equal(["b", "a"], hits.Select(h => h.ConversationId));
+            // The first matching message, without markdown's marks.
+            Assert.Equal("台積電的毛利率是 59%", hits[0].Snippet);
+            Assert.Equal("台積電今天怎麼了", hits[1].Snippet);
+        }
+
+        [Fact]
+        public async Task Search_NeedsEveryWordInOneMessage()
+        {
+            await SeedSearchAsync();
+
+            var hits = (await As("alice").SearchAsync("finance", " 毛利  台積電 ", default)).Data!;
+
+            Assert.Equal(["b"], hits.Select(h => h.ConversationId));
+            Assert.Empty((await As("alice").SearchAsync("finance", "毛利 鴻海", default)).Data!);
+        }
+
+        [Fact]
+        public async Task Search_OfNothingFindsNothing_AndATooLongOneIsRefused()
+        {
+            await SeedSearchAsync();
+
+            Assert.Empty((await As("alice").SearchAsync("finance", "  \n ", default)).Data!);
+            Assert.Empty((await As("alice").SearchAsync("finance", null, default)).Data!);
+            var tooLong = new string('字', ChatConversationService.MaxSearchLength + 1);
+            Assert.Equal(ErrorCodes.BadRequest, (await As("alice").SearchAsync("finance", tooLong, default)).Error);
+        }
+
+        [Fact]
+        public void SearchWords_AreSplitOnSpaceAndControlCharacters_FullWidthMadePlain_EachOnce_AtMostFive()
+        {
+            Assert.Equal(["ETF", "0050"], ChatConversationService.SearchWords("ＥＴＦ\t０050 etf"));
+            Assert.Equal(ChatConversationService.MaxSearchWords, ChatConversationService.SearchWords("a b c d e f g").Count);
+        }
+
+        [Fact]
+        public void Snippet_IsOneLineAroundTheFirstFind_CutWithAnEllipsis()
+        {
+            var before = new string('前', 40);
+            var after = new string('後', 100);
+            var snippet = ChatConversationService.SnippetOf($"{before}\n\n## ＥＴＦ\n{after}", "etf");
+
+            // SnippetBefore characters before the find: 15 of 前 and the space the heading's marks became.
+            Assert.StartsWith("…" + new string('前', ChatConversationService.SnippetBefore - 1) + " ＥＴＦ 後", snippet);
+            Assert.EndsWith("後…", snippet);
+            Assert.Equal(ChatConversationService.SnippetLength + 2, snippet.Length);
+        }
+
+        [Fact]
+        public void Snippet_NeverSplitsASurrogatePair()
+        {
+            var emoji = string.Concat(Enumerable.Repeat("😀", 60));
+            // Both cuts would land between the halves of a pair: the start at 122 - 16, the end 72 later.
+            var snippet = ChatConversationService.SnippetOf("x" + emoji + "y找我" + emoji, "找我");
+
+            var body = snippet.Trim('…');
+            Assert.True(char.IsHighSurrogate(body[0]));
+            Assert.True(char.IsLowSurrogate(body[^1]));
+            Assert.Contains("y找我", body);
+        }
     }
 }

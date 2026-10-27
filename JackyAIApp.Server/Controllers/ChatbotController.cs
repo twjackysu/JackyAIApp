@@ -211,6 +211,16 @@ namespace JackyAIApp.Server.Controllers
             _responseFactory.ToActionResult(await _conversations.ListAsync(profile, ct));
 
         /// <summary>
+        /// Finds the current user's conversations with one assistant by the words in their messages (D-191): the history
+        /// column asks once the reader stops typing a search. No AI, no charge.
+        /// </summary>
+        [HttpGet("conversations/search")]
+        [EnableRateLimiting(RateLimitPolicies.ChatSearch)]
+        public async Task<IActionResult> SearchConversations(
+            [FromQuery] string? q, [FromQuery] string profile = FinanceChatProfile.ProfileKey, CancellationToken ct = default) =>
+            _responseFactory.ToActionResult(await _conversations.SearchAsync(profile, q, ct));
+
+        /// <summary>
         /// Returns the message history of a conversation (oldest first) for the current user.
         /// </summary>
         [HttpGet("conversations/{conversationId}/messages")]

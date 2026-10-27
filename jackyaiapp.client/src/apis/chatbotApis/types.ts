@@ -6,6 +6,12 @@ export interface ChatConversation {
   updatedAt: string;
 }
 
+/** One of the reader's conversations a search found in its messages (D-191), with the words around the find. */
+export interface ChatSearchHit {
+  conversationId: string;
+  snippet: string;
+}
+
 /**
  * A file sent (or about to be sent) with a message. Of a text file the server keeps only its text;
  * an image or a PDF it keeps as a file, served by {@link attachmentContentUrl}.

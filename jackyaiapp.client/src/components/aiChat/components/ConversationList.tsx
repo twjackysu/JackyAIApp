@@ -7,7 +7,13 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAiChatConfig } from '../config';
 import { noSelectionAsk } from '../selection/readSelection';
 import { ACCENT, accentWash, hairline } from '../style';
-import { matchConversations, SEARCH_FROM } from '../utils/conversationSearch';
+import {
+  ConversationFind,
+  findConversations,
+  MAX_SEARCH_LENGTH,
+  SEARCH_FROM,
+  SEARCH_PAUSE_MS,
+} from '../utils/conversationSearch';
 import { RENAME_FAILED_TEXT } from '../utils/conversationTitle';
 import { focusAfterDelete } from '../utils/focusAfterDelete';
 import { periodOf } from '../utils/period';
@@ -19,6 +25,7 @@ import {
   useDeleteConversationMutation,
   useGetConversationsQuery,
   useRenameConversationMutation,
+  useSearchConversationsQuery,
 } from '@/apis/chatbotApis';
 import { ChatConversation } from '@/apis/chatbotApis/types';
 import CenteredSpinner from '@/components/CenteredSpinner';
@@ -36,14 +43,16 @@ interface ConversationListProps {
 /** How long the column says a rename was refused. */
 const RENAME_FAILED_MS = 5000;
 
+type Find = ConversationFind<ChatConversation>;
+
 /** Conversations (newest first) under their period's heading, the order kept. */
-const byPeriod = (conversations: ChatConversation[]) => {
-  const groups: { period: string; items: ChatConversation[] }[] = [];
-  for (const c of conversations) {
-    const period = periodOf(c.updatedAt);
+const byPeriod = (finds: Find[]) => {
+  const groups: { period: string; items: Find[] }[] = [];
+  for (const f of finds) {
+    const period = periodOf(f.conversation.updatedAt);
     const last = groups[groups.length - 1];
-    if (last?.period === period) last.items.push(c);
-    else groups.push({ period, items: [c] });
+    if (last?.period === period) last.items.push(f);
+    else groups.push({ period, items: [f] });
   }
   return groups;
 };
@@ -88,10 +97,26 @@ const ConversationList = ({
   };
 
   const conversations = data?.data ?? [];
-  // Finding one by its title (D-143), once there are enough to look for.
+  // Finding one by its title (D-143), once there are enough to look for, and by what was said in it once the typing
+  // pauses (D-191): the server's finds join the titles' when they are for the words in the box now.
   const [query, setQuery] = useState('');
   const searchable = conversations.length >= SEARCH_FROM;
-  const shown = searchable ? matchConversations(conversations, query) : conversations;
+  const typed = searchable ? query.trim() : '';
+  const [paused, setPaused] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => setPaused(typed), SEARCH_PAUSE_MS);
+    return () => clearTimeout(timer);
+  }, [typed]);
+  const messageSearch = useSearchConversationsQuery(
+    { profile, query: paused },
+    { skip: paused === '' },
+  );
+  const messageHits = paused === typed ? messageSearch.currentData?.data : undefined;
+  const lookingInMessages =
+    typed !== '' && !messageSearch.isError && (paused !== typed || messageSearch.isFetching);
+  const shown: Find[] = searchable
+    ? findConversations(conversations, query, messageHits)
+    : conversations.map((conversation) => ({ conversation }));
 
   const handleEdit = (id: string) => {
     setRenameFailed(false);
@@ -113,7 +138,7 @@ const ConversationList = ({
 
   const handleDelete = async (id: string, byKey: boolean) => {
     const next = focusAfterDelete(
-      shown.map((c) => c.id),
+      shown.map((f) => f.conversation.id),
       id,
     );
     const result = await deleteConversation(id);
@@ -168,7 +193,7 @@ const ConversationList = ({
             }}
             placeholder="搜尋對話"
             slotProps={{
-              htmlInput: { 'aria-label': '搜尋對話' },
+              htmlInput: { 'aria-label': '搜尋對話', maxLength: MAX_SEARCH_LENGTH },
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
@@ -212,7 +237,11 @@ const ConversationList = ({
           color="text.secondary"
           sx={{ textAlign: 'center', py: 4, px: 2, overflowWrap: 'anywhere' }}
         >
-          沒有標題含「{query.trim()}」的對話
+          {lookingInMessages
+            ? `沒有標題含「${typed}」的對話，正在找對話內容…`
+            : messageSearch.isError
+              ? `沒有標題含「${typed}」的對話（對話內容這次沒有搜尋到）`
+              : `沒有標題或內容含「${typed}」的對話`}
         </Typography>
       ) : (
         <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', px: 1, pb: 1.5 }}>
@@ -233,7 +262,7 @@ const ConversationList = ({
                 {group.period}
               </Typography>
               <List disablePadding>
-                {group.items.map((c) => {
+                {group.items.map(({ conversation: c, snippet }) => {
                   const active = c.id === activeConversationId;
                   if (c.id === editingId)
                     return (
@@ -252,6 +281,8 @@ const ConversationList = ({
                     <ConversationRow
                       key={c.id}
                       conversation={c}
+                      snippet={snippet}
+                      query={typed}
                       active={active}
                       busy={busy}
                       deleting={isDeleting}

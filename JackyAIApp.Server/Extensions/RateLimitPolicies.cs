@@ -59,6 +59,14 @@ namespace JackyAIApp.Server.Extensions
         internal const int ChatAttachmentUploadPermitsPerMinute = 20;
 
         /// <summary>
+        /// Searching one's own conversations by their messages, per reader (D-191): free, and each search scans the
+        /// reader's stored messages; the history column asks once typing pauses, so a minute's searching stays well within.
+        /// </summary>
+        public const string ChatSearch = "chat-search";
+
+        internal const int ChatSearchPermitsPerMinute = 60;
+
+        /// <summary>
         /// The PDF unlocker, per address: it takes no sign-in and reads and rewrites a whole document in memory, so a
         /// few requests at once from one place could take the server's memory (D-158).
         /// </summary>
@@ -151,6 +159,12 @@ namespace JackyAIApp.Server.Extensions
                 "user:" + (http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? AnonymousPartition),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = ChatAttachmentUploadPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
 
+        /// <summary>Each reader their own window (the endpoint takes a sign-in, so there is always one).</summary>
+        internal static RateLimitPartition<string> ChatSearchPartition(HttpContext http) =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                "user:" + (http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? AnonymousPartition),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = ChatSearchPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+
         /// <summary>Each visitor's address its own window: the unlocker takes no sign-in.</summary>
         internal static RateLimitPartition<string> PdfUnlockPartition(HttpContext http) =>
             RateLimitPartition.GetFixedWindowLimiter(
@@ -209,6 +223,7 @@ namespace JackyAIApp.Server.Extensions
                 options.AddPolicy(SiteOAuthConsent, SiteOAuthConsentPartition);
                 options.AddPolicy(ConnectorProbe, ConnectorProbePartition);
                 options.AddPolicy(ChatAttachmentUpload, ChatAttachmentUploadPartition);
+                options.AddPolicy(ChatSearch, ChatSearchPartition);
                 options.AddPolicy(PdfUnlock, PdfUnlockPartition);
                 options.AddPolicy(DashboardWidgetData, DashboardWidgetDataPartition);
                 options.AddPolicy(JobSearch, JobSearchPartition);
