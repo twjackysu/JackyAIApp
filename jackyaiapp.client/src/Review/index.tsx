@@ -11,6 +11,7 @@ import Flashcard from './components/Flashcard';
 
 import { useGetDueReviewsQuery, useSubmitReviewsMutation } from '@/apis/reviewApis';
 import { ReviewAnswerRequest, ReviewSubmitResponse } from '@/apis/reviewApis/types';
+import { getCaughtErrorMessage } from '@/apis/utils/errorMessage';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { readJson, removeKey, writeJson } from '@/utils/storage';
 
@@ -22,6 +23,10 @@ interface ReviewProgress {
   ratings: ReviewAnswerRequest[];
 }
 
+/** When the server gave no reason a reader can use. */
+const REVIEW_NOT_SAVED = '這一輪的評分沒有存成功。';
+const RATE_AGAIN_NOTE = '再評一次這張卡片，就會把整輪重新送出。';
+
 function Review() {
   const { data: dueData, isLoading, error } = useGetDueReviewsQuery();
   const [submitReviews, { isLoading: isSubmitting }] = useSubmitReviewsMutation();
@@ -29,6 +34,8 @@ function Review() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [ratings, setRatings] = useState<ReviewAnswerRequest[]>([]);
   const [result, setResult] = useState<ReviewSubmitResponse | null>(null);
+  // Why the round's ratings were not saved. The last card stays, so rating it again resends them all.
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const restoredRef = useRef(false);
 
   const dueWords = useMemo(() => dueData?.data?.dueWords ?? [], [dueData?.data?.dueWords]);
@@ -79,13 +86,14 @@ function Review() {
       } else {
         // All reviewed — submit
         const allRatings = [...ratings, newRating];
+        setSubmitError(null);
         submitReviews({ reviews: allRatings })
           .unwrap()
           .then((res) => {
             removeKey(REVIEW_STORAGE_KEY);
             setResult(res.data);
           })
-          .catch((err) => console.error('Failed to submit reviews:', err));
+          .catch((err) => setSubmitError(getCaughtErrorMessage(err, REVIEW_NOT_SAVED)));
       }
     },
     [currentIndex, dueWords, ratings, submitReviews],
@@ -210,6 +218,11 @@ function Review() {
           </Typography>
         )}
       </Typography>
+      {submitError && !isSubmitting && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {submitError} {RATE_AGAIN_NOTE}
+        </Alert>
+      )}
       {isSubmitting ? (
         <CenteredSpinner sx={{ mt: 4 }} />
       ) : (

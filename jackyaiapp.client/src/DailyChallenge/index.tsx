@@ -23,6 +23,7 @@ import {
 import { DailyChallengeSubmitResponse } from '@/apis/dailyChallengeApis/types';
 import { usePutRepositoryWordMutation } from '@/apis/repositoryApis';
 import { useGetDueCountQuery } from '@/apis/reviewApis';
+import { getCaughtErrorMessage } from '@/apis/utils/errorMessage';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { readJson, removeKey, writeJson } from '@/utils/storage';
 
@@ -34,6 +35,10 @@ interface DailyChallengeProgress {
   answers: Record<number, number>;
   currentQuestion: number;
 }
+
+/** When the server gave no reason a reader can use. */
+const CHALLENGE_NOT_SUBMITTED = '答案沒有送出成功。';
+const SUBMIT_AGAIN_NOTE = '答案都還在，再按一次 Submit 即可。';
 
 function DailyChallenge() {
   const {
@@ -49,6 +54,8 @@ function DailyChallenge() {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [viewMode, setViewMode] = useState<ViewMode>('challenge');
   const [submitResult, setSubmitResult] = useState<DailyChallengeSubmitResponse | null>(null);
+  // Why the answers were not submitted; they stay, so Submit again resends them.
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const restoredRef = useRef(false);
 
   // Save-to-repository (review mode): track which words are saved / in flight this session.
@@ -127,6 +134,7 @@ function DailyChallenge() {
       selectedIndex: answers[q.id] ?? -1,
     }));
 
+    setSubmitError(null);
     try {
       const result = await submitChallenge({ answers: answerList }).unwrap();
       // Clear saved progress after successful submit
@@ -136,7 +144,7 @@ function DailyChallenge() {
       setSubmitResult(result.data);
       setViewMode('result');
     } catch (err) {
-      console.error('Failed to submit challenge:', err);
+      setSubmitError(getCaughtErrorMessage(err, CHALLENGE_NOT_SUBMITTED));
     }
   };
 
@@ -270,6 +278,12 @@ function DailyChallenge() {
               )
             }
           />
+
+          {submitError && viewMode === 'challenge' && !isSubmitting && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {submitError} {SUBMIT_AGAIN_NOTE}
+            </Alert>
+          )}
 
           {/* Progress hint */}
           {viewMode === 'challenge' && !alreadyCompleted && (
