@@ -190,6 +190,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   (the attempt log and the SM-2 schedules). Which exam endpoints charge is pinned by `UsageLimitEndpointTests`
 - The vocabulary exams (cloze, translation, sentence) are one `IWordExamGenerator<TQuestion>` each, returning
   their own DTO, and one typed method each on `IWordExamService`, which picks the word for all of them
+- What a reader writes for an AI-graded exam (translation, sentence, writing, conversation) is measured as the JSON the prompt
+  carries and refused past `ExamInputLimits` (4,000 / 20,000 / 40,000 characters) before the model is asked, so the charge is
+  refunded; those endpoints and `record-result` hold their request body with `[RequestSizeLimit]` (Kestrel otherwise reads about
+  28 MB first). A writing result feeds at most `WritingExamService.RequiredWordCount` words to the review schedule, in one query (D-165)
 - A spoken answer's transcription (`whisper/transcribe`) costs one unit whatever its length while Whisper bills by the minute,
   so a recording is held to `ConversationPracticeController.MaxAudioBytes` (4 MB, refused before Whisper is asked, so the
   charge is refunded); the exam pages record at 64 kbps and stop at two minutes, about 1 MB (the client's
@@ -197,6 +201,11 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 
 ## Portfolio
 
+- A save of holdings is bounded (`HoldingsLimits`, D-165): its request 256 KB, at most 300 rows, a symbol 40 characters,
+  a name 100, a market, currency or valuation method 20, and a reader keeps at most 2000 snapshots (a save on a date already
+  kept replaces it, so only a new date counts) — beyond them a BadRequest and nothing saved. `SaveHoldingsAsync` answers a
+  `ServiceResult<bool>`, which `update_holding` reports as a failed call. A benchmark comparison draws at most 4 symbols
+  (`BenchmarkComparisonService.MaxBenchmarks`): each is a deep history through the exchange's shared lane
 - What an `AssetType` is — market-priced or an amount, its sign, whether it has a cost, counts as
   liquid, pays dividends, its bucket and labels, where its price and FX rate come from, how a saved
   row is normalized, how its latest or as-of price is read — comes from
@@ -514,6 +523,14 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   account connections' endpoints of `ConnectorsController`, under the same route, are unchanged) and, as
   `IToolPermissionSource`, each chat turn. Someone else's connector, or the site's own for turning off or
   removing, is NotFound
+
+## Job Finder
+
+- `GET api/job/listings` takes no sign-in, and each new search is a round of calls to 104 and Cake from the App Service's one
+  address and a 30-minute cache entry: held to 20 a minute per address (`RateLimitPolicies.JobSearch`), a search at most
+  `JobAggregatorService.MaxKeywordsLength` (100) characters (the client's `JobSearch/limits.ts`, held to it by its test), and
+  cached under the platforms actually asked, never the caller's words for them. A Cake external posting's link is kept only
+  when it is https (`CakeJobsProvider.HttpsUrl`; D-165)
 
 ## Data analysis
 

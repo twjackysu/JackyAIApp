@@ -11,15 +11,21 @@ public class JobAggregatorService(
 {
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
 
+    /// <summary>The longest search the endpoint takes (the client's input holds to it): each new search is a round of
+    /// calls to every platform and a cache entry for 30 minutes, so its length is bounded with the request rate (D-165).</summary>
+    public const int MaxKeywordsLength = 100;
+
     public async Task<IReadOnlyList<JobListingDto>> SearchAsync(JobSearchRequest request, CancellationToken ct = default)
     {
-        var normalizedKeywords = request.Keywords.Trim().ToLowerInvariant();
-        var platformKey = string.Join(",", request.Platforms.OrderBy(p => p));
-        var cacheKey = $"jobs:{normalizedKeywords}:{request.SearchStrategy}:{platformKey}";
-
         var selectedProviders = providers
             .Where(p => request.Platforms.Contains(p.PlatformId, StringComparer.OrdinalIgnoreCase))
             .ToList();
+
+        // Keyed by the platforms actually asked, never by what the caller typed for them: "104,cake,x1" and
+        // "104,cake,x2" are the same search, not two cache entries (D-165).
+        var normalizedKeywords = request.Keywords.Trim().ToLowerInvariant();
+        var platformKey = string.Join(",", selectedProviders.Select(p => p.PlatformId).Order(StringComparer.Ordinal));
+        var cacheKey = $"jobs:{normalizedKeywords}:{request.SearchStrategy}:{platformKey}";
 
         if (selectedProviders.Count == 0)
         {

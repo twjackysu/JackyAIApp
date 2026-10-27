@@ -248,6 +248,26 @@ namespace JackyAIApp.Server.Tests.Services.Exam
         }
 
         [Fact]
+        public async Task GradeTranslation_TooLong_IsABadRequest_AndAsksNoModel()
+        {
+            // The charge is fixed while the model bills by the token, so a huge answer is refused first (D-165).
+            var userResponse = new TranslationTestUserResponse
+            {
+                UnfamiliarWords = "sun",
+                ExaminationQuestion = "太陽很亮。",
+                Translation = new string('a', ExamInputLimits.MaxShortAnswerChars),
+            };
+
+            var result = await _service.GradeTranslationAsync(userResponse);
+
+            Assert.Equal(ErrorCodes.BadRequest, result.Error);
+            Assert.Equal(ExamInputLimits.TooLongMessage, result.ErrorMessage);
+            _promptServiceMock.Verify(x => x.GetCompletionAsync<TranslationQualityGradingAssistantResponse>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()), Times.Never);
+        }
+
+        [Fact]
         public async Task EvaluateSentence_ValidInput_ReturnsEvaluation()
         {
             var userResponse = new SentenceTestUserResponse

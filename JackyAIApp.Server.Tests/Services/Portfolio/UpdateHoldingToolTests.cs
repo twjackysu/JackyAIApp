@@ -1,4 +1,5 @@
 using System.Text.Json;
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data.Models.Portfolio;
 using JackyAIApp.Server.DTO.Portfolio;
 using JackyAIApp.Server.Services.Connectors;
@@ -44,7 +45,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 Portfolio.Setup(p => p.GetLatestHoldingsAsync("u1", It.IsAny<CancellationToken>())).ReturnsAsync(latest);
                 Portfolio.Setup(p => p.SaveHoldingsAsync("u1", It.IsAny<SaveHoldingsRequest>(), It.IsAny<CancellationToken>()))
                     .Callback<string, SaveHoldingsRequest, CancellationToken>((_, req, _) => Saved = req)
-                    .Returns(Task.CompletedTask);
+                    .ReturnsAsync(ServiceResult.Ok(true));
                 Tool = new UpdateHoldingTool(Portfolio.Object, new TestClock(TestClock.Taipei(Today, 0, 30)));
             }
 
@@ -82,6 +83,20 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.False(result.IsError);
             Assert.Equal(4000m, Held(h.Saved!, "0050").Quantity);
             Assert.Equal(720_000m, Held(h.Saved!, "0050").CostBasis);
+        }
+
+        [Fact]
+        public async Task ASaveThePortfolioRefuses_IsAFailedCall_WithItsReason()
+        {
+            var h = new Harness(Latest());
+            h.Portfolio.Setup(p => p.SaveHoldingsAsync("u1", It.IsAny<SaveHoldingsRequest>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ServiceResult.Fail(ErrorCodes.BadRequest, HoldingsLimits.TooManySnapshotsMessage));
+
+            var result = await h.Run(new { symbol = "2330", change = -500 });
+
+            Assert.True(result.IsError);
+            Assert.Contains(HoldingsLimits.TooManySnapshotsMessage, result.Content);
+            Assert.DoesNotContain("已更新", result.Content);
         }
 
         [Fact]

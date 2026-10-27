@@ -90,6 +90,9 @@ namespace JackyAIApp.Server.Services.Exam
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Input cannot be null or empty.");
             }
 
+            if (ExamInputLimits.TooLong(userResponse, ExamInputLimits.MaxShortAnswerChars) is { } tooLong)
+                return tooLong;
+
             var example = (
                 User: AiJson.Serialize(new TranslationTestUserResponse
                 {
@@ -129,6 +132,9 @@ namespace JackyAIApp.Server.Services.Exam
             {
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Input cannot be null or empty.");
             }
+
+            if (ExamInputLimits.TooLong(userResponse, ExamInputLimits.MaxShortAnswerChars) is { } tooLong)
+                return tooLong;
 
             var example = (
                 User: AiJson.Serialize(new SentenceTestUserResponse

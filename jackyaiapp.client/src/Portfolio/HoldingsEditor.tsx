@@ -26,6 +26,7 @@ import { UpdateHistoryDialog } from './UpdateHistoryDialog';
 
 import { useGetHoldingsQuery, useSaveHoldingsMutation } from '@/apis/portfolioApis';
 import { PositionInput } from '@/apis/portfolioApis/types';
+import { getCaughtErrorMessage } from '@/apis/utils/errorMessage';
 import { todayISO } from '@/utils/date';
 
 export function HoldingsEditor() {
@@ -103,8 +104,9 @@ export function HoldingsEditor() {
       // save looked indistinguishable from "saved but summary didn't update".
       await saveHoldings({ effectiveDate, positions }).unwrap();
       setOpen(false);
-    } catch {
-      setSaveError('儲存失敗，請確認網路連線後再試一次');
+    } catch (error) {
+      // The server's own reason when it gives one (a portfolio past HoldingsLimits, D-165).
+      setSaveError(getCaughtErrorMessage(error, '儲存失敗，請確認網路連線後再試一次'));
     }
   };
 

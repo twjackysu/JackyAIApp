@@ -585,5 +585,16 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                         .ToList(),
                 });
         }
+
+        [Fact]
+        public void TheBenchmarks_AreAtMostWhatThePageOffers()
+        {
+            // Each is a deep history through the exchange's shared lane, so hundreds in one URL are not drawn (D-165).
+            var many = Enumerable.Range(0, 600).Select(i => (1000 + i).ToString(System.Globalization.CultureInfo.InvariantCulture)).ToList();
+            Assert.Equal(["1000", "1001", "1002", "1003"], BenchmarkComparisonService.ResolveBenchmarkSymbols(many));
+            Assert.Equal(BenchmarkComparisonService.MaxBenchmarks, BenchmarkComparisonService.ResolveBenchmarkSymbols(many).Count);
+            Assert.Equal(["QQQ"], BenchmarkComparisonService.ResolveBenchmarkSymbols([new string('X', 41), " qqq ", "QQQ"]));
+            Assert.Equal(["0050"], BenchmarkComparisonService.ResolveBenchmarkSymbols([]));
+        }
     }
 }

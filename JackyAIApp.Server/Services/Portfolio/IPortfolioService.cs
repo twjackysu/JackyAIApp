@@ -5,7 +5,9 @@ namespace JackyAIApp.Server.Services.Portfolio
 {
     public interface IPortfolioService
     {
-        Task SaveHoldingsAsync(string userId, SaveHoldingsRequest req, CancellationToken ct = default);
+        /// <summary>Saves the reader's holdings as the snapshot of their date (replacing one already on it), within
+        /// <see cref="HoldingsLimits"/>; beyond them a BadRequest and nothing saved.</summary>
+        Task<ServiceResult<bool>> SaveHoldingsAsync(string userId, SaveHoldingsRequest req, CancellationToken ct = default);
         Task<SaveHoldingsRequest> GetLatestHoldingsAsync(string userId, CancellationToken ct = default);
         Task<SaveHoldingsRequest?> GetSnapshotHoldingsAsync(string userId, int snapshotId, CancellationToken ct = default);
         Task<bool> DeleteSnapshotAsync(string userId, int snapshotId, CancellationToken ct = default);

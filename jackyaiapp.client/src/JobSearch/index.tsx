@@ -16,6 +16,7 @@ import Typography from '@mui/material/Typography';
 import { useState, useCallback } from 'react';
 
 import JobCard from './components/JobCard';
+import { MAX_KEYWORDS_LENGTH } from './limits';
 
 import { useGetListingsQuery } from '@/apis/jobApis';
 import { JobSearchParams } from '@/apis/jobApis/types';
@@ -118,6 +119,7 @@ function JobSearch() {
             onChange={(e) => setInputKeywords(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             slotProps={{
+              htmlInput: { maxLength: MAX_KEYWORDS_LENGTH },
               input: {
                 startAdornment: (
                   <InputAdornment position="start">

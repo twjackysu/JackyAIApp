@@ -86,16 +86,16 @@ namespace JackyAIApp.Server.Services.Exam
                 // One holistic AI grade for the whole paragraph is applied to every required word's
                 // schedule — not a per-word pass/fail (see ARCHITECTURE.md's writing-practice decision).
                 var quality = MapQuality(request.Correct, request.Score);
-                foreach (var wordId in request.WritingWordIds!)
+                // A prompt asks at most RequiredWordCount words: more ids are not a real result, and each one was a query (D-165).
+                var wordIds = request.WritingWordIds!.Where(id => !string.IsNullOrEmpty(id)).Distinct()
+                    .Take(WritingExamService.RequiredWordCount).ToList();
+                var writingWords = await _dbContext.UserWords
+                    .Where(uw => uw.UserId == userId && wordIds.Contains(uw.WordId))
+                    .ToListAsync();
+                foreach (var writingWord in writingWords)
                 {
-                    var writingWord = await _dbContext.UserWords
-                        .SingleOrDefaultAsync(uw => uw.UserId == userId && uw.WordId == wordId);
-
-                    if (writingWord != null)
-                    {
-                        _spacedRepetition.ApplyResult(writingWord, quality, DateTime.UtcNow.Date);
-                        scheduleUpdated = true;
-                    }
+                    _spacedRepetition.ApplyResult(writingWord, quality, DateTime.UtcNow.Date);
+                    scheduleUpdated = true;
                 }
             }
             else if (!isWordless)

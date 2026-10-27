@@ -105,12 +105,15 @@ namespace JackyAIApp.Server.Services.Portfolio.Assistant
             // saved under an earlier date would sit behind it and never show.
             var today = time.GetTaipeiToday();
             var date = latest.EffectiveDate is { } d && d > today ? d : today;
-            await portfolio.SaveHoldingsAsync(context.UserId, new SaveHoldingsRequest
+            var saved = await portfolio.SaveHoldingsAsync(context.UserId, new SaveHoldingsRequest
             {
                 EffectiveDate = date,
                 // A quantity of 0 drops the row (AssetValuationPolicy.Normalize), as the editor's empty rows are.
                 Positions = latest.Positions,
             }, ct);
+            // Beyond HoldingsLimits (a new date with the snapshots full): the service's own words, nothing saved.
+            if (!saved.IsSuccess)
+                return AiToolResult.Error($"沒有更新 {Label(position)}：{saved.ErrorMessage}");
 
             var dateText = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             // A snapshot already on that date is replaced, as the editor's save replaces it: say so, not that history keeps it.

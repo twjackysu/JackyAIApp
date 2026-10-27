@@ -43,6 +43,9 @@ namespace JackyAIApp.Server.Services.Exam
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Scenario, UserRole, and AiRole are required.");
             }
 
+            if (ExamInputLimits.TooLong(request, ExamInputLimits.MaxConversationChars) is { } tooLong)
+                return tooLong;
+
             // Was previously a raw ChatCompletion call outside IOpenAIPromptService — bypassed
             // the JSON-force/token-cap reliability fixes and, more importantly, the AiUsageLog
             // instrumentation, so this endpoint's cost was completely invisible. Routed through
@@ -73,6 +76,9 @@ namespace JackyAIApp.Server.Services.Exam
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Invalid conversation request.");
             }
 
+            if (ExamInputLimits.TooLong(request, ExamInputLimits.MaxConversationChars) is { } tooLong)
+                return tooLong;
+
             if (!await _accounts.ExistsAsync())
             {
                 return UserAccountFailures.Missing;
@@ -100,6 +106,9 @@ namespace JackyAIApp.Server.Services.Exam
             {
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Invalid conversation summary request.");
             }
+
+            if (ExamInputLimits.TooLong(request, ExamInputLimits.MaxConversationChars) is { } tooLong)
+                return tooLong;
 
             var (summary, error) = await _promptService.GetCompletionAsync<ConversationSummaryResponse>(
                 "Prompt/Exam/ConversationSummarySystem.txt",

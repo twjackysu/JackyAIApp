@@ -36,16 +36,22 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         // ── Save / read holdings ─────────────────────────────────────────────
 
-        public async Task SaveHoldingsAsync(string userId, SaveHoldingsRequest req, CancellationToken ct = default)
+        public async Task<ServiceResult<bool>> SaveHoldingsAsync(string userId, SaveHoldingsRequest req, CancellationToken ct = default)
         {
+            if (HoldingsLimits.Problem(req) is { } problem)
+                return ServiceResult.Fail(ErrorCodes.BadRequest, problem);
+
             var effectiveDate = req.EffectiveDate ?? Today;
-            var usdTwdRate = await priceLoader.FetchUsdTwdRateAsync(ct);
 
             // Replace any existing snapshot for that date (cascade deletes its positions)
             var existing = await db.HoldingSnapshots
                 .FirstOrDefaultAsync(s => s.UserId == userId && s.EffectiveDate == effectiveDate, ct);
             if (existing != null)
                 db.HoldingSnapshots.Remove(existing);
+            else if (await db.HoldingSnapshots.CountAsync(s => s.UserId == userId, ct) >= HoldingsLimits.MaxSnapshots)
+                return ServiceResult.Fail(ErrorCodes.BadRequest, HoldingsLimits.TooManySnapshotsMessage);
+
+            var usdTwdRate = await priceLoader.FetchUsdTwdRateAsync(ct);
 
             var snapshot = new HoldingSnapshot
             {
@@ -65,6 +71,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             db.HoldingSnapshots.Add(snapshot);
             await db.SaveChangesAsync(ct);
             snapshotReader.Invalidate(userId);
+            return ServiceResult.Ok(true);
         }
 
         public async Task<SaveHoldingsRequest> GetLatestHoldingsAsync(string userId, CancellationToken ct = default)

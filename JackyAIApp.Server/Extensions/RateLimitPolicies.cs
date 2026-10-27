@@ -59,6 +59,15 @@ namespace JackyAIApp.Server.Extensions
         internal const int PdfUnlockPermitsPerMinute = 10;
 
         /// <summary>
+        /// The job search (GET /api/job/listings), per address: it takes no sign-in, and each new search is a round of calls
+        /// to 104 and Cake (five pages) from the App Service's one address, which those sites may block for everyone if a
+        /// loop asks too often, and a cache entry for 30 minutes. A person searches a few times a minute at most (D-165).
+        /// </summary>
+        public const string JobSearch = "job-search";
+
+        internal const int JobSearchPermitsPerMinute = 20;
+
+        /// <summary>
         /// A dashboard widget's rows (GET /api/dashboard/{id}/widgets/{widgetId}/data), per reader, or per address for a
         /// visitor of an "Anyone" dashboard: each call runs the owner's saved query again on the owner's source (their own
         /// database for a custom one), with no sign-in and no usage charge for that visitor, so a loop on a shared link
@@ -123,6 +132,12 @@ namespace JackyAIApp.Server.Extensions
                 "address:" + ClientAddress(http),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = PdfUnlockPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
 
+        /// <summary>Each visitor's address its own window: the search takes no sign-in.</summary>
+        internal static RateLimitPartition<string> JobSearchPartition(HttpContext http) =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                "address:" + ClientAddress(http),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = JobSearchPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+
         /// <summary>A signed-in reader their own window; a visitor without a sign-in, their address's.</summary>
         internal static RateLimitPartition<string> DashboardWidgetDataPartition(HttpContext http)
         {
@@ -159,6 +174,7 @@ namespace JackyAIApp.Server.Extensions
                 options.AddPolicy(ChatAttachmentUpload, ChatAttachmentUploadPartition);
                 options.AddPolicy(PdfUnlock, PdfUnlockPartition);
                 options.AddPolicy(DashboardWidgetData, DashboardWidgetDataPartition);
+                options.AddPolicy(JobSearch, JobSearchPartition);
             });
 
         /// <summary>The same envelope <see cref="IMyResponseFactory"/> gives every other API error.</summary>

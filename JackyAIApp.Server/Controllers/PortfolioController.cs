@@ -49,11 +49,11 @@ namespace JackyAIApp.Server.Controllers
         }
 
         [HttpPut("holdings")]
+        [RequestSizeLimit(HoldingsLimits.MaxRequestBytes)]
         public async Task<IActionResult> SaveHoldings([FromBody] SaveHoldingsRequest req, CancellationToken ct)
         {
             var userId = currentUser.RequireId();
-            await portfolioService.SaveHoldingsAsync(userId, req, ct);
-            return responseFactory.CreateOKResponse(true);
+            return responseFactory.ToActionResult(await portfolioService.SaveHoldingsAsync(userId, req, ct));
         }
 
         [HttpPost("holdings/{symbol}/refresh-price")]

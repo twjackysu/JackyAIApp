@@ -25,6 +25,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Grades an open-ended writing submission and provides detailed feedback.</summary>
         [HttpPost("writing/evaluate")]
+        [RequestSizeLimit(ExamInputLimits.MaxRequestBytes)]
         [UsageLimit(UsageFeature.WritingEvaluation)]
         public async Task<IActionResult> EvaluateWriting([FromBody] WritingSubmissionRequest request) =>
             responseFactory.ToActionResult(await writing.GradeAsync(request));

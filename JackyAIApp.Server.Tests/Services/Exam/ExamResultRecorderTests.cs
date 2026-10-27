@@ -233,6 +233,23 @@ namespace JackyAIApp.Server.Tests.Services.Exam
         }
 
         [Fact]
+        public async Task RecordExamResult_WritingType_FeedsAtMostThePromptsWordCount()
+        {
+            // A prompt asks RequiredWordCount words; a request naming thousands is not a real result (D-165).
+            var words = await SeedUserWithWordsAsync(WritingExamService.RequiredWordCount + 2);
+            var ids = new List<string> { words[0].Id, words[0].Id };
+            ids.AddRange(words.Select(w => w.Id));
+            ids.AddRange(Enumerable.Range(0, 5000).Select(i => $"missing-{i}"));
+            var request = new RecordExamResultRequest { ExamType = "Writing", WritingWordIds = ids, Correct = true, Score = 90 };
+
+            var result = await _service.RecordAsync(request);
+
+            Assert.True(result.IsSuccess);
+            var scheduled = await _dbContext.UserWords.CountAsync(uw => uw.UserId == _testUserId && uw.NextReviewDate != null);
+            Assert.Equal(WritingExamService.RequiredWordCount, scheduled);
+        }
+
+        [Fact]
         public async Task RecordExamResult_DictationType_MissingWordId_ReturnsError()
         {
             await SeedUserAsync();

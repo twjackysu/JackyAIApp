@@ -118,6 +118,10 @@ public class CakeJobsProvider(IHttpClientFactory httpClientFactory, ILogger<Cake
             ? s
             : null;
 
+    /// <summary><paramref name="value"/> when it is an absolute https address, else null.</summary>
+    internal static string? HttpsUrl(string? value) =>
+        Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps ? value : null;
+
     private static JobListingDto? ParseJob(JsonElement job)
     {
         var title = GetString(job, "title") ?? "";
@@ -131,7 +135,8 @@ public class CakeJobsProvider(IHttpClientFactory httpClientFactory, ILogger<Cake
             if (job.TryGetProperty("external_company", out var ec) && ec.ValueKind == JsonValueKind.Object)
                 companyName = GetString(ec, "name") ?? companyName;
             id = $"cake-ext-{externalId}";
-            url = GetString(job, "source_url") ?? "https://www.cake.me/jobs";
+            // The employer's own address, as Cake relays it: only an https link goes on the card (D-165).
+            url = HttpsUrl(GetString(job, "source_url")) ?? "https://www.cake.me/jobs";
         }
         else
         {

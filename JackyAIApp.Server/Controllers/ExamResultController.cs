@@ -16,6 +16,8 @@ namespace JackyAIApp.Server.Controllers
     {
         /// <summary>Records an exam outcome to feed spaced repetition + per-word history. Free (no usage charge).</summary>
         [HttpPost("record-result")]
+        // A result is a few ids and a score; Kestrel would otherwise read about 28 MB of it (D-165).
+        [RequestSizeLimit(16 * 1024)]
         public async Task<IActionResult> RecordExamResult([FromBody] RecordExamResultRequest request) =>
             responseFactory.ToActionResult(await results.RecordAsync(request));
     }

@@ -156,13 +156,23 @@ namespace JackyAIApp.Server.Services.Portfolio
             return result;
         }
 
-        /// <summary>The requested symbols, trimmed, upper-cased and distinct; 0050 when none are left.</summary>
-        private static List<string> ResolveBenchmarkSymbols(IReadOnlyList<string>? requested)
+        /// <summary>The most benchmarks one comparison draws: the page offers four. Each is a deep price history — for a TW code,
+        /// a month at a time through the exchange's shared, paced lane — so a request naming hundreds would hold that lane
+        /// for everyone (D-165).</summary>
+        internal const int MaxBenchmarks = 4;
+
+        /// <summary>A symbol longer than this is no symbol (the same length the AI's <c>update_holding</c> takes).</summary>
+        internal const int MaxSymbolLength = 40;
+
+        /// <summary>The requested symbols, trimmed, upper-cased and distinct, at most <see cref="MaxBenchmarks"/>;
+        /// 0050 when none are left.</summary>
+        internal static List<string> ResolveBenchmarkSymbols(IReadOnlyList<string>? requested)
         {
             var symbols = (requested == null || requested.Count == 0
                     ? DefaultBenchmarkSymbols
-                    : requested.Select(s => s.Trim().ToUpperInvariant()).Where(s => s.Length > 0))
+                    : requested.Select(s => s.Trim().ToUpperInvariant()).Where(s => s.Length is > 0 and <= MaxSymbolLength))
                 .Distinct()
+                .Take(MaxBenchmarks)
                 .ToList();
             return symbols.Count > 0 ? symbols : [.. DefaultBenchmarkSymbols];
         }

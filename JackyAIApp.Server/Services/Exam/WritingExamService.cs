@@ -45,6 +45,10 @@ namespace JackyAIApp.Server.Services.Exam
 
         private const string WritingFeature = "exam.writing_evaluation";
 
+        /// <summary>How many of the reader's saved words a writing prompt asks for, so also the most a recorded result
+        /// feeds to the review schedule (<see cref="ExamResultRecorder"/>).</summary>
+        public const int RequiredWordCount = 5;
+
         /// <summary>
         /// Serves an open-ended writing prompt: a topic from a fixed rotation plus up to 5 of the
         /// calling user's own saved words. Both plain DB queries — no AI call, so this is
@@ -59,7 +63,7 @@ namespace JackyAIApp.Server.Services.Exam
             }
 
             var topic = WritingTopics[Random.Shared.Next(WritingTopics.Length)];
-            var words = await _wordPicker.PickSavedWordsAsync(userId, 5);
+            var words = await _wordPicker.PickSavedWordsAsync(userId, RequiredWordCount);
 
             return ServiceResult.Ok(new WritingPromptResponse
             {
@@ -78,6 +82,9 @@ namespace JackyAIApp.Server.Services.Exam
             {
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Input cannot be null or empty.");
             }
+
+            if (ExamInputLimits.TooLong(request, ExamInputLimits.MaxWritingChars) is { } tooLong)
+                return tooLong;
 
             var example = (
                 User: AiJson.Serialize(new WritingSubmissionRequest

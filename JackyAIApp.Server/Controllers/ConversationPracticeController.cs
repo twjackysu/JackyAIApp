@@ -16,18 +16,21 @@ namespace JackyAIApp.Server.Controllers
     {
         /// <summary>Starts a new conversation test by generating a scenario and first message.</summary>
         [HttpPost("conversation/start")]
+        [RequestSizeLimit(ExamInputLimits.MaxRequestBytes)]
         [UsageLimit(UsageFeature.ConversationStart)]
         public async Task<IActionResult> StartConversationTest([FromBody] ConversationStartRequest request) =>
             responseFactory.ToActionResult(await conversations.StartAsync(request));
 
         /// <summary>Processes user's response in a conversation and generates AI response with corrections if needed.</summary>
         [HttpPost("conversation/respond")]
+        [RequestSizeLimit(ExamInputLimits.MaxRequestBytes)]
         [UsageLimit(UsageFeature.ConversationResponse)]
         public async Task<IActionResult> RespondToConversation([FromBody] ConversationResponseRequest request) =>
             responseFactory.ToActionResult(await conversations.RespondAsync(request));
 
         /// <summary>Generates an end-of-session recap for a conversation (corrections, phrasings, word suggestions).</summary>
         [HttpPost("conversation/summary")]
+        [RequestSizeLimit(ExamInputLimits.MaxRequestBytes)]
         [UsageLimit(UsageFeature.ConversationSummary)]
         public async Task<IActionResult> SummarizeConversation([FromBody] ConversationSummaryRequest request) =>
             responseFactory.ToActionResult(await conversations.SummarizeAsync(request));

@@ -28,6 +28,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Generates a translation quality grading.</summary>
         [HttpPost("translation/quality_grading")]
+        [RequestSizeLimit(ExamInputLimits.MaxRequestBytes)]
         [UsageLimit(UsageFeature.TranslationGrading)]
         public async Task<IActionResult> GetTranslationQualityGrading([FromBody] TranslationTestUserResponse userResponse) =>
             responseFactory.ToActionResult(await wordExams.GradeTranslationAsync(userResponse));
@@ -40,6 +41,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Evaluates a user's sentence formation response and provides detailed feedback.</summary>
         [HttpPost("sentence/evaluate")]
+        [RequestSizeLimit(ExamInputLimits.MaxRequestBytes)]
         [UsageLimit(UsageFeature.SentenceEvaluation)]
         public async Task<IActionResult> EvaluateSentence([FromBody] SentenceTestUserResponse userResponse) =>
             responseFactory.ToActionResult(await wordExams.EvaluateSentenceAsync(userResponse));

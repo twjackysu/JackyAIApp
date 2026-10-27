@@ -1,7 +1,9 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Job;
 using JackyAIApp.Server.Services.Job;
+using JackyAIApp.Server.Extensions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace JackyAIApp.Server.Controllers;
 
@@ -20,6 +22,7 @@ public class JobController(
     /// Results are sorted by post date (newest first) and cached for 30 minutes.
     /// </summary>
     [HttpGet("listings")]
+    [EnableRateLimiting(RateLimitPolicies.JobSearch)]
     public async Task<IActionResult> GetListings(
         [FromQuery] string keywords = "software engineer",
         [FromQuery] string strategy = "AND",
@@ -28,6 +31,9 @@ public class JobController(
     {
         if (string.IsNullOrWhiteSpace(keywords))
             return responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Keywords cannot be empty.");
+        if (keywords.Trim().Length > JobAggregatorService.MaxKeywordsLength)
+            return responseFactory.CreateErrorResponse(ErrorCodes.BadRequest,
+                $"關鍵字最多 {JobAggregatorService.MaxKeywordsLength} 個字。");
 
         var strategyNorm = strategy.Equals("OR", StringComparison.OrdinalIgnoreCase) ? "OR" : "AND";
 
