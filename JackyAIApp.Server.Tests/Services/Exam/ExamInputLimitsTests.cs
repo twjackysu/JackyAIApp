@@ -26,6 +26,48 @@ namespace JackyAIApp.Server.Tests.Services.Exam
             Assert.Equal(ExamInputLimits.TooLongMessage, refused.Value.Message);
         }
 
+        private static ConversationResponseRequest LongConversation(int turns, string userMessage = "How about the dessert?") => new()
+        {
+            ConversationContext = new ConversationContext { Scenario = "restaurant", UserRole = "customer", AiRole = "waiter", TurnNumber = turns },
+            ConversationHistory = [.. Enumerable.Range(0, turns).Select(i => new ConversationTurn
+            {
+                Speaker = i % 2 == 0 ? "ai" : "user",
+                Message = $"turn {i}: " + new string('w', 300),
+            })],
+            UserMessage = userMessage,
+        };
+
+        [Fact]
+        public void ALongConversation_ForgetsItsOldestTurns_ToFit()
+        {
+            // The page sends the whole history every turn: a long practice goes on, it is not refused.
+            var request = LongConversation(300);
+            Assert.NotNull(ExamInputLimits.TooLong(request, ExamInputLimits.MaxConversationChars));
+
+            ExamInputLimits.TrimOldestTurns(request, request.ConversationHistory, ExamInputLimits.MaxConversationChars);
+
+            Assert.Null(ExamInputLimits.TooLong(request, ExamInputLimits.MaxConversationChars));
+            Assert.InRange(request.ConversationHistory.Count, 100, 299);
+            Assert.StartsWith("turn 299:", request.ConversationHistory[^1].Message);
+            // Only what had to go: one more turn would not have fitted.
+            var oneMore = LongConversation(300);
+            oneMore.ConversationHistory.RemoveRange(0, 300 - request.ConversationHistory.Count - 1);
+            Assert.NotNull(ExamInputLimits.TooLong(oneMore, ExamInputLimits.MaxConversationChars));
+        }
+
+        [Fact]
+        public void AShortConversation_IsLeftWhole_AndOneHugeMessage_StillTooLong()
+        {
+            var shortOne = LongConversation(10);
+            ExamInputLimits.TrimOldestTurns(shortOne, shortOne.ConversationHistory, ExamInputLimits.MaxConversationChars);
+            Assert.Equal(10, shortOne.ConversationHistory.Count);
+
+            var huge = LongConversation(10, new string('x', ExamInputLimits.MaxConversationChars));
+            ExamInputLimits.TrimOldestTurns(huge, huge.ConversationHistory, ExamInputLimits.MaxConversationChars);
+            Assert.Empty(huge.ConversationHistory);
+            Assert.NotNull(ExamInputLimits.TooLong(huge, ExamInputLimits.MaxConversationChars));
+        }
+
         [Theory]
         [InlineData(typeof(WordExamController), nameof(WordExamController.GetTranslationQualityGrading))]
         [InlineData(typeof(WordExamController), nameof(WordExamController.EvaluateSentence))]

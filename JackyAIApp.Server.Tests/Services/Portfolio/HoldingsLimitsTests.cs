@@ -98,7 +98,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 .GetCustomAttribute<RequestSizeLimitAttribute>();
             // Without it Kestrel reads up to its default (about 28 MB) before the save can refuse.
             Assert.NotNull(limit);
-            Assert.Equal(256 * 1024, HoldingsLimits.MaxRequestBytes);
+            Assert.Equal(512 * 1024, HoldingsLimits.MaxRequestBytes);
         }
     }
 }

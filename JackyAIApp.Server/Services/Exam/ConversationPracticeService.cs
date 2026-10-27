@@ -76,6 +76,7 @@ namespace JackyAIApp.Server.Services.Exam
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Invalid conversation request.");
             }
 
+            ExamInputLimits.TrimOldestTurns(request, request.ConversationHistory, ExamInputLimits.MaxConversationChars);
             if (ExamInputLimits.TooLong(request, ExamInputLimits.MaxConversationChars) is { } tooLong)
                 return tooLong;
 
@@ -107,6 +108,7 @@ namespace JackyAIApp.Server.Services.Exam
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Invalid conversation summary request.");
             }
 
+            ExamInputLimits.TrimOldestTurns(request, request.ConversationHistory, ExamInputLimits.MaxConversationChars);
             if (ExamInputLimits.TooLong(request, ExamInputLimits.MaxConversationChars) is { } tooLong)
                 return tooLong;
 

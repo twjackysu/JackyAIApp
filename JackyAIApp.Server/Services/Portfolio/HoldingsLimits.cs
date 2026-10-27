@@ -11,14 +11,15 @@ namespace JackyAIApp.Server.Services.Portfolio
     public static class HoldingsLimits
     {
         /// <summary>The save's request body (<c>[RequestSizeLimit]</c> on the action): 300 rows at their longest fit well inside.</summary>
-        public const int MaxRequestBytes = 256 * 1024;
+        public const int MaxRequestBytes = 512 * 1024;
 
         public const int MaxPositions = 300;
 
         /// <summary>The same length the AI's <c>update_holding</c> takes for a symbol.</summary>
         public const int MaxSymbolLength = 40;
 
-        public const int MaxNameLength = 100;
+        /// <summary>A fund's name as FundRich gives it can run to 80 characters with its notes.</summary>
+        public const int MaxNameLength = 200;
 
         /// <summary>Market, currency and valuation method are short codes or labels ("TW", "USD", "買價扣除折舊").</summary>
         public const int MaxCodeLength = 20;

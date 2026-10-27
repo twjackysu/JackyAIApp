@@ -192,7 +192,7 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   their own DTO, and one typed method each on `IWordExamService`, which picks the word for all of them
 - What a reader writes for an AI-graded exam (translation, sentence, writing, conversation) is measured as the JSON the prompt
   carries and refused past `ExamInputLimits` (4,000 / 20,000 / 40,000 characters) before the model is asked, so the charge is
-  refunded; those endpoints and `record-result` hold their request body with `[RequestSizeLimit]` (Kestrel otherwise reads about
+  refunded (a conversation first drops its oldest turns to fit, `TrimOldestTurns`: the page sends the whole history each turn); those endpoints and `record-result` hold their request body with `[RequestSizeLimit]` (Kestrel otherwise reads about
   28 MB first). A writing result feeds at most `WritingExamService.RequiredWordCount` words to the review schedule, in one query (D-165)
 - A spoken answer's transcription (`whisper/transcribe`) costs one unit whatever its length while Whisper bills by the minute,
   so a recording is held to `ConversationPracticeController.MaxAudioBytes` (4 MB, refused before Whisper is asked, so the
@@ -201,8 +201,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 
 ## Portfolio
 
-- A save of holdings is bounded (`HoldingsLimits`, D-165): its request 256 KB, at most 300 rows, a symbol 40 characters,
-  a name 100, a market, currency or valuation method 20, and a reader keeps at most 2000 snapshots (a save on a date already
+- A save of holdings is bounded (`HoldingsLimits`, D-165): its request 512 KB, at most 300 rows, a symbol 40 characters,
+  a name 200, a market, currency or valuation method 20, and a reader keeps at most 2000 snapshots (a save on a date already
   kept replaces it, so only a new date counts) — beyond them a BadRequest and nothing saved. `SaveHoldingsAsync` answers a
   `ServiceResult<bool>`, which `update_holding` reports as a failed call. A benchmark comparison draws at most 4 symbols
   (`BenchmarkComparisonService.MaxBenchmarks`): each is a deep history through the exchange's shared lane
