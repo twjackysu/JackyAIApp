@@ -360,6 +360,13 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   drops any text it had, so reopening the conversation shows what the reader saw, and the model never
   takes a cut-off answer for a finished one. Server and client keep to this together (`TurnVerdictTests`,
   and the assistant panel's test for a reply that fails after some text)
+- What a reader sends is bounded before it costs memory or is stored (D-158): a message at most
+  `ChatbotController.MaxMessageLength` (20,000 UTF-16 code units, the client's `MAX_MESSAGE_LENGTH`, held to it by its test)
+  and its request 1 MB, refused with 400 before any charge, since a message is stored before the model is asked and kept
+  when the answer fails; an attachment's upload 20 a minute per reader (`RateLimitPolicies.ChatAttachmentUpload`); a Word or
+  Excel attachment read with each XML part at most `AttachmentTextExtractor.MaxCharactersInPart` (a zip unzips to far more
+  than its 10 MB), a cell past Excel's last column (`MaxColumns`) left out rather than padded to, and reading stopped just
+  past `MaxChars`. The anonymous PDF unlocker is held to 10 a minute per address (`RateLimitPolicies.PdfUnlock`)
 - The Anthropic client comes from `IAnthropicClientFactory`, so `AnthropicChatStreamTests` can give the real
   SDK an `HttpClient` serving recorded API streams: a whole turn is tested offline, from the SSE the reader
   gets to what is saved and logged. A change to how a turn reads the stream gets a case there
@@ -514,6 +521,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   allowed viewer sees it, and passes `viewerIsOwner` so no other viewer gets that text. Each answer is a record (`MaxDateDto`, `DistinctValuesDto`, `SummarizeRowsDto`, `DetailsPageDto`).
   An export hands its rows to the controller's CSV writer while the service still holds the gate that lets
   two run at once
+- The anonymous session upload's rows are read by `SessionRowsJsonConverter`, which counts their estimated size in memory as
+  `SessionDataStore.Measure` does while it reads and stops past `SessionUploadOptions.MaxReadBytes` (a 400): the admission
+  filter only sees the body's length, and tiny cells cost far more in memory than in JSON (D-158)
 - Tests build the controller with `TestHelpers/DataAnalysisControllerBuilder`, never its constructor;
   `DataAnalysisControllerResponseTests` pins what each endpoint answers
 - The page's AI assistant is the chat profile `data-analysis` (`Services/DataAnalysis/Assistant`,
