@@ -3,6 +3,8 @@ import SendIcon from '@mui/icons-material/Send';
 import { IconButton, Paper, Stack, TextField, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
+import { SEND_FAILED_RETRY_NOTE } from '../conversationErrors';
+
 import { ActionTooltip } from '@/components/hints';
 import { START_RECORDING_LABEL } from '@/hooks/useVoiceRecording';
 
@@ -14,6 +16,8 @@ interface MessageInputProps {
   isRecording: boolean;
   /** A line about the last recording (it stopped by itself, or was not turned into text). */
   recordingNote?: string | null;
+  /** Why the last message got no reply (it is back in the box). */
+  sendError?: string | null;
   isTranscribing: boolean;
   isResponding: boolean;
   mediaRecorder: MediaRecorder | null;
@@ -26,6 +30,7 @@ function MessageInput({
   onToggleRecording,
   isRecording,
   recordingNote,
+  sendError,
   isTranscribing,
   isResponding,
   mediaRecorder,
@@ -114,6 +119,11 @@ function MessageInput({
       {recordingNote && !isTranscribing && (
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
           {recordingNote}
+        </Typography>
+      )}
+      {sendError && !isResponding && (
+        <Typography role="alert" variant="body2" color="error" sx={{ mt: 1, textAlign: 'center' }}>
+          {sendError} {SEND_FAILED_RETRY_NOTE}
         </Typography>
       )}
     </Paper>

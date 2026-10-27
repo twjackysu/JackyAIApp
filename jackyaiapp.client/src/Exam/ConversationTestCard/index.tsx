@@ -6,6 +6,7 @@ import ConversationHeader from './components/ConversationHeader';
 import ConversationSummary from './components/ConversationSummary';
 import MessageInput from './components/MessageInput';
 import ScenarioSelector from './components/ScenarioSelector';
+import { SEND_FAILED_MESSAGE, SUMMARY_FAILED_MESSAGE } from './conversationErrors';
 import { useVoiceRecording, useAutoScroll } from './hooks';
 
 import {
@@ -14,6 +15,7 @@ import {
   useSummarizeConversationMutation,
 } from '@/apis/examApis';
 import { ConversationContext, ConversationTurn, DeliveryFeedback } from '@/apis/examApis/types';
+import { getApiErrorMessage, getCaughtErrorMessage } from '@/apis/utils/errorMessage';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 
@@ -36,13 +38,16 @@ function ConversationTestCard() {
   const [pendingDeliveryFeedback, setPendingDeliveryFeedback] = useState<DeliveryFeedback | null>(
     null,
   );
+  // Why the last message got no reply. The message itself goes back into the box, so sending again
+  // is one press; cleared by the next send or a new conversation.
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const [startConversation, { isLoading: isStarting, error: startError }] =
     useStartConversationTestMutation();
   const [respondToConversation, { isLoading: isResponding }] = useRespondToConversationMutation();
   const [
     summarizeConversation,
-    { data: summaryData, isLoading: isSummarizing, reset: resetSummary },
+    { data: summaryData, isLoading: isSummarizing, error: summaryError, reset: resetSummary },
   ] = useSummarizeConversationMutation();
 
   // Custom hooks
@@ -98,6 +103,7 @@ function ConversationTestCard() {
     const deliveryFeedback = pendingDeliveryFeedback ?? undefined;
     setInput('');
     setPendingDeliveryFeedback(null);
+    setSendError(null);
 
     // First, immediately add user's message to the conversation
     setConversationState((prev) => ({
@@ -129,8 +135,17 @@ function ConversationTestCard() {
         return { ...prev!, history };
       });
     } catch (error) {
-      console.error('Failed to send message:', error);
-      // If error occurs, you might want to remove the user message or show an error
+      // The reply never came, so the turn did not happen: take the message back out of the
+      // transcript (the next request would otherwise send it as history with no answer after it)
+      // and put it back in the box, with its delivery feedback, to send again.
+      setConversationState((prev) => ({
+        ...prev!,
+        context: { ...prev!.context, turnNumber: prev!.context.turnNumber - 1 },
+        history: prev!.history.slice(0, userTurnIndex),
+      }));
+      setInput((current) => (current.trim() ? current : userMessage));
+      setPendingDeliveryFeedback(deliveryFeedback ?? null);
+      setSendError(getCaughtErrorMessage(error, SEND_FAILED_MESSAGE));
     }
   };
 
@@ -142,8 +157,8 @@ function ConversationTestCard() {
         conversationContext: conversationState.context,
         conversationHistory: conversationState.history,
       }).unwrap();
-    } catch (error) {
-      console.error('Failed to summarize conversation:', error);
+    } catch {
+      // Shown in the summary dialog (summaryError).
     }
   };
 
@@ -151,6 +166,7 @@ function ConversationTestCard() {
     setConversationState(null);
     setInput('');
     setPendingDeliveryFeedback(null);
+    setSendError(null);
     setShowSummary(false);
     resetSummary();
   };
@@ -205,6 +221,7 @@ function ConversationTestCard() {
         isResponding={isResponding}
         mediaRecorder={mediaRecorder}
         recordingNote={recordingNote}
+        sendError={sendError}
       />
 
       <Box
@@ -250,6 +267,7 @@ function ConversationTestCard() {
         open={showSummary}
         summary={summaryData?.data ?? null}
         isLoading={isSummarizing}
+        error={summaryError ? getApiErrorMessage(summaryError, SUMMARY_FAILED_MESSAGE) : null}
         onClose={() => setShowSummary(false)}
         onStartNew={handleNewConversation}
       />

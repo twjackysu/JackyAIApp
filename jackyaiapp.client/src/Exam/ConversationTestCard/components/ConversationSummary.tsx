@@ -24,6 +24,8 @@ interface ConversationSummaryProps {
   open: boolean;
   summary: ConversationSummaryResponse | null;
   isLoading: boolean;
+  /** Why there is no summary, when making it failed. */
+  error?: string | null;
   onClose: () => void;
   onStartNew: () => void;
 }
@@ -32,6 +34,7 @@ function ConversationSummary({
   open,
   summary,
   isLoading,
+  error,
   onClose,
   onStartNew,
 }: ConversationSummaryProps) {
@@ -75,6 +78,7 @@ function ConversationSummary({
             正在整理這次對話的重點...
           </Typography>
         )}
+        {!isLoading && !summary && error && <Alert severity="error">{error}</Alert>}
         {!isLoading && summary && (
           <Stack spacing={3}>
             <Box>
