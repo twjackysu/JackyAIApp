@@ -25,8 +25,6 @@ namespace JackyAIApp.Server.Services.Market
         private readonly ITwseOpenApi _twse;
         private readonly ILogger<MarketOverviewProvider> _logger;
 
-        private static readonly string CHART_URL = YahooChart.ChartBase;
-
         /// <summary>The ticker served from TWSE instead of Yahoo; kept in <see cref="Tickers"/> for its place.</summary>
         internal const string TaiexSymbol = "^TWII";
 
@@ -75,7 +73,7 @@ namespace JackyAIApp.Server.Services.Market
         {
             try
             {
-                var url = $"{CHART_URL}/{Uri.EscapeDataString(symbol)}?range=1d&interval=1d";
+                var url = YahooChart.SymbolUrl(symbol, "range=1d&interval=1d");
 
                 var client = _httpClientFactory.CreateClient("ExternalReadOnly");
                 using var request = YahooChart.Request(url);

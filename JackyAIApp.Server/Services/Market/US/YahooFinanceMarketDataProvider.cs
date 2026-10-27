@@ -16,7 +16,6 @@ namespace JackyAIApp.Server.Services.Market.US
         private readonly IMemoryCache _cache;
         private readonly ILogger<YahooFinanceMarketDataProvider> _logger;
 
-        private static readonly string CHART_URL = YahooChart.ChartBase;
         private const int CACHE_HOURS = 1;
 
         public DataProviderType Type => DataProviderType.HistoricalPrice;
@@ -44,7 +43,7 @@ namespace JackyAIApp.Server.Services.Market.US
             return await _cache.GetOrCreateSingleFlightAsync($"Yahoo_Chart_{symbol}", TimeSpan.FromHours(CACHE_HOURS), async () =>
             {
                 // Shared by every caller waiting on it, so no one caller's token may stop it.
-                var url = $"{CHART_URL}/{symbol}?range=6mo&interval=1d&includePrePost=false";
+                var url = YahooChart.SymbolUrl(symbol, "range=6mo&interval=1d&includePrePost=false");
                 var result = await FetchUrlAsync(url, symbol, CancellationToken.None);
                 _logger.LogInformation("Fetched {count} price records for {symbol} from Yahoo Finance",
                     result.HistoricalPrices.Count, symbol);
@@ -67,7 +66,7 @@ namespace JackyAIApp.Server.Services.Market.US
             var symbol = stockCode.ToUpperInvariant();
             var period1 = new DateTimeOffset(DateTime.SpecifyKind(startDate, DateTimeKind.Utc)).ToUnixTimeSeconds();
             var period2 = new DateTimeOffset(DateTime.SpecifyKind(endDate, DateTimeKind.Utc)).ToUnixTimeSeconds();
-            var url = $"{CHART_URL}/{symbol}?period1={period1}&period2={period2}&interval=1d&includePrePost=false";
+            var url = YahooChart.SymbolUrl(symbol, $"period1={period1}&period2={period2}&interval=1d&includePrePost=false");
             return await FetchUrlAsync(url, symbol, cancellationToken);
         }
 

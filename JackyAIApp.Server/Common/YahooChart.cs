@@ -11,6 +11,12 @@ namespace JackyAIApp.Server.Common
     {
         public const string ChartBase = "https://query1.finance.yahoo.com/v8/finance/chart";
 
+        /// <summary>The chart URL for <paramref name="symbol"/> with <paramref name="query"/> (no leading <c>?</c>).
+        /// The symbol is escaped: it can come from what a reader typed (a holding, a stock code), and a <c>/</c>,
+        /// <c>?</c> or <c>#</c> in it would otherwise reach another path or query on Yahoo's host.</summary>
+        public static string SymbolUrl(string symbol, string query) =>
+            $"{ChartBase}/{Uri.EscapeDataString(symbol)}?{query}";
+
         /// <summary>A GET for <paramref name="url"/> carrying the User-Agent Yahoo requires.</summary>
         public static HttpRequestMessage Request(string url)
         {

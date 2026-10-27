@@ -55,7 +55,6 @@ namespace JackyAIApp.Server.Services.Portfolio
         IMemoryCache cache,
         ILogger<DividendService> logger) : IDividendService
     {
-        private static readonly string YAHOO_CHART_URL = YahooChart.ChartBase;
         private const string FUND_DIVIDEND_URL = "https://apis.fundrich.com.tw/FRSDataCenter/GetFundDividendHistory";
 
         public async Task<List<DividendRecord>> GetStockDividendsAsync(string symbol, string market, CancellationToken ct = default)
@@ -105,7 +104,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         {
             var client = httpClientFactory.CreateClient("ExternalReadOnly");
             // interval=1mo keeps the payload small — only the events block is needed, not daily bars.
-            var url = $"{YAHOO_CHART_URL}/{yahooSymbol}?range=5y&interval=1mo&events=div";
+            var url = YahooChart.SymbolUrl(yahooSymbol, "range=5y&interval=1mo&events=div");
 
             using var request = YahooChart.Request(url);
             using var response = await client.SendAsync(request, ct);
