@@ -135,6 +135,32 @@ describe('ToolCards', () => {
     expect(a.getAttribute('rel')).toBe('noopener noreferrer');
   });
 
+  it("names the host an outside link goes to, whatever the tool's title says", () => {
+    render([
+      step('l', {
+        kind: 'link',
+        title: '台積電官網',
+        description: null,
+        href: 'https://login.example.net/tsmc',
+        actionLabel: null,
+      }),
+    ]);
+    expect(container.textContent).toContain('login.example.net');
+  });
+
+  it('names no host for a page on this site', () => {
+    render([
+      step('l', {
+        kind: 'link',
+        title: 'Repo',
+        description: null,
+        href: '/english/repository',
+        actionLabel: null,
+      }),
+    ]);
+    expect(container.textContent).toBe('Repo前往');
+  });
+
   it("draws an app's own kind with the app's renderer, in the order the tools ran", () => {
     const Chart = ({ card }: { card: CustomCard }) => <span>[chart {card.title}]</span>;
     render(

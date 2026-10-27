@@ -93,7 +93,7 @@ jackyaiapp.client/src/
   nothing a tool read can steer them). What a tool's
   result shows in the answer is a card (`tool_result.card`, `cards/`): it comes from a tool, so it is
   untrusted, and `parseToolCard` keeps only plain text and numbers within limits and links to this site
-  or https. The chat draws `table` and `link`; another kind is drawn by the app's renderer for it
+  or https. The chat draws `table` and `link` (an outside link names its host under the title, `cards/linkHost`, a lookalike name in its punycode form: the title is the tool's words, D-160); another kind is drawn by the app's renderer for it
   (`AiChatConfig.cardRenderers`), or not at all. A card that is a table (a table card, or an app's card `AiChatConfig.cardTables` reads as one:
   Data Analysis's chart) has 複製表格 and 下載 CSV under it (`cards/TableCardActions`, `cards/tableExport`, D-150): tab-separated
   cells for a spreadsheet's paste, or a CSV with a BOM (so Excel reads Chinese), numbers plain, the rows on screen only (and it says

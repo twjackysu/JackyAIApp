@@ -2,12 +2,15 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { Box, Button, Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 
+import { linkHostOf } from './linkHost';
+
 import type { LinkCard } from './toolCard';
 
 /** Somewhere the answer points to: a page on this site (same tab), or https (a new one). */
 export default function LinkCardView({ card }: { card: LinkCard }) {
   const internal = card.href.startsWith('/');
   const label = card.actionLabel ?? (internal ? '前往' : '開啟');
+  const host = linkHostOf(card.href);
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
       <Box sx={{ flex: 1, minWidth: 160 }}>
@@ -15,6 +18,15 @@ export default function LinkCardView({ card }: { card: LinkCard }) {
         {card.description && (
           <Typography variant="body2" color="text.secondary">
             {card.description}
+          </Typography>
+        )}
+        {host && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', overflowWrap: 'anywhere' }}
+          >
+            {host}
           </Typography>
         )}
       </Box>
