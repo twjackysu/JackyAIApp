@@ -222,6 +222,7 @@ flowchart LR
 - [ ] **Cloudflare**：`/api/mcp`、`/api/oauth/*`、`/.well-known/*` 會被非瀏覽器的 client（Claude Code、mcp-remote）呼叫；若開了 Bot Fight Mode／Super Bot Fight Mode，請替 `apps.jacky-studio.com/api/mcp` 加例外（FOR_JACKY 9）。
 - [ ] **既有帳號連線的行為變更**（D-155）：Google／Microsoft／Atlassian 的 OAuth callback 現在要求回來的瀏覽器登入的是開始授權的那個帳號（防 login CSRF）。正常在 /connectors 按「連線」不受影響；合併後請實際連一次 Google 確認。
 - [ ] **既有功能多了上限**（D-158）：AI 助理一則訊息最多 2 萬字（輸入框會說明、長文改附加文字檔）；附件上傳每人每分鐘 20 次；`/pdf` 解鎖每個位址每分鐘 10 次；Word／Excel 附件解開後單一 XML 超過 1600 萬字就讀不出；/data-analysis 上傳的資料列讀進記憶體超過約 128 MB 就拒絕。正常使用碰不到，若有人回報「訊息太長」或 429 再調。
+- [ ] **再兩個上限**（D-159）：考試的錄音轉文字最多 4 MB（錄音 2 分鐘自動停並照常轉文字，麥克風提示「最長 2 分鐘」，轉文字失敗時輸入框下方會說）；/data-analysis 的匿名上傳每個人（登入者或位址）最多佔 128 MB（app setting `DataAnalysis__SessionUpload__MaxBytesPerCaller`）。
 - [ ] 用量：AI 對話照既有每日預算計費（每則訊息 `UsageCosts.ForChatMessage`、`ask_data` 照 問 AI）。
 
 ## 本機試跑
@@ -289,5 +290,6 @@ flowchart LR
 | 10/27 | 40 | **表格一鍵變圖**：表格卡片「畫成圖」（長條／折線／圓餅、一次一欄、照排序、日期自動折線；ECharts 延遲載入、失敗退回表格；D-153） |
 | 10/27 | 41 | **合併前安全巡檢**：OAuth callback 只接受開始授權的那位使用者（防 login CSRF，MCP 與既有 Google／Microsoft／Atlassian 連線一併修）、自填 MCP server 每個回應最多 8 MB（D-155）；工具清單上限、probe 頻率限制（D-156）；AI 回答的圖片不載入（防資料外洩）、Sankey tooltip 的 stored XSS（D-157） |
 | 10/27 | 42 | **合併前安全巡檢：上傳與附件**：Word／Excel 附件的解壓上限與欄位上限（一格就能吃光記憶體）、chat 訊息 2 萬字（失敗退款但已存，原本可灌爆 DB）、匿名 session 上傳邊讀邊量記憶體、附件上傳與 PDF 解鎖的頻率限制（D-158） |
+| 10/27 | 43 | 巡檢未修的兩項：錄音轉文字 4 MB、錄音 2 分鐘自動停（Whisper 依分鐘計費、一次只收 1 單位）、匿名上傳每人最多佔一半預算（D-159）；錄音失敗不再無聲無息；**外站連結卡片寫出主機**（仿冒網域顯示成 punycode，D-160） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。
