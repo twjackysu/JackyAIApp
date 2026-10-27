@@ -31,10 +31,9 @@ export interface DashboardDetail {
   widgets: DashboardWidget[];
 }
 
+/** A member of a Restricted dashboard, as its owner named them (the server sends the email only). */
 export interface ShareMember {
-  userId: string;
   email?: string | null;
-  name?: string | null;
 }
 
 export interface ShareSettings {

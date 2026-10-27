@@ -32,11 +32,13 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
         public required List<ShareMemberDto> Members { get; init; }
     }
 
+    /// <summary>
+    /// A user a Restricted dashboard is shared with, as the owner named them: the email only. Their name and account id
+    /// are not the owner's to read — any signed-in user can share a dashboard of their own with any email (D-163).
+    /// </summary>
     public sealed record ShareMemberDto
     {
-        public required string UserId { get; init; }
         public string? Email { get; init; }
-        public string? Name { get; init; }
     }
 
     /// <summary>Set visibility and (for Restricted) the full set of allowed users by email.</summary>

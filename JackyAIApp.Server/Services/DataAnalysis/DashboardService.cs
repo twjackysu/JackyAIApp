@@ -196,7 +196,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         {
             Visibility = dash.Visibility,
             Members = dash.Shares
-                .Select(s => new ShareMemberDto { UserId = s.UserId, Email = s.User?.Email, Name = s.User?.Name })
+                .Select(s => new ShareMemberDto { Email = s.User?.Email })
                 .ToList(),
         };
 

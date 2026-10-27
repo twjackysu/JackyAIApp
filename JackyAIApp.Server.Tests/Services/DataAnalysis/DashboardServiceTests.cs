@@ -107,8 +107,10 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
 
             Assert.Equal(DashboardVisibility.Restricted, result.Data!.Visibility);
             var member = Assert.Single(result.Data.Members);
-            Assert.Equal(Friend, member.UserId);
-            Assert.Equal("Friend", member.Name);
+            Assert.Equal("friend@example.com", member.Email);
+            Assert.Equal(Friend, _db.DashboardShares.Single().UserId);
+            // The owner sees the email they typed, not the member's name or account id (D-163).
+            Assert.Equal(new[] { "Email" }, typeof(ShareMemberDto).GetProperties().Select(p => p.Name));
         }
 
         [Fact]
