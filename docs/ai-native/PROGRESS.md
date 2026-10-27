@@ -1,5 +1,15 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-27 11:42 – 第 41 輪（合併前安全巡檢）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，直接 fetch／push。
+- **安全巡檢**（subagent 唯讀，D-155）：本站 MCP server 與 OAuth 授權伺服器、MCP client 的 OAuth、SSRF。無高風險。
+  - 中：**OAuth callback 沒確認回來的是開始授權的人**（login CSRF：把自己 connector 的授權網址寄給別人，別人按允許後他的帳號會連進寄件者的 connector）。`McpOAuthFlow.CompleteAsync` 與 master 既有的 `ConnectorService.HandleCallbackAsync` 都改成要求 `currentUser.Id` 等於 state 的使用者；MCP 回 `wrong_account`（不用掉待完成的授權、不帶 connector 名稱），/connectors 有對應訊息。測試 `McpOAuthFlowTests`（另一人／未登入）、新的 `ConnectorServiceCallbackTests`。
+  - 低：自填 MCP server 的回應沒有大小上限 → `ResponseSizeLimit`（8 MB，`Content-Length` 超過就拒、串流讀到超過就中斷），`Classify` 說「回應太大」。測試 `ResponseSizeLimitTests`、`McpToolClientTests`（9 MB 的 tools/list）。
+- **第二次巡檢：授權／IDOR／濫用**（subagent 唯讀，D-156）：沒有跨使用者讀寫的路徑。已修：中——MCP 工具清單沒有總量上限（SDK 會一直跟 `nextCursor`、schema 不截）→ 自己分頁最多 5 頁、同名一次、schema 超過 32k 字不收、合計 400k、標題 100 字；低——probe／新增／test 沒有頻率限制 → `connector-probe` 每人每分鐘 20 次。不改：`ask_data` 不標外部文字（會讓「存完打開」失效，理由見 D-156）。
+- 驗證：cscheck 只報 `Assert.Empty(DbSet)` 的 CS1503（改成 `Any()`）與 MCP SDK 分頁多載的綁定雜訊（`ListToolsRequestParams`，v1.3.0 原始碼確認有這個多載）；前端 lint、Connectors 測試（122 個）、build 全過；**CI 40446429022（D-155，813f20fc）、40447426447（D-156，68fb008d，本輪最後一次含程式碼的 push）都第一次就綠**。
+- 問題：無阻礙。這次改到 master 原有的帳號連線 callback：合併後請實際連一次 Google（FOR_JACKY 13、SHOWCASE 檢查清單）。
+
 ## 2026-10-27 09:42 – 第 40 輪（表格卡片一鍵變圖）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`gh` 沒登入，CI 用公開 API 看；`add_repo` 工具這輪不存在，直接 clone 也能 push。

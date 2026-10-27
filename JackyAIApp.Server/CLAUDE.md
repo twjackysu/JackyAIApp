@@ -383,10 +383,13 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   always at its own URL and its own way of signing in (`ConnectorInstallService`, which also adds a server of the
   reader's own: no credentials, an API key in a header of theirs, a bearer token, or OAuth; stored with
   `ConnectorSecrets`). The MCP client is `McpToolClient` (the official SDK over Streamable HTTP, every request
-  through `SafeHttp`, a session per request, each response held to 8 MB, `ResponseSizeLimit`); the chat gets a reader's connectors' tools from
+  through `SafeHttp`, a session per request, each response held to 8 MB, `ResponseSizeLimit`; a tool list read at most 5 pages, each name once,
+  a tool whose input schema is over 32k characters left out, 400k of schema in all, so no server can make what is stored
+  and sent to the model each turn huge); the chat gets a reader's connectors' tools from
   `ConnectorToolSource` (named `m1__…` per turn, their connector the installation's id; the reader's permission for one is
   kept and looked up under the server's own name, `AiToolDescriptor.PermissionName`; two that come to one name are offered once). A call the server
-  refuses for its credentials marks the connector NeedsAuth
+  refuses for its credentials marks the connector NeedsAuth. Probing, adding and testing one (what makes the server reach a
+  host a reader named) are held to 20 a minute per reader (`RateLimitPolicies.ConnectorProbe`)
 - A reader who does not know a server's URL finds it in the official MCP Registry (`IMcpRegistry`, `McpRegistry`;
   `GET api/connectors/registry?search=`, D-122): the registry's `GET /v0.1/servers?version=latest` read whole, page by page
   by `nextCursor` (at most 40 pages in 60s; a walk cut short keeps what it read), into one list cached an hour for every

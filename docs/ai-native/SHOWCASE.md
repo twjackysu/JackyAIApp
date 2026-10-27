@@ -220,6 +220,7 @@ flowchart LR
 - [ ] 合併後會自動部署到 production（Build and deploy）。
 - [ ] **本站 OAuth 不用新設定**：issuer 是既有 `Connectors__CallbackBaseUrl` 的 origin；client 註冊用 ASP.NET Core data protection（App Service 會保存金鑰；若重啟後 Claude.ai 說 client 無效，重新加一次 connector 即可）。
 - [ ] **Cloudflare**：`/api/mcp`、`/api/oauth/*`、`/.well-known/*` 會被非瀏覽器的 client（Claude Code、mcp-remote）呼叫；若開了 Bot Fight Mode／Super Bot Fight Mode，請替 `apps.jacky-studio.com/api/mcp` 加例外（FOR_JACKY 9）。
+- [ ] **既有帳號連線的行為變更**（D-155）：Google／Microsoft／Atlassian 的 OAuth callback 現在要求回來的瀏覽器登入的是開始授權的那個帳號（防 login CSRF）。正常在 /connectors 按「連線」不受影響；合併後請實際連一次 Google 確認。
 - [ ] 用量：AI 對話照既有每日預算計費（每則訊息 `UsageCosts.ForChatMessage`、`ask_data` 照 問 AI）。
 
 ## 本機試跑
@@ -285,5 +286,6 @@ flowchart LR
 | 10/27 | 38 | 改名被拒會說、鍵盤改名後焦點回到鉛筆（D-146）；**匯出對話**（複製成 Markdown 或下載 .md，表格、連結卡片與 Data Analysis 的圖表資料一起；三個助理都有；D-147、D-149）；全站截圖巡檢（無退化） |
 | 10/27 | 39 | **表格直接進試算表**：每張表格卡片與 Data Analysis 的圖表下方「複製表格」「下載 CSV」（三個助理都有，防公式注入；D-150、審查 D-151）；表格卡片按欄名排序（D-152） |
 | 10/27 | 40 | **表格一鍵變圖**：表格卡片「畫成圖」（長條／折線／圓餅、一次一欄、照排序、日期自動折線；ECharts 延遲載入、失敗退回表格；D-153） |
+| 10/27 | 41 | **合併前安全巡檢**：OAuth callback 只接受開始授權的那位使用者（防 login CSRF，MCP 與既有 Google／Microsoft／Atlassian 連線一併修）、自填 MCP server 每個回應最多 8 MB（D-155） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

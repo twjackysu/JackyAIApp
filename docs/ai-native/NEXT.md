@@ -11,6 +11,7 @@
 
 ## 1. CI 狀態
 
+- 第 41 輪：後端＋前端一個訊息；CI 40446429022（D-155）、40447426447（D-156，本輪最後）都第一次就綠。cscheck 對 MCP SDK 的 `client.ListToolsAsync(ListToolsRequestParams, ct)` 報 CS1503（綁到 `RequestOptions?` 多載、`CancellationToken` 型別對不上）是**雜訊**，CI 會過。MCP SDK v1.3.0 的原始碼在 cscheck 的 `/tmp/cscheck/src/mcp`（跑過一次 cscheck 之後），可以直接 grep 查 API。
 - 第 40 輪：只動前端；CI 40436041196（8afbc06a，D-153＋D-154）第一次就綠。截圖腳本新增 `.loop/shots/table-chart.cjs`（Studio 問持股 → 畫成圖 → 圓餅圖 → 損益 %；印出卡片是否超出）。**測試檔不能用 `Array.prototype.at`**（tsconfig 的 lib 不到 es2022；vitest 不會抓，`tsc -b`／build 才會）。`add_repo` 工具這輪不存在：repo 本來就在範圍內，直接 clone／push 即可。
 - 第 39 輪：只動前端；CI 40423210582（D-150）、40425515584（D-151＋D-152，本輪最後）都第一次就綠。截圖腳本新增 `.loop/shots/table-export.cjs`（Studio 問持股 → 按「損益 %」兩下 → 下載 CSV 並印出 → 複製並印出剪貼簿；也印出表格容器的 scrollWidth／clientWidth：手機寬 390 時持倉表本來就超出約 3px，是資料寬度，不是排序造成）。`copyText` 現在複製失敗會丟例外：新的呼叫端要 catch。**不要 `pkill -f vitest`**（會殺掉自己的 shell）。
 - 第 38 輪：只動前端；CI 40409716274（D-146＋D-147）、40411291522（D-148）、40412656073（D-149，本輪最後）都第一次就綠。**一次 push 的最後一個 commit 若有 `[skip ci]`，整個 push 都不跑 CI**（第一次 push 就因為截圖 commit 在最後而沒跑）：含程式碼的 commit 放最後或分開 push。截圖腳本新增 `.loop/shots/export.cjs`（Studio 問持股 → 匯出對話選單 → 下載 .md 並印出 → 複製後的提示）；**這個環境的 headless Chromium 要 `LANG=C.UTF-8 LC_ALL=C.UTF-8` 才給得出中文下載檔名**（否則是 `download`）。截圖比對可用 PIL：`ImageChops.difference` 算差異比例，>1% 的並排看。
@@ -38,6 +39,7 @@
 
 ## 2. 下一步（依序）
 
+0. **第 41 輪做了合併前安全巡檢**（D-155、D-156）。剩下記錄、凍結前不做的低風險：`ChatRequest.Message` 沒有長度上限（master 既有；有每日預算、超過 context 的請求 Anthropic 不計費會退款，所以成本有上限；若要加，伺服器回 400 時前端要顯示原因，`useChatConversation` 的串流錯誤目前只說通用錯誤）；`ask_data` 依結果動態 taint（自訂資料源、上傳檔）要動 `ClientToolRunner`；D-131（之後新增的讀取工具自動給已發出的 token）仍是合併後的事。若還想再巡一塊，候選：前端把伺服器／工具給的字畫成 HTML 的地方（markdown、卡片、SiteMcpApp）——D-054 之後沒有整體看過。
 1. **選做（少而精，11/3 前）**——確認卡已收尾（D-105～D-109），MCP prompts 與「/」已完成（D-110～D-112）。挑一個做完、能 demo、有測試，或者不做、改做巡檢。候選：
    - 新增本站寫入工具或想讓別家 AI 一鍵叫出的組合時，加一個 `SitePrompt`（放在工具旁邊、`All` 列出、模組註冊 `foreach (var prompt in X.All) services.AddSingleton(prompt);`，`SitePromptDefinitionsTests` 會檢查）；要在 Studio 也有，就在 `slashCommands.ts` 加同名的一項。
    - app 助理的「/」（D-114）：要加就在該 app 的 `aiChatConfig.ts` 的 `*_SLASH_COMMANDS` 加一項（/finance 只用既有範例問題，測試鎖住）。方向鍵選 chip 評估後不做（D-115）。
