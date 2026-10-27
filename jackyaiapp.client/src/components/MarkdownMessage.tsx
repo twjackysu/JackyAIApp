@@ -176,6 +176,14 @@ const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps)
             {children}
           </Typography>
         ),
+        // An image is never loaded: an answer's text can be steered by what a tool read (a calendar invite, an MCP
+        // server's result), and an image that loads by itself would carry whatever its address holds to another site
+        // with no click. Its words stay, as text (inside a link it is that link's text).
+        img: ({ alt }) => (
+          <Box component="span" sx={{ color: 'text.secondary' }}>
+            {alt ? `〔圖片：${alt}〕` : '〔圖片〕'}
+          </Box>
+        ),
         a: ({ href, children }) => (
           <Typography
             component="a"

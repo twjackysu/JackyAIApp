@@ -4,6 +4,7 @@ import { PALETTE, type ECOption } from '../../components/summarizeChart/echarts'
 import { buildSankey } from '../dataPrep';
 
 import { EChart } from './EChart';
+import { sankeyTooltip, stripLevel } from './sankeyTooltip';
 
 // Registers sankey with ECharts; without it the chart renders as an empty canvas.
 import '../registerDataAnalysisCharts';
@@ -13,9 +14,6 @@ interface SankeyVizProps {
   groupKeys: string[];
   measureKeys: string[];
 }
-
-/** Strips the level prefix (`"1␟Asia"` → `"Asia"`) for display. */
-const strip = (name: string, sep: string): string => name.split(sep).pop() ?? name;
 
 export function SankeyViz({ rows, groupKeys, measureKeys }: SankeyVizProps) {
   const measure = measureKeys[0];
@@ -31,18 +29,7 @@ export function SankeyViz({ rows, groupKeys, measureKeys }: SankeyVizProps) {
     tooltip: {
       trigger: 'item',
       triggerOn: 'mousemove',
-      formatter: (p: unknown) => {
-        const params = p as {
-          dataType?: string;
-          name?: string;
-          data?: { source?: string; target?: string };
-          value?: number;
-        };
-        if (params.dataType === 'edge' && params.data) {
-          return `${strip(params.data.source ?? '', sep)} → ${strip(params.data.target ?? '', sep)}: ${params.value}`;
-        }
-        return strip(params.name ?? '', sep);
-      },
+      formatter: (p: unknown) => sankeyTooltip(p, sep),
     },
     series: [
       {
@@ -53,7 +40,7 @@ export function SankeyViz({ rows, groupKeys, measureKeys }: SankeyVizProps) {
         nodeAlign: 'justify',
         label: {
           color: '#EEEFF1',
-          formatter: (p: unknown) => strip((p as { name?: string }).name ?? '', sep),
+          formatter: (p: unknown) => stripLevel((p as { name?: string }).name ?? '', sep),
         },
         lineStyle: { color: 'gradient', opacity: 0.4 },
       },
