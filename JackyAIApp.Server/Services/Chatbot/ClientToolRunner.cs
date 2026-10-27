@@ -130,9 +130,10 @@ namespace JackyAIApp.Server.Services.Chatbot
                     navigate,
                     handoff = navigate != null ? HandoffOf(result) : null,
                 }, ct);
-                // What an outside connector (or someone's calendar invite) said may be written to steer the model;
-                // from here on in the turn, nothing that changes anything runs without the reader (docs/ai-native/design/06).
-                if (_byName.TryGetValue(call.Name, out var ran) && ran.Descriptor.ReadsOutsideText)
+                // What an outside connector (or someone's calendar invite, or a cell of an uploaded file) said may be written
+                // to steer the model; from here on in the turn, nothing that changes anything runs without the reader
+                // (docs/ai-native/design/06).
+                if (_byName.TryGetValue(call.Name, out var ran) && (ran.Descriptor.ReadsOutsideText || result.OutsideText))
                     Tainted = true;
                 results.Add(new BetaToolResultBlockParam
                 {

@@ -161,6 +161,7 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
             Assert.Equal(2, content.GetProperty("rowCount").GetInt32());
             Assert.Equal("資料裡沒有「越南」", content.GetProperty("notes")[0].GetString());
             Assert.Contains("越南", result.Content); // Chinese kept as it is for the model
+            Assert.False(result.OutsideText); // the reader's own source (D-156): saving and opening a dashboard still works
         }
 
         [Fact]
@@ -194,6 +195,7 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
             var data = JsonSerializer.SerializeToElement(result.Card, new JsonSerializerOptions(JsonSerializerDefaults.Web)).GetProperty("data");
             Assert.Equal(AskDataTool.DefaultChart, data.GetProperty("viz").GetString());
             Assert.Equal(JsonValueKind.Null, data.GetProperty("plan").ValueKind);
+            Assert.True(result.OutsideText); // an uploaded file's cells are its maker's words (D-163)
         }
 
         [Fact]
@@ -256,6 +258,7 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
             Assert.Equal(new[] { "日期", "地區" }, content.GetProperty("columns").EnumerateArray().Select(c => c.GetProperty("name").GetString()));
             Assert.Equal("String", content.GetProperty("columns")[1].GetProperty("type").GetString());
             Assert.Equal("2026-09-30", content.GetProperty("latestDates").GetProperty("日期").GetString());
+            Assert.True(result.OutsideText); // its headers are the file's maker's words (D-163)
             _usage.Verify(u => u.TryConsumeAsync(It.IsAny<string>(), It.IsAny<UsageFeature>(), It.IsAny<ulong>()), Times.Never);
         }
 

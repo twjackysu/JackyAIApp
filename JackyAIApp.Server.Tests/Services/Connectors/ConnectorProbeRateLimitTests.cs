@@ -62,6 +62,40 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
                 typeof(PDFController).GetMethod(nameof(PDFController.UnlockPdf))!.GetCustomAttribute<EnableRateLimitingAttribute>()?.PolicyName);
         }
 
+        [Fact]
+        public void ADashboardsWidgetRows_AreHeldPerReader_AndForAVisitorWithoutASignInPerAddress()
+        {
+            // A visitor of an "Anyone" dashboard runs the owner's query on the owner's source, uncharged (D-163).
+            var visitor = new DefaultHttpContext();
+            visitor.Request.Headers[RateLimitPolicies.CloudflareClientIpHeader] = "203.0.113.7";
+            var other = new DefaultHttpContext();
+            other.Request.Headers[RateLimitPolicies.CloudflareClientIpHeader] = "198.51.100.2";
+            var anonymous = RateLimitPolicies.DashboardWidgetDataPartition(visitor);
+            Assert.NotEqual(anonymous.PartitionKey, RateLimitPolicies.DashboardWidgetDataPartition(other).PartitionKey);
+            using (var limiter = anonymous.Factory(anonymous.PartitionKey))
+            {
+                for (var i = 0; i < RateLimitPolicies.DashboardWidgetDataPermitsPerMinuteAnonymous; i++)
+                    Assert.True(limiter.AttemptAcquire().IsAcquired, $"widget {i + 1}");
+                Assert.False(limiter.AttemptAcquire().IsAcquired);
+            }
+
+            // A signed-in reader is held by who they are, wherever they come from, with more room (their own dashboards).
+            var alice = Reader("alice");
+            alice.Request.Headers[RateLimitPolicies.CloudflareClientIpHeader] = "203.0.113.7";
+            var signedIn = RateLimitPolicies.DashboardWidgetDataPartition(alice);
+            Assert.NotEqual(anonymous.PartitionKey, signedIn.PartitionKey);
+            Assert.NotEqual(signedIn.PartitionKey, RateLimitPolicies.DashboardWidgetDataPartition(Reader("bob")).PartitionKey);
+            using (var limiter = signedIn.Factory(signedIn.PartitionKey))
+            {
+                for (var i = 0; i < RateLimitPolicies.DashboardWidgetDataPermitsPerMinuteSignedIn; i++)
+                    Assert.True(limiter.AttemptAcquire().IsAcquired, $"widget {i + 1}");
+                Assert.False(limiter.AttemptAcquire().IsAcquired);
+            }
+
+            Assert.Equal(RateLimitPolicies.DashboardWidgetData,
+                typeof(DashboardController).GetMethod(nameof(DashboardController.WidgetData))!.GetCustomAttribute<EnableRateLimitingAttribute>()?.PolicyName);
+        }
+
         [Theory]
         [InlineData(nameof(AiConnectorsController.Probe))]
         [InlineData(nameof(AiConnectorsController.Create))]

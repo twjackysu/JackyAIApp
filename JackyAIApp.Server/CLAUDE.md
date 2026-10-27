@@ -247,7 +247,7 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   and anything else asks first; a destructive one can never run on its own): a tool they turned off is not
   offered, and a call of one that asks first runs only once the reader allows it (and once a turn has read an
   outside connector's result, or a site tool's marked `OutsideText` because it holds other people's words, a
-  calendar invite's, `AiToolDescriptor.ReadsOutsideText`, every call that is not a read asks first, whatever its
+  calendar invite's, `AiToolDescriptor.ReadsOutsideText`, or a result its tool marks so though the tool's results usually are not, `AiToolResult.OutsideText`, as the data page's tools do over an uploaded file, D-163, every call that is not a read asks first, whatever its
   permission, in that turn and every later turn of the conversation, `ChatConversations.ReadOutsideText`: its answers may
   repeat that text and are sent again as history; the question then says `tainted`; a message that quotes text the reader
   selected on a page, `ChatRequest.QuotesPageText` from Studio AI's selection bar, marks the conversation so before its turn
@@ -533,6 +533,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   session expires): the caller is the signed-in user, else the address Cloudflare saw
   (`DataAnalysisController.SessionUploadCaller`), so one visitor cannot hold the whole budget for two hours (D-159). Over
   their share is 429 with `CallerShareMessage`; over the whole budget still `BusyMessage`
+- A dashboard widget's rows (`GET api/dashboard/{id}/widgets/{widgetId}/data`, anonymous for an "Anyone" dashboard) run the
+  owner's saved query again on the owner's source, uncharged, so they are held to 600 a minute per reader and 120 per address
+  without a sign-in (`RateLimitPolicies.DashboardWidgetData`, D-163); a page asks once per widget when it opens
 - Tests build the controller with `TestHelpers/DataAnalysisControllerBuilder`, never its constructor;
   `DataAnalysisControllerResponseTests` pins what each endpoint answers
 - The page's AI assistant is the chat profile `data-analysis` (`Services/DataAnalysis/Assistant`,
@@ -541,7 +544,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   through `INlSummarizeService` — the same checked plan, correction and notes as 問 AI, never a query of the
   model's own — charging each call as `UsageFeature.NlSummarize`, and shows the result as a `chart` card (the
   client's viz id, the rows, group/date hints, and the plan with the page's source, so it can become a
-  dashboard widget; none for an uploaded file's session). A chart with a plan is also kept for a while by a short id the
+  dashboard widget; none for an uploaded file's session). Over an uploaded file both tools' results are outside text
+  (`AiToolResult.OutsideText`: its cells and headers are whoever made the file's words, D-163); over a source they are not, since
+  it is the reader's own database (or the site's) and tainting it would stop 「存完打開」 (D-156). A chart with a plan is also kept for a while by a short id the
   model is told (`chartId`, `DataAnalysisCharts`, in memory per reader and conversation), so `save_to_dashboard`
   (`SaveToDashboardTool`, a write, so asked first) saves exactly the chart the reader saw to the dashboard they named
   (one they own of that name, or a new one) without asking the data again; with `open` (the reader asked to see it once

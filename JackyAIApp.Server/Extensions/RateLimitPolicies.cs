@@ -58,6 +58,17 @@ namespace JackyAIApp.Server.Extensions
         internal const int PdfUnlockPermitsPerMinute = 10;
 
         /// <summary>
+        /// A dashboard widget's rows (GET /api/dashboard/{id}/widgets/{widgetId}/data), per reader, or per address for a
+        /// visitor of an "Anyone" dashboard: each call runs the owner's saved query again on the owner's source (their own
+        /// database for a custom one), with no sign-in and no usage charge for that visitor, so a loop on a shared link
+        /// could keep the owner's database busy. A page asks once per widget when it opens, so readers stay far inside (D-163).
+        /// </summary>
+        public const string DashboardWidgetData = "dashboard-widget-data";
+
+        internal const int DashboardWidgetDataPermitsPerMinuteAnonymous = 120;
+        internal const int DashboardWidgetDataPermitsPerMinuteSignedIn = 600;
+
+        /// <summary>
         /// The visitor's address as Cloudflare saw it. The site only takes requests from Cloudflare's ranges (the App
         /// Service's access restrictions, root CLAUDE.md "Deployment"), so the header is Cloudflare's own; without it (a
         /// developer's machine) the connection's address.
@@ -111,6 +122,17 @@ namespace JackyAIApp.Server.Extensions
                 "address:" + ClientAddress(http),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = PdfUnlockPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
 
+        /// <summary>A signed-in reader their own window; a visitor without a sign-in, their address's.</summary>
+        internal static RateLimitPartition<string> DashboardWidgetDataPartition(HttpContext http)
+        {
+            var userId = http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return userId is null
+                ? RateLimitPartition.GetFixedWindowLimiter("address:" + ClientAddress(http), _ => new FixedWindowRateLimiterOptions
+                    { PermitLimit = DashboardWidgetDataPermitsPerMinuteAnonymous, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 })
+                : RateLimitPartition.GetFixedWindowLimiter("user:" + userId, _ => new FixedWindowRateLimiterOptions
+                    { PermitLimit = DashboardWidgetDataPermitsPerMinuteSignedIn, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+        }
+
         internal static string ClientAddress(HttpContext http)
         {
             var forwarded = http.Request.Headers[CloudflareClientIpHeader].ToString().Trim();
@@ -135,6 +157,7 @@ namespace JackyAIApp.Server.Extensions
                 options.AddPolicy(ConnectorProbe, ConnectorProbePartition);
                 options.AddPolicy(ChatAttachmentUpload, ChatAttachmentUploadPartition);
                 options.AddPolicy(PdfUnlock, PdfUnlockPartition);
+                options.AddPolicy(DashboardWidgetData, DashboardWidgetDataPartition);
             });
 
         /// <summary>The same envelope <see cref="IMyResponseFactory"/> gives every other API error.</summary>

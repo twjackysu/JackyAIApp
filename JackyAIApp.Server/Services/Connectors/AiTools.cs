@@ -78,8 +78,12 @@ namespace JackyAIApp.Server.Services.Connectors
     /// <param name="Handoff">A question for the assistant of the page <paramref name="Navigate"/> goes to (Studio AI's
     /// <c>open_page</c> handing a task over to /data-analysis's or /finance's own assistant). Sent only with that
     /// navigation, so never once the conversation has read outside text.</param>
+    /// <param name="OutsideText">This call's result holds words of other people's although its tool's results usually
+    /// do not (<see cref="AiToolDescriptor.OutsideText"/> is for a tool whose every result does): the data page's tools
+    /// over a file the reader uploaded, whose cells and headers came from wherever the file did (D-163). The turn is then
+    /// tainted as by an outside connector's result.</param>
     public sealed record AiToolResult(string Content, bool IsError = false, object? Card = null, string? Navigate = null,
-        string? Handoff = null)
+        string? Handoff = null, bool OutsideText = false)
     {
         /// <summary>A failed call, with what the model is told.</summary>
         public static AiToolResult Error(string message) => new(message, IsError: true);

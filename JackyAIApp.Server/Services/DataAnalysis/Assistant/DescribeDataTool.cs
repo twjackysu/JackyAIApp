@@ -54,7 +54,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
             {
                 columns = fields.Select(f => new { name = f.Name, type = f.Type }),
                 latestDates = latest,
-            }));
+            }), OutsideText: page.SessionId != null); // an uploaded file's headers are its maker's words (D-163)
         }
 
         /// <summary>A date column's latest value as yyyy-MM-dd, or null when it has none or cannot be read.</summary>

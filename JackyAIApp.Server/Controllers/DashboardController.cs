@@ -1,8 +1,10 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.DataAnalysis;
+using JackyAIApp.Server.Extensions;
 using JackyAIApp.Server.Services.DataAnalysis;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace JackyAIApp.Server.Controllers
 {
@@ -43,6 +45,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Re-run a widget's saved plan and return its rows (anonymous allowed only for "Anyone").</summary>
         [AllowAnonymous]
+        [EnableRateLimiting(RateLimitPolicies.DashboardWidgetData)]
         [HttpGet("{id:guid}/widgets/{widgetId:guid}/data")]
         public async Task<IActionResult> WidgetData(Guid id, Guid widgetId, CancellationToken ct = default) =>
             responseFactory.ToActionResult(await dashboards.GetWidgetDataAsync(id, widgetId, ct));

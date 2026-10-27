@@ -89,7 +89,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
                 rows = rows.Take(MaxRowsForModel),
                 rowsCut = rows.Count > MaxRowsForModel,
             });
-            return new AiToolResult(content, Card: ChartCard(answer, rows, chart, title, plan));
+            // An uploaded file's cells are whatever its maker wrote (D-163); a source's are the reader's own database (D-156).
+            return new AiToolResult(content, Card: ChartCard(answer, rows, chart, title, plan), OutsideText: page.SessionId != null);
         }
 
         /// <summary>
