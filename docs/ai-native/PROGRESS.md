@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-27 17:42 – 第 44 輪（第五次合併前巡檢：dashboard、資料分析的 AI 工具、自訂資料源）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，clone 是 shallow → `git fetch --unshallow`。
+- **巡檢一**（subagent 唯讀，D-163）：dashboard 分享、`read_dashboard`／`save_to_dashboard`／`ask_data`／`describe_data`、`/admin/listening`。無高風險。已修：中——上傳檔的查詢結果沒有 taint（新的 `AiToolResult.OutsideText`，只對上傳檔；資料源維持 D-156，「存完打開」不受影響）；低——「任何人」可看的 dashboard 的 widget 資料加頻率限制（`DashboardWidgetData`）；低——分享設定的成員只回 email（原本附名字與 Google id）。
+- **巡檢二**（同一個 subagent，D-164）：計費全部沒問題。中（master 既有）——**自訂 SQL Server 資料源可當內網 port 掃描器**：`ValidateServer`（只收 TCP、擋 local 名稱／機器名／內網 IP）、連線前 DNS 檢查（`IServerAddressCheck`）、存資料源套 `ConnectorProbe` 限制。
+- **審查**（subagent）：TDS routing 能繞過名稱檢查 → 擁有者不再看到連線失敗的 driver 文字（`EngineSources.OwnerMessage`）；主機檢查移到建引擎前；上傳檔的失敗訊息也 taint；主機名允許 `_`。
+- 驗證：cscheck 每次 0 個新診斷（`Assert.Single(DbSet)`／`.Single()` 是 cscheck 的 EF 雜訊）；前端 lint、test（162 檔 1765 個）、build 全過；CI 40483688976（c7602fa7）綠、40484545929（0db516bb）**紅**、40485090133（8373a055）綠、40485949897（7e01e2d2）綠、**40487224461（49a09f2e，本輪最後一次含程式碼的 push）綠**。
+- 問題：0db516bb 的 CI 紅在 master 既有的 `NlValueSourcesTests.Engine_Distinct_TimeoutIsUnknownAndRemembered`（牆鐘 3 秒上限，忙碌的 runner 超過）→ 放寬到 15 秒，下一次 push 綠。
+
 ## 2026-10-27 15:42 – 第 43 輪（巡檢未修項目收尾）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，直接 fetch／push。
