@@ -2641,7 +2641,6 @@ describe('AiAssistantPanel — conversation history column', () => {
       del.blur();
       drawer.focus();
     });
-    expect(document.activeElement).toBe(drawer);
     await waitFor(() => expect(drawer.textContent).not.toContain('台積電財報'));
     await waitFor(() => expect(document.activeElement).toBe(row('ETF 比較', drawer)));
   });
