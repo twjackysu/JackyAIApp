@@ -18,6 +18,7 @@ import {
   useRecordExamResultMutation,
 } from '@/apis/examApis';
 import { WritingGradingResponse } from '@/apis/examApis/types';
+import { getCaughtErrorMessage } from '@/apis/utils/errorMessage';
 import ExamRoundShell from '@/Exam/components/ExamRoundShell';
 import { useExamRound } from '@/Exam/hooks/useExamRound';
 
@@ -44,6 +45,8 @@ function WritingTestCard() {
   const [submission, setSubmission] = useState('');
   const [evaluationResult, setEvaluationResult] = useState<WritingGradingResponse | null>(null);
   const [srsNote, setSrsNote] = useState<string | null>(null);
+  // The server's reason when it gives one (an answer too long, D-165), else the same words as the translation test.
+  const [gradingError, setGradingError] = useState<string | null>(null);
 
   const { data, isFetching, refetch, isError, error } = useGetWritingPromptQuery();
   const [evaluateWriting, { isLoading: isEvaluating }] = useEvaluateWritingMutation();
@@ -54,6 +57,7 @@ function WritingTestCard() {
 
   const handleSubmit = async () => {
     if (!submission.trim() || !prompt) return;
+    setGradingError(null);
 
     try {
       const result = await evaluateWriting({
@@ -88,7 +92,7 @@ function WritingTestCard() {
           /* best-effort */
         });
     } catch (err) {
-      console.error('Error evaluating writing submission:', err);
+      setGradingError(getCaughtErrorMessage(err, '批改失敗，請稍後再試一次。'));
     }
   };
 
@@ -96,6 +100,7 @@ function WritingTestCard() {
     setSubmission('');
     setEvaluationResult(null);
     setSrsNote(null);
+    setGradingError(null);
     if (round.advance()) {
       refetch();
     }
@@ -106,6 +111,7 @@ function WritingTestCard() {
     setSubmission('');
     setEvaluationResult(null);
     setSrsNote(null);
+    setGradingError(null);
     refetch();
   };
 
@@ -166,6 +172,11 @@ function WritingTestCard() {
               {isEvaluating ? '評分中...' : '提交批改'}
             </Button>
           </Box>
+          {gradingError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {gradingError}
+            </Alert>
+          )}
         </CardContent>
       </Card>
 

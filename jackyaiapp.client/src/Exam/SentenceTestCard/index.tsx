@@ -18,6 +18,7 @@ import {
   useEvaluateSentenceMutation,
   useRecordExamResultMutation,
 } from '@/apis/examApis';
+import { getCaughtErrorMessage } from '@/apis/utils/errorMessage';
 import ExamRoundShell from '@/Exam/components/ExamRoundShell';
 import WordRecap from '@/Exam/components/WordRecap';
 import { useExamRound } from '@/Exam/hooks/useExamRound';
@@ -40,10 +41,13 @@ function SentenceTestCard() {
   const [evaluateSentence, { isLoading: isEvaluating }] = useEvaluateSentenceMutation();
   const [recordExamResult] = useRecordExamResultMutation();
   const [srsNote, setSrsNote] = useState<string | null>(null);
+  // The server's reason when it gives one (an answer too long, D-165), else the same words as the translation test.
+  const [gradingError, setGradingError] = useState<string | null>(null);
   const round = useExamRound();
 
   const handleSubmit = async () => {
     if (!userSentence.trim() || !data?.data) return;
+    setGradingError(null);
 
     try {
       const result = await evaluateSentence({
@@ -77,7 +81,7 @@ function SentenceTestCard() {
           });
       }
     } catch (error) {
-      console.error('Error evaluating sentence:', error);
+      setGradingError(getCaughtErrorMessage(error, '批改失敗，請稍後再試一次。'));
     }
   };
 
@@ -85,6 +89,7 @@ function SentenceTestCard() {
     setUserSentence('');
     setEvaluationResult(null);
     setSrsNote(null);
+    setGradingError(null);
     setShowSample(false);
     if (round.advance()) {
       refetch();
@@ -96,6 +101,7 @@ function SentenceTestCard() {
     setUserSentence('');
     setEvaluationResult(null);
     setSrsNote(null);
+    setGradingError(null);
     setShowSample(false);
     refetch();
   };
@@ -195,6 +201,12 @@ function SentenceTestCard() {
               )}
             </Box>
           </Box>
+
+          {gradingError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {gradingError}
+            </Alert>
+          )}
 
           {showSample && evaluationResult && (
             <Alert severity="info" sx={{ mb: 2 }}>
