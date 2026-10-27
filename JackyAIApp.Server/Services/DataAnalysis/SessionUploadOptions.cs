@@ -21,6 +21,13 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         /// </summary>
         public const long MaxRequestBodyBytes = 32L * 1024 * 1024;
 
+        /// <summary>
+        /// Most estimated in-memory size of the rows read from one request body (<see cref="SessionRowsJsonConverter"/>),
+        /// so a body of tiny cells cannot become far more memory than its length before <see cref="MaxSessionBytes"/>
+        /// is checked. Twice that default; a <see cref="MaxSessionBytes"/> set above it has no effect.
+        /// </summary>
+        public const long MaxReadBytes = 128L * 1024 * 1024;
+
         /// <summary>What a caller is told when the upload is refused for load, not for its content.</summary>
         public const string BusyMessage = "目前上傳的資料量已達上限，請稍後再試。";
 

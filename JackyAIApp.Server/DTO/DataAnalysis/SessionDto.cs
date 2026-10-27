@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using DataAnalysisLibrary.Core.Enums;
 
 namespace JackyAIApp.Server.DTO.DataAnalysis
@@ -9,8 +10,10 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
         public string? Name { get; init; }
 
         /// <summary>
-        /// All cell values sent as strings. The server infers column types from the content.
+        /// All cell values sent as strings. The server infers column types from the content. Read with a limit
+        /// on their size in memory (<see cref="Services.DataAnalysis.SessionRowsJsonConverter"/>).
         /// </summary>
+        [JsonConverter(typeof(Services.DataAnalysis.SessionRowsJsonConverter))]
         public required List<Dictionary<string, string>> Rows { get; init; }
     }
 
