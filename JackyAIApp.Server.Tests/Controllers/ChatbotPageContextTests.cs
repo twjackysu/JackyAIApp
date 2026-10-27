@@ -1,10 +1,21 @@
 using JackyAIApp.Server.Controllers;
+using JackyAIApp.Server.DTO;
 
 namespace JackyAIApp.Server.Tests.Controllers
 {
     /// <summary>What of a chat message's page context reaches the assistant: short entries, a few of them.</summary>
     public class ChatbotPageContextTests
     {
+        [Fact]
+        public void AMessageUpToTheLimit_IsTaken_AndALongerOrEmptyOneRefused()
+        {
+            Assert.Null(ChatbotController.MessageRefusal(new ChatRequest { Message = new string('字', ChatbotController.MaxMessageLength) }));
+            Assert.Equal("Message is too long.",
+                ChatbotController.MessageRefusal(new ChatRequest { Message = new string('字', ChatbotController.MaxMessageLength + 1) }));
+            Assert.NotNull(ChatbotController.MessageRefusal(new ChatRequest { Message = "" }));
+            Assert.NotNull(ChatbotController.MessageRefusal(null));
+        }
+
         [Fact]
         public void NoContext_IsAnEmptyOne()
         {

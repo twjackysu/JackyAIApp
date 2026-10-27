@@ -44,12 +44,14 @@ namespace JackyAIApp.Server.Controllers
         /// client as SSE, persisting the exchange to the caller's local conversation history.
         /// </summary>
         [HttpPost("chat")]
+        [RequestSizeLimit(MaxChatRequestBytes)]
         public async Task Chat([FromBody] ChatRequest request)
         {
-            if (request == null || string.IsNullOrEmpty(request.Message))
+            // Before any charge, so a refused message is neither charged nor stored.
+            if (MessageRefusal(request) is { } refusal)
             {
                 Response.StatusCode = 400;
-                await Response.WriteAsync("Message cannot be null or empty.");
+                await Response.WriteAsync(refusal);
                 return;
             }
 
@@ -126,6 +128,23 @@ namespace JackyAIApp.Server.Controllers
                 }
             }
         }
+
+        /// <summary>
+        /// Longest message, in UTF-16 code units as the client counts them. A message is stored before the
+        /// model is asked (and kept when the answer fails, which is refunded), and sent again with every later
+        /// turn, so without a limit one could fill the database or make a conversation that can never be
+        /// answered again. A longer text goes as an attachment, which is read and cut to a size of its own.
+        /// </summary>
+        public const int MaxMessageLength = 20_000;
+
+        /// <summary>Largest chat request body: a message at its limit with every character escaped, and the rest.</summary>
+        private const long MaxChatRequestBytes = 1024 * 1024;
+
+        /// <summary>Why a message is not taken, or null when it is.</summary>
+        internal static string? MessageRefusal(ChatRequest? request) =>
+            request == null || string.IsNullOrEmpty(request.Message) ? "Message cannot be null or empty."
+            : request.Message.Length > MaxMessageLength ? "Message is too long."
+            : null;
 
         /// <summary>The page's context as a turn takes it: at most 8 entries, keys of 40 characters and values of 200.</summary>
         internal static IReadOnlyDictionary<string, string> PageContext(Dictionary<string, string>? context) =>
