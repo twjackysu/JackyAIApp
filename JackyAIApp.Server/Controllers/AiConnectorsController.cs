@@ -1,8 +1,10 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Extensions;
 using JackyAIApp.Server.Services.Connectors;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace JackyAIApp.Server.Controllers
 {
@@ -30,14 +32,17 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Looks at an MCP server's URL; saves nothing.</summary>
         [HttpPost("installations/probe")]
+        [EnableRateLimiting(RateLimitPolicies.ConnectorProbe)]
         public async Task<IActionResult> Probe([FromBody] ProbeRequestDto request, CancellationToken ct = default) =>
             responseFactory.ToActionResult(await installs.ProbeAsync(request.ServerUrl, ct));
 
         [HttpPost("installations")]
+        [EnableRateLimiting(RateLimitPolicies.ConnectorProbe)]
         public async Task<IActionResult> Create([FromBody] CreateInstallationRequestDto request, CancellationToken ct = default) =>
             responseFactory.ToActionResult(await installs.CreateAsync(request, ct));
 
         [HttpPost("installations/{installationId}/test")]
+        [EnableRateLimiting(RateLimitPolicies.ConnectorProbe)]
         public async Task<IActionResult> Test(string installationId, CancellationToken ct = default) =>
             responseFactory.ToActionResult(await installs.TestAsync(installationId, ct));
 

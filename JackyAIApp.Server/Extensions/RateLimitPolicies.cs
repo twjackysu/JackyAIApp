@@ -33,6 +33,15 @@ namespace JackyAIApp.Server.Extensions
         internal const int SiteOAuthPermitsPerMinute = 30;
 
         /// <summary>
+        /// What makes the server reach an MCP server a reader named (probe, add, test a connector), per reader: each is a
+        /// press in the add dialog or on a connector, so only a loop comes near the limit, which keeps the server from
+        /// being anyone's free client of other hosts (D-155).
+        /// </summary>
+        public const string ConnectorProbe = "connector-probe";
+
+        internal const int ConnectorProbePermitsPerMinute = 20;
+
+        /// <summary>
         /// The visitor's address as Cloudflare saw it. The site only takes requests from Cloudflare's ranges (the App
         /// Service's access restrictions, root CLAUDE.md "Deployment"), so the header is Cloudflare's own; without it (a
         /// developer's machine) the connection's address.
@@ -68,6 +77,12 @@ namespace JackyAIApp.Server.Extensions
                 "address:" + ClientAddress(http),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = SiteOAuthPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
 
+        /// <summary>Each reader their own window (the endpoints take a sign-in, so there is always one).</summary>
+        internal static RateLimitPartition<string> ConnectorProbePartition(HttpContext http) =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                "user:" + (http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? AnonymousPartition),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = ConnectorProbePermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+
         internal static string ClientAddress(HttpContext http)
         {
             var forwarded = http.Request.Headers[CloudflareClientIpHeader].ToString().Trim();
@@ -89,6 +104,7 @@ namespace JackyAIApp.Server.Extensions
                 options.AddPolicy(SessionUpload, SessionUploadPartition);
                 options.AddPolicy(SiteMcp, SiteMcpPartition);
                 options.AddPolicy(SiteOAuth, SiteOAuthPartition);
+                options.AddPolicy(ConnectorProbe, ConnectorProbePartition);
             });
 
         /// <summary>The same envelope <see cref="IMyResponseFactory"/> gives every other API error.</summary>
