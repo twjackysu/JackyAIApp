@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-27 19:42 – 第 45 輪（第六次合併前巡檢：Job Finder、Portfolio、English 的 AI 批改）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，直接 clone／push（這輪 clone 是完整的）。
+- **巡檢**（subagent 唯讀，D-165）：七項全是 master 既有的；分支新增的部分沒問題。共同根因：沒設 `RequestSizeLimit` 的端點上限是 Kestrel 預設約 28 MB。已修：高——存持倉可灌滿 DB（`HoldingsLimits`：請求 512 KB、300 筆、欄位長度、每人 2000 份快照；`SaveHoldingsAsync` 改回 `ServiceResult<bool>`，`update_holding` 與編輯器說出原因）；中——Job Finder 匿名無頻率限制、cache key 含亂打的 platforms（`RateLimitPolicies.JobSearch` 每位址每分鐘 20、關鍵字 100 字、key 只用實際 provider）；中——English AI 批改沒有長度上限（`ExamInputLimits`，六個端點 `[RequestSizeLimit]`）；中——`record-result` 的寫作單字逐筆查詢（最多 5 個、一次查詢）；中——benchmark 代號不限數量（最多 4）；低——Cake 外部連結只收 https。不修：Yahoo 網址的 symbol 沒 escape（主機固定）。
+- **審查**（subagent）：編譯與測試推演無問題；建議兩項已做：持倉名稱放寬到 200 字（基金名稱含警語可達 80 字，請求上限隨之 512 KB）、對話練習太長時從最舊的回合刪到符合（`TrimOldestTurns`；頁面每回合送完整歷史、失敗時只有 console.error）。
+- **寫作與造句的批改失敗會說原因**（原本只有 console.error，跟翻譯測驗一樣顯示錯誤，有伺服器的原因就用它；新增兩個元件的測試）。
+- **D-164 留下的低風險**：`MaskMsSql` 改用 `SqlConnectionStringBuilder` 遮密碼（D-166）。
+- 驗證：cscheck 每次 0 個新診斷（EF 與 SqlClient 的已知雜訊）；前端 lint、`src/JobSearch`＋`src/Portfolio` 的 vitest（34 檔 565 個）、build 全過；CI 40500457635（3ed1b9d8）綠、40501738683（5fd77ced）綠、CI_LAST。
+
 ## 2026-10-27 17:42 – 第 44 輪（第五次合併前巡檢：dashboard、資料分析的 AI 工具、自訂資料源）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，clone 是 shallow → `git fetch --unshallow`。
