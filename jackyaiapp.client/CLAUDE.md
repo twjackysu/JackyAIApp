@@ -266,3 +266,12 @@ Use `@/components/hints` instead:
 
 A **disabled** control gets neither hover nor tap, so the reason it is disabled belongs in
 visible caption text next to it — not in any of the above.
+
+### Text that becomes HTML (D-157)
+
+- An AI answer is rendered by `components/MarkdownMessage`, which never loads an image: `![alt](url)` shows only
+  〔圖片：alt〕. An answer can be steered by what a tool read, and an image loads by itself, so its address could carry
+  the reader's data to another site with no click. Links stay (the reader presses them); raw HTML is shown as text
+- An ECharts tooltip `formatter` that is a **function** returns HTML (ECharts writes it with `innerHTML`): escape every
+  value that came from data (`escapeHtml` from `components/HtmlViewer/escapeHtml`; e.g. `DataAnalysis/viz/renderers/sankeyTooltip`).
+  String templates (`'{b}: {c}'`) are escaped by ECharts itself

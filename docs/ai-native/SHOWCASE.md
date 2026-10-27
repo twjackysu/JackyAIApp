@@ -286,6 +286,6 @@ flowchart LR
 | 10/27 | 38 | 改名被拒會說、鍵盤改名後焦點回到鉛筆（D-146）；**匯出對話**（複製成 Markdown 或下載 .md，表格、連結卡片與 Data Analysis 的圖表資料一起；三個助理都有；D-147、D-149）；全站截圖巡檢（無退化） |
 | 10/27 | 39 | **表格直接進試算表**：每張表格卡片與 Data Analysis 的圖表下方「複製表格」「下載 CSV」（三個助理都有，防公式注入；D-150、審查 D-151）；表格卡片按欄名排序（D-152） |
 | 10/27 | 40 | **表格一鍵變圖**：表格卡片「畫成圖」（長條／折線／圓餅、一次一欄、照排序、日期自動折線；ECharts 延遲載入、失敗退回表格；D-153） |
-| 10/27 | 41 | **合併前安全巡檢**：OAuth callback 只接受開始授權的那位使用者（防 login CSRF，MCP 與既有 Google／Microsoft／Atlassian 連線一併修）、自填 MCP server 每個回應最多 8 MB（D-155） |
+| 10/27 | 41 | **合併前安全巡檢**：OAuth callback 只接受開始授權的那位使用者（防 login CSRF，MCP 與既有 Google／Microsoft／Atlassian 連線一併修）、自填 MCP server 每個回應最多 8 MB（D-155）；工具清單上限、probe 頻率限制（D-156）；AI 回答的圖片不載入（防資料外洩）、Sankey tooltip 的 stored XSS（D-157） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

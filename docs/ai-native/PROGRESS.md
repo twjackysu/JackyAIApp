@@ -7,7 +7,8 @@
   - 中：**OAuth callback 沒確認回來的是開始授權的人**（login CSRF：把自己 connector 的授權網址寄給別人，別人按允許後他的帳號會連進寄件者的 connector）。`McpOAuthFlow.CompleteAsync` 與 master 既有的 `ConnectorService.HandleCallbackAsync` 都改成要求 `currentUser.Id` 等於 state 的使用者；MCP 回 `wrong_account`（不用掉待完成的授權、不帶 connector 名稱），/connectors 有對應訊息。測試 `McpOAuthFlowTests`（另一人／未登入）、新的 `ConnectorServiceCallbackTests`。
   - 低：自填 MCP server 的回應沒有大小上限 → `ResponseSizeLimit`（8 MB，`Content-Length` 超過就拒、串流讀到超過就中斷），`Classify` 說「回應太大」。測試 `ResponseSizeLimitTests`、`McpToolClientTests`（9 MB 的 tools/list）。
 - **第二次巡檢：授權／IDOR／濫用**（subagent 唯讀，D-156）：沒有跨使用者讀寫的路徑。已修：中——MCP 工具清單沒有總量上限（SDK 會一直跟 `nextCursor`、schema 不截）→ 自己分頁最多 5 頁、同名一次、schema 超過 32k 字不收、合計 400k、標題 100 字；低——probe／新增／test 沒有頻率限制 → `connector-probe` 每人每分鐘 20 次。不改：`ask_data` 不標外部文字（會讓「存完打開」失效，理由見 D-156）。
-- 驗證：cscheck 只報 `Assert.Empty(DbSet)` 的 CS1503（改成 `Any()`）與 MCP SDK 分頁多載的綁定雜訊（`ListToolsRequestParams`，v1.3.0 原始碼確認有這個多載）；前端 lint、Connectors 測試（122 個）、build 全過；**CI 40446429022（D-155，813f20fc）、40447426447（D-156，68fb008d，本輪最後一次含程式碼的 push）都第一次就綠**。
+- **第三次巡檢：前端把字變成 HTML 的地方**（subagent，D-157）：高——AI 回答的 markdown 圖片會自己載入（工具內容可引導模型用圖片網址把資料送出去，不用點）→ `MarkdownMessage` 的圖片只留文字；高（master 既有）——Sankey tooltip 把資料值當 HTML（公開 dashboard 的 stored XSS）→ `sankeyTooltip` 跳脫；低——產業指數 tooltip 也跳脫。client CLAUDE.md 新增「Text that becomes HTML」。前端 lint、test（160 檔 1745 個）、build 全過。
+- 驗證：cscheck 只報 `Assert.Empty(DbSet)` 的 CS1503（改成 `Any()`）與 MCP SDK 分頁多載的綁定雜訊（`ListToolsRequestParams`，v1.3.0 原始碼確認有這個多載）；前端 lint、Connectors 測試（122 個）、build 全過；**CI 40446429022（D-155，813f20fc）、40447426447（D-156，68fb008d）、40449208330（D-157，d35d8b96，本輪最後一次含程式碼的 push）都第一次就綠**。
 - 問題：無阻礙。這次改到 master 原有的帳號連線 callback：合併後請實際連一次 Google（FOR_JACKY 13、SHOWCASE 檢查清單）。
 
 ## 2026-10-27 09:42 – 第 40 輪（表格卡片一鍵變圖）
