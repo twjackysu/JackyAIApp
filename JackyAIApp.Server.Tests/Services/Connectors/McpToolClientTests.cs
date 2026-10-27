@@ -121,6 +121,41 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Fact]
+        public async Task AServerThatKeepsNamingANextPage_IsReadOnlyAFewPages_AndEachToolOnce()
+        {
+            var server = new FakeMcpServer
+            {
+                ToolsJson = """{ "tools": [ { "name": "a", "inputSchema": { "type": "object" } } ], "nextCursor": "more" }""",
+            };
+
+            var listed = await Client(server).ListToolsAsync(Server, McpAuth.None, CancellationToken.None);
+
+            Assert.Equal(new[] { "a" }, listed.Tools.Select(t => t.Name));
+            Assert.Equal(McpToolClient.MaxToolPages, server.Methods.Count(m => m == "tools/list"));
+        }
+
+        [Fact]
+        public async Task AToolWithAHugeSchema_IsLeftOut_AndALongTitleIsCut()
+        {
+            var server = new FakeMcpServer
+            {
+                ToolsJson = JsonSerializer.Serialize(new
+                {
+                    tools = new object[]
+                    {
+                        new { name = "huge", inputSchema = new { type = "object", description = new string('x', McpToolClient.MaxSchemaChars) } },
+                        new { name = "small", title = new string('t', 300), inputSchema = new { type = "object" } },
+                    },
+                }),
+            };
+
+            var listed = await Client(server).ListToolsAsync(Server, McpAuth.None, CancellationToken.None);
+
+            Assert.Equal(new[] { "small" }, listed.Tools.Select(t => t.Name));
+            Assert.Equal(101, listed.Tools[0].Title!.Length);
+        }
+
+        [Fact]
         public void AnAnswerTooLarge_IsSaidSo()
         {
             var ex = McpToolClient.Classify(new HttpRequestException("x", new ResponseTooLargeException(10)), timedOut: false);

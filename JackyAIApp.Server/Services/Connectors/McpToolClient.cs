@@ -93,15 +93,48 @@ namespace JackyAIApp.Server.Services.Connectors
         /// </summary>
         public const long MaxResponseBytes = 8 * 1024 * 1024;
 
+        /// <summary>The most pages of <c>tools/list</c> read: a server that keeps naming a next page is not followed further.</summary>
+        public const int MaxToolPages = 5;
+
+        /// <summary>
+        /// The longest input schema of a tool kept (as JSON text); a tool with a longer one is left out. Every schema is
+        /// stored with the connector and sent to the model each turn, so one server cannot make either huge.
+        /// </summary>
+        public const int MaxSchemaChars = 32_000;
+
+        /// <summary>The most schema text of all of one server's tools kept; the tools after it are left out.</summary>
+        public const int MaxAllSchemasChars = 400_000;
+
         private const int MaxDescriptionChars = 1_000;
+        private const int MaxTitleChars = 100;
+        private const int MaxNameChars = 128;
 
         public async Task<McpServerTools> ListToolsAsync(Uri server, McpAuth auth, CancellationToken ct)
         {
             return await WithClientAsync(server, auth, async (client, token) =>
             {
-                var tools = await client.ListToolsAsync(cancellationToken: token);
-                var cached = tools.Take(MaxTools).Select(t => ToCached(t.ProtocolTool)).ToList();
-                return new McpServerTools(client.ServerInfo.Title ?? client.ServerInfo.Name, cached);
+                // Page by page rather than the SDK's whole list, which follows the server's next page for as long as it names one.
+                var kept = new List<CachedTool>();
+                var names = new HashSet<string>(StringComparer.Ordinal);
+                var schemaChars = 0;
+                var request = new ListToolsRequestParams();
+                for (var page = 0; page < MaxToolPages && kept.Count < MaxTools; page++)
+                {
+                    var listed = await client.ListToolsAsync(request, token);
+                    foreach (var tool in listed.Tools)
+                    {
+                        if (kept.Count >= MaxTools || schemaChars >= MaxAllSchemasChars) break;
+                        if (string.IsNullOrEmpty(tool.Name) || tool.Name.Length > MaxNameChars || !names.Add(tool.Name)) continue;
+                        var cached = ToCached(tool);
+                        var length = cached.InputSchema.GetRawText().Length;
+                        if (length > MaxSchemaChars || schemaChars + length > MaxAllSchemasChars) continue;
+                        schemaChars += length;
+                        kept.Add(cached);
+                    }
+                    if (string.IsNullOrEmpty(listed.NextCursor)) break;
+                    request = new ListToolsRequestParams { Cursor = listed.NextCursor };
+                }
+                return new McpServerTools(client.ServerInfo.Title ?? client.ServerInfo.Name, kept);
             }, ct);
         }
 
@@ -211,7 +244,7 @@ namespace JackyAIApp.Server.Services.Connectors
 
         internal static CachedTool ToCached(Tool tool) => new(
             tool.Name,
-            tool.Title ?? tool.Annotations?.Title,
+            CutTitle(tool.Title ?? tool.Annotations?.Title),
             Cut(tool.Description ?? ""),
             EffectOf(tool.Annotations),
             tool.InputSchema.ValueKind == JsonValueKind.Object
@@ -231,6 +264,8 @@ namespace JackyAIApp.Server.Services.Connectors
                 text.Append(structured.GetRawText());
             return text.ToString();
         }
+
+        private static string? CutTitle(string? title) => title is { Length: > MaxTitleChars } ? title[..MaxTitleChars] + "…" : title;
 
         private static string Cut(string s) => s.Length > MaxDescriptionChars ? s[..MaxDescriptionChars] + "…" : s;
     }
