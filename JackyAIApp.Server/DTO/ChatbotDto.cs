@@ -90,8 +90,11 @@ namespace JackyAIApp.Server.DTO
     /// <summary>A conversation's title after it was named (or as it was, when it is not named again).</summary>
     public sealed record ChatTitleResponse(string Title);
 
-    /// <summary>One of the reader's conversations a search found in its messages (D-191), with the words around the find.</summary>
-    public sealed record ChatSearchHitDto(string ConversationId, string Snippet);
+    /// <summary>
+    /// One of the reader's conversations a search found in its messages (D-191): the message it was found in (the client
+    /// scrolls to it on opening the conversation, D-193) and the words around the find.
+    /// </summary>
+    public sealed record ChatSearchHitDto(string ConversationId, long MessageId, string Snippet);
 
     /// <summary>The title the reader gave one of their conversations (D-144).</summary>
     public sealed class ChatRenameRequest

@@ -108,7 +108,10 @@ let aiTitle: string;
 let renamed: Array<{ id: string; title: string }>;
 let refuseRename: boolean;
 /** What the server finds in the messages for each search (D-191), the searches it was asked, and whether it fails. */
-let messageHits: Record<string, Array<{ conversationId: string; snippet: string }>>;
+let messageHits: Record<
+  string,
+  Array<{ conversationId: string; messageId: number; snippet: string }>
+>;
 let searches: string[];
 let failSearch: boolean;
 /** Called while a chat turn is being answered, to let a test change the server's state first. */
@@ -2437,8 +2440,8 @@ describe('AiAssistantPanel — conversation history column', () => {
       conversation('c6', '外資買賣超'),
     ];
     messageHits = {
-      毛利: [{ conversationId: 'c4', snippet: '…今年的毛利率是 59%…' }],
-      台積電: [{ conversationId: 'c5', snippet: '台積電的權重最大' }],
+      毛利: [{ conversationId: 'c4', messageId: 41, snippet: '…今年的毛利率是 59%…' }],
+      台積電: [{ conversationId: 'c5', messageId: 52, snippet: '台積電的權重最大' }],
     };
     await mount();
     await waitForText('外資買賣超');
@@ -2472,6 +2475,23 @@ describe('AiAssistantPanel — conversation history column', () => {
     failSearch = true;
     search('債券');
     await waitForText('沒有標題含「債券」的對話（對話內容這次沒有搜尋到）');
+
+    // Opening a find shows the message it was found in, lit for a moment (D-193).
+    failSearch = false;
+    messagesOf = {
+      c5: [
+        turn(51, 'user', '台指期籌碼？'),
+        turn(52, 'assistant', '台積電的權重最大'),
+        turn(53, 'user', '那外資呢？'),
+        turn(54, 'assistant', '外資淨空單增加'),
+      ],
+    };
+    search('台積電');
+    await waitFor(() => expect(row('台指期籌碼')).toBeTruthy());
+    await act(async () => row('台指期籌碼').click());
+    await waitForText('外資淨空單增加');
+    const lit = [...container.querySelectorAll<HTMLElement>('[data-revealed]')];
+    expect(lit.map((m) => m.textContent)).toEqual([expect.stringContaining('台積電的權重最大')]);
   });
 
   it('renames a conversation in its row: Enter saves, Escape keeps it as it was (D-144)', async () => {

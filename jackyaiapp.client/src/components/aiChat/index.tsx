@@ -7,7 +7,7 @@ import ChatInput from './components/ChatInput';
 import ConversationDrawer from './components/ConversationDrawer';
 import ConversationList from './components/ConversationList';
 import { HISTORY_COLUMN_BREAKPOINT, HISTORY_COLUMN_WIDTH } from './components/historyColumn';
-import MessageArea from './components/MessageArea';
+import MessageArea, { type MessageReveal } from './components/MessageArea';
 import PreviewDialog from './components/PreviewDialog';
 import { useAiChatConfig } from './config';
 import { useAgentStatus } from './hooks/useAgentStatus';
@@ -204,9 +204,14 @@ function AiAssistantPanel({
   const handleNewChat = useCallback(() => {
     if (newChat()) closePreview();
   }, [newChat, closePreview]);
+  // Opened from a search's find, the conversation shows the message it was found in (D-193); a new object each time,
+  // so opening the same find again scrolls again.
+  const [reveal, setReveal] = useState<MessageReveal | null>(null);
   const handleSelectConversation = useCallback(
-    async (id: string) => {
-      if (await selectConversation(id)) closePreview();
+    async (id: string, messageId?: number) => {
+      if (!(await selectConversation(id))) return;
+      closePreview();
+      setReveal(messageId === undefined ? null : { messageId });
     },
     [selectConversation, closePreview],
   );
@@ -313,6 +318,7 @@ function AiAssistantPanel({
             onAlwaysAllow={conversation.allowAlways}
             onFollowUp={(question) => conversation.send(question, [])}
             onRetry={conversation.retry}
+            reveal={reveal}
           />
           {inputAccessory}
           <ChatInput

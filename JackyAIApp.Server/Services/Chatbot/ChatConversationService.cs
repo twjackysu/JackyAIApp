@@ -191,14 +191,14 @@ namespace JackyAIApp.Server.Services.Chatbot
                 .GroupBy(m => m.ConversationId)
                 .Select(g => g.Min(m => m.Id))
                 .ToListAsync(ct);
-            var contents = await dbContext.ChatMessages
+            var firsts = await dbContext.ChatMessages
                 .Where(m => firstIds.Contains(m.Id))
-                .Select(m => new { m.ConversationId, m.Content })
-                .ToDictionaryAsync(m => m.ConversationId, m => m.Content, ct);
+                .Select(m => new { m.ConversationId, m.Id, m.Content })
+                .ToDictionaryAsync(m => m.ConversationId, ct);
 
             var hits = conversations
-                .Where(contents.ContainsKey)
-                .Select(id => new ChatSearchHitDto(id, SnippetOf(contents[id], words[0])))
+                .Where(firsts.ContainsKey)
+                .Select(id => new ChatSearchHitDto(id, firsts[id].Id, SnippetOf(firsts[id].Content, words[0])))
                 .ToList();
             return ServiceResult.Ok(hits);
         }

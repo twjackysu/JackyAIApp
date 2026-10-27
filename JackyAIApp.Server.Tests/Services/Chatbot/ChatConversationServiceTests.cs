@@ -309,6 +309,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             var hits = (await As("alice").SearchAsync("finance", "台積電", default)).Data!;
 
             Assert.Equal(["b", "a"], hits.Select(h => h.ConversationId));
+            Assert.Equal([4L, 1L], hits.Select(h => h.MessageId));
             // The first matching message, without markdown's marks.
             Assert.Equal("台積電的毛利率是 59%", hits[0].Snippet);
             Assert.Equal("台積電今天怎麼了", hits[1].Snippet);

@@ -32,7 +32,8 @@ import CenteredSpinner from '@/components/CenteredSpinner';
 
 interface ConversationListProps {
   activeConversationId: string;
-  onSelect: (conversationId: string) => void;
+  /** `messageId`: the message a search found it by, to be scrolled to (D-193). */
+  onSelect: (conversationId: string, messageId?: number) => void;
   onNewChat: () => void;
   /** A reply is being written: switching away from it, or starting over, has to wait. */
   busy?: boolean;
@@ -265,7 +266,7 @@ const ConversationList = ({
                 {group.period}
               </Typography>
               <List disablePadding>
-                {group.items.map(({ conversation: c, snippet }) => {
+                {group.items.map(({ conversation: c, snippet, messageId }) => {
                   const active = c.id === activeConversationId;
                   if (c.id === editingId)
                     return (
@@ -290,7 +291,7 @@ const ConversationList = ({
                       busy={busy}
                       deleting={isDeleting}
                       onSelect={() => {
-                        onSelect(c.id);
+                        onSelect(c.id, messageId);
                         onDone?.();
                       }}
                       onEdit={() => handleEdit(c.id)}

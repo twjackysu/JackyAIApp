@@ -370,7 +370,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   (`ChatConversationService.SearchAsync`): among the reader's `SearchedConversations` (300) most recently updated
   conversations of that profile, those with a message (question or answer, the stored visible text; attachments are not read)
   holding every word, most recently updated first, at most `MaxSearchHits` (20), leaving out one whose title holds every word
-  (the client's title search shows it already, and it would take a place), each with a snippet of its first such message around
+  (the client's title search shows it already, and it would take a place), each with its first such message's id (the client
+  scrolls to it, D-193) and a snippet of that message around
   the first word (`SnippetOf`: one line, markdown's marks dropped, from the word too, `SnippetLength` characters with … where
   cut, never inside a surrogate pair). Words are split on white space, NFKC'd, without characters outside the BMP (the default
   collation gives an emoji no weight, so it would match everything), at most `MaxSearchWords` (5); a query past

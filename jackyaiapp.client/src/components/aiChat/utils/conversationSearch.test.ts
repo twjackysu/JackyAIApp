@@ -37,15 +37,15 @@ describe('matchConversations', () => {
 
 describe('findConversations', () => {
   const hits = [
-    { conversationId: '3', snippet: '…台積電的溢價…' },
-    { conversationId: '1', snippet: '不會用到' },
-    { conversationId: 'gone', snippet: '已刪除' },
+    { conversationId: '3', messageId: 30, snippet: '…台積電的溢價…' },
+    { conversationId: '1', messageId: 10, snippet: '不會用到' },
+    { conversationId: 'gone', messageId: 99, snippet: '已刪除' },
   ];
 
   it('adds the conversations found in their messages, in the list order, with their snippet', () => {
     expect(findConversations(list, '台積電', hits)).toEqual([
       { conversation: list[0] },
-      { conversation: list[2], snippet: '…台積電的溢價…' },
+      { conversation: list[2], snippet: '…台積電的溢價…', messageId: 30 },
       { conversation: list[3] },
     ]);
   });

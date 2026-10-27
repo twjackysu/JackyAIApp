@@ -19,6 +19,15 @@ const FOLLOW_THRESHOLD_PX = 80;
 /** The conversation reads as one column of this width, however wide the panel. */
 const COLUMN_MAX_WIDTH = 780;
 
+/** A message a search found (D-193) is scrolled to this far below the top, and lit for this long. */
+const REVEAL_MARGIN_PX = 16;
+export const REVEAL_MS = 2400;
+
+/** A stored message to scroll to and light up once, as its conversation opens from a search's find (D-193). */
+export interface MessageReveal {
+  messageId: number;
+}
+
 interface MessageAreaProps {
   messages: Message[];
   onPreview: (block: ParsedBlock) => void;
@@ -38,6 +47,8 @@ interface MessageAreaProps {
   onFollowUp?: (question: string) => void;
   /** The last answer failed in a way asking again may fix: ask its question again in its place (D-139). */
   onRetry?: (answer: Message) => void;
+  /** Scroll to this stored message (and light it up) once it is drawn, rather than staying at the end. */
+  reveal?: MessageReveal | null;
 }
 
 /** An empty conversation: what the assistant does, and a few questions to start from. */
@@ -120,6 +131,7 @@ function MessageArea({
   onAlwaysAllow,
   onFollowUp,
   onRetry,
+  reveal,
 }: MessageAreaProps) {
   const theme = useTheme();
   const { followUps: followUpRules } = useAiChatConfig();
@@ -174,6 +186,25 @@ function MessageArea({
     if (followingRef.current) el.scrollTop = el.scrollHeight;
   }, [messages, active]);
 
+  // A conversation opened from a search's find shows the message it was found in, not its end (D-193): once, after the
+  // effect above has gone to the end. Each message is one element of the column, in order.
+  const columnRef = useRef<HTMLDivElement>(null);
+  const revealedRef = useRef<MessageReveal | null>(null);
+  useEffect(() => {
+    const box = scrollRef.current;
+    if (!reveal || !box || !active || revealedRef.current === reveal) return;
+    const index = messages.findIndex((m) => m.serverId === reveal.messageId);
+    const target = index < 0 ? null : columnRef.current?.children[index];
+    if (!(target instanceof HTMLElement)) return;
+    revealedRef.current = reveal;
+    box.scrollTop +=
+      target.getBoundingClientRect().top - box.getBoundingClientRect().top - REVEAL_MARGIN_PX;
+    followingRef.current = false;
+    target.setAttribute('data-revealed', '');
+    // Not cleared with the effect: a later render must not leave the message lit.
+    setTimeout(() => target.removeAttribute('data-revealed'), REVEAL_MS);
+  }, [reveal, messages, active]);
+
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el || !active) return;
@@ -196,6 +227,7 @@ function MessageArea({
       }}
     >
       <Box
+        ref={columnRef}
         sx={{
           maxWidth: COLUMN_MAX_WIDTH,
           mx: 'auto',
@@ -203,6 +235,17 @@ function MessageArea({
           display: 'flex',
           flexDirection: 'column',
           gap: 3,
+          '@keyframes revealFlash': {
+            from: {
+              backgroundColor: accentWash(theme, 0.16),
+              boxShadow: `0 0 0 8px ${accentWash(theme, 0.16)}`,
+            },
+            to: { backgroundColor: 'transparent', boxShadow: '0 0 0 8px transparent' },
+          },
+          '& > [data-revealed]': {
+            animation: `revealFlash ${REVEAL_MS}ms ease-out`,
+            borderRadius: 2,
+          },
         }}
       >
         {messages.length === 0 && <Welcome onSuggest={onSuggest} />}

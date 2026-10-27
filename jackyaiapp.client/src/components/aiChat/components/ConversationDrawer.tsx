@@ -8,7 +8,7 @@ interface ConversationDrawerProps {
   open: boolean;
   onClose: () => void;
   activeConversationId: string;
-  onSelect: (conversationId: string) => void;
+  onSelect: (conversationId: string, messageId?: number) => void;
   onNewChat: () => void;
   busy?: boolean;
   /**

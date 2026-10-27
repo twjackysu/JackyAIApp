@@ -37,29 +37,30 @@ export const MAX_SEARCH_LENGTH = 100;
 /** How long the typing has to pause before the messages are searched. */
 export const SEARCH_PAUSE_MS = 350;
 
-/** One conversation a search shows: found by its title, or by a message, whose snippet it then carries. */
+/** One conversation a search shows: found by its title, or by a message, whose id and snippet it then carries. */
 export interface ConversationFind<T> {
   conversation: T;
   snippet?: string;
+  messageId?: number;
 }
 
 /**
  * The conversations `query` finds, in the list's order: those whose title holds every word, then (in the same order,
- * mixed in) those the server found in their messages, with the snippet. A find whose conversation the list does not
+ * mixed in) those the server found in their messages, with the snippet and the message's id. A find whose conversation the list does not
  * have (deleted meanwhile, or not yet read) is left out. All of them, without snippets, for an empty query.
  */
 export const findConversations = <T extends { id: string; title: string }>(
   conversations: T[],
   query: string,
-  messageHits: { conversationId: string; snippet: string }[] | undefined,
+  messageHits: { conversationId: string; messageId: number; snippet: string }[] | undefined,
 ): ConversationFind<T>[] => {
   const byTitle = new Set(matchConversations(conversations, query).map((c) => c.id));
-  const bySnippet = new Map((messageHits ?? []).map((h) => [h.conversationId, h.snippet]));
-  return conversations
-    .filter((c) => byTitle.has(c.id) || bySnippet.has(c.id))
-    .map((c) =>
-      byTitle.has(c.id) ? { conversation: c } : { conversation: c, snippet: bySnippet.get(c.id) },
-    );
+  const byMessage = new Map((messageHits ?? []).map((h) => [h.conversationId, h]));
+  return conversations.flatMap((c): ConversationFind<T>[] => {
+    if (byTitle.has(c.id)) return [{ conversation: c }];
+    const hit = byMessage.get(c.id);
+    return hit ? [{ conversation: c, snippet: hit.snippet, messageId: hit.messageId }] : [];
+  });
 };
 
 /**

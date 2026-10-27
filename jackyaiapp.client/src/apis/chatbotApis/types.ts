@@ -9,6 +9,8 @@ export interface ChatConversation {
 /** One of the reader's conversations a search found in its messages (D-191), with the words around the find. */
 export interface ChatSearchHit {
   conversationId: string;
+  /** The message it was found in, which opening the conversation scrolls to (D-193). */
+  messageId: number;
   snippet: string;
 }
 
