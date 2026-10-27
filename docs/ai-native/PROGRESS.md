@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-27 22:55 – 第 46 輪（表格貼進文件、巡檢低風險收尾、送出失敗的提示）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，clone 是 shallow → `git fetch --unshallow`。
+- **表格卡片「複製成文件表格」**（D-168）：HTML＋TSV 一起放剪貼簿，貼到 Word／Gmail／Google 文件是有表頭的表格；另一顆按鈕，原本的「複製表格」不變（試算表會優先讀 HTML）。每個值跳脫、文字格標 Excel 文字格式。截圖 `table-doc-*`（手機 390 寬不擠），`table-export-*` 重拍。
+- **D-165 留下的低風險都收掉**：對話練習送出失敗時拿掉那一回合、訊息放回輸入框並說原因，總結失敗也說（D-170）；持倉編輯器與 CSV 匯入照伺服器上限逐列標出、超過 300 筆說要刪幾筆、預覽表加「列」（D-167）；Yahoo chart 代號一律 escape（`YahooChart.SymbolUrl`，D-169：查證 `MarketOverviewProvider` 早已 escape `^`／`=` 而 Yahoo 接受，推翻 D-165 的「不修」）。
+- **送出失敗的提示**（D-171，master 既有）：每日挑戰、複習、聽寫原本只有 `console.error`；三頁原本沒有頁面測試，各補一個。
+- **審查**（subagent）：無中高風險；兩個低風險已修（等回覆時新打的字在失敗時被蓋掉→保留並說「剛才那句沒有送出」；匯入遠超上限的檔案會畫出幾千列→略過的列最多列 50 筆）。
+- 驗證：cscheck 0 個新診斷；前端 lint、全套測試（170 檔 1790 個，之後再加 3 個）、build 全過；CI 40519650380（55d53d1b）、40520090147（Yahoo）、40521219992（D-168）、40521792611、40523119638 都綠，**40524625491（審查修正，本輪最後一次含程式碼的 push）綠**。
+
 ## 2026-10-27 19:42 – 第 45 輪（第六次合併前巡檢：Job Finder、Portfolio、English 的 AI 批改）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，直接 clone／push（這輪 clone 是完整的）。
