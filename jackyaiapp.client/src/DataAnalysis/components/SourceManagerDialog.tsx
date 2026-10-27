@@ -278,7 +278,7 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
                 value={formConnStr}
                 onChange={(e) => setFormConnStr(e.target.value)}
                 type="password"
-                placeholder="Server=myserver;Database=mydb;User Id=sa;Password=..."
+                placeholder="Server=tcp:myserver.database.windows.net,1433;Database=mydb;User Id=sa;Password=..."
                 helperText={
                   editTarget
                     ? "保留 'Password=***' 以維持原密碼不變。"

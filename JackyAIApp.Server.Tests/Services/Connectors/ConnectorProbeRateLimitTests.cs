@@ -97,6 +97,16 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Theory]
+        [InlineData(nameof(DataAnalysisController.CreateSource))]
+        [InlineData(nameof(DataAnalysisController.UpdateSource))]
+        public void SavingADataSource_WhichNamesAHostTheServerConnectsTo_IsHeldToItToo(string action)
+        {
+            var method = typeof(DataAnalysisController).GetMethod(action)!;
+
+            Assert.Equal(RateLimitPolicies.ConnectorProbe, method.GetCustomAttribute<EnableRateLimitingAttribute>()?.PolicyName);
+        }
+
+        [Theory]
         [InlineData(nameof(AiConnectorsController.Probe))]
         [InlineData(nameof(AiConnectorsController.Create))]
         [InlineData(nameof(AiConnectorsController.Test))]

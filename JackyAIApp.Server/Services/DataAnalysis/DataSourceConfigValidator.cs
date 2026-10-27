@@ -1,4 +1,6 @@
+using System.Net;
 using JackyAIApp.Server.DTO.DataAnalysis;
+using JackyAIApp.Server.Services.Connectors;
 using Microsoft.Data.SqlClient;
 
 namespace JackyAIApp.Server.Services.DataAnalysis
@@ -62,6 +64,54 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                 return "AttachDBFilename is not allowed.";
             if (builder.ConnectTimeout is <= 0 or > MaxConnectTimeoutSeconds)
                 return $"Connect Timeout must be between 1 and {MaxConnectTimeoutSeconds} seconds.";
+            if (ValidateServer(builder.DataSource, required: true) is { } serverError)
+                return serverError;
+            if (ValidateServer(builder.FailoverPartner, required: false) is { } partnerError)
+                return partnerError;
+            if (!string.IsNullOrWhiteSpace(builder.EnclaveAttestationUrl))
+                return "Enclave Attestation Url is not allowed.";
+            return null;
+        }
+
+        /// <summary>The address protocols a server may be named with: TCP, the only one that reaches another machine.</summary>
+        private static readonly string[] RefusedProtocols = ["np:", "lpc:", "admin:"];
+
+        /// <summary>
+        /// The server a custom source connects to (or its failover partner) must be a machine on the internet, named
+        /// over TCP: never this server itself, a named pipe or shared memory, or an address of a private, link-local or
+        /// reserved range (the cloud metadata service, the app's own network), which the driver would otherwise
+        /// reach from the App Service and whose answer — refused, timed out, not SQL Server — its owner is told
+        /// (D-164). A name is checked as written; one that resolves to such an address is the open item in NEXT.
+        /// </summary>
+        internal static string? ValidateServer(string? dataSource, bool required)
+        {
+            const string expected = "The server must be a SQL Server on the internet, e.g. tcp:myserver.database.windows.net,1433.";
+            var server = dataSource?.Trim() ?? "";
+            if (server.Length == 0) return required ? expected : null;
+            if (RefusedProtocols.Any(p => server.StartsWith(p, StringComparison.OrdinalIgnoreCase))) return expected;
+            if (server.StartsWith("tcp:", StringComparison.OrdinalIgnoreCase)) server = server[4..].Trim();
+
+            // host[\instance][,port]; an IPv6 literal may be written in brackets.
+            var comma = server.LastIndexOf(',');
+            if (comma >= 0)
+            {
+                if (!int.TryParse(server[(comma + 1)..].Trim(), out var port) || port is < 1 or > 65535) return expected;
+                server = server[..comma].Trim();
+            }
+            var backslash = server.IndexOf('\\');
+            if (backslash >= 0) server = server[..backslash].Trim();
+            if (server.StartsWith('[') && server.EndsWith(']')) server = server[1..^1];
+
+            if (server.Length == 0 || server is "." || server.Equals("(local)", StringComparison.OrdinalIgnoreCase)
+                || server.Equals("(localdb)", StringComparison.OrdinalIgnoreCase)
+                || server.StartsWith("(localdb)", StringComparison.OrdinalIgnoreCase)
+                || server.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+                || server.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase))
+                return expected;
+            if (IPAddress.TryParse(server, out var address))
+                return OutboundAddressPolicy.IsAllowed(address) ? null : expected;
+            // A plain name: letters, digits, '-' and '.', with a dot (a bare word is a machine on the local network).
+            if (!server.Contains('.') || !server.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '.')) return expected;
             return null;
         }
 

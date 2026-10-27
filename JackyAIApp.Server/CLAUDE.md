@@ -533,6 +533,11 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   session expires): the caller is the signed-in user, else the address Cloudflare saw
   (`DataAnalysisController.SessionUploadCaller`), so one visitor cannot hold the whole budget for two hours (D-159). Over
   their share is 429 with `CallerShareMessage`; over the whole budget still `BusyMessage`
+- A custom SQL Server source names a server on the internet, over TCP (`DataSourceConfigValidator.ValidateServer`, on save and
+  before every connection, D-164): no named pipe, shared memory, local name, bare machine name, or address
+  `OutboundAddressPolicy` refuses (private, link-local, the metadata service), for the server and its failover partner alike, and
+  no `Enclave Attestation Url`, since the driver would reach those from the App Service and its owner is told how each try failed.
+  A name is checked as written, not resolved (NEXT). Saving one is held to `RateLimitPolicies.ConnectorProbe`
 - A dashboard widget's rows (`GET api/dashboard/{id}/widgets/{widgetId}/data`, anonymous for an "Anyone" dashboard) run the
   owner's saved query again on the owner's source, uncharged, so they are held to 600 a minute per reader and 120 per address
   without a sign-in (`RateLimitPolicies.DashboardWidgetData`, D-163); a page asks once per widget when it opens

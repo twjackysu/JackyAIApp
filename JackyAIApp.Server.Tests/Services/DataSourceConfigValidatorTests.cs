@@ -53,6 +53,47 @@ namespace JackyAIApp.Server.Tests.Services
         public void MsSql_OwnersOwnCredentials_AreAccepted(string tail) =>
             Assert.Null(DataSourceConfigValidator.Validate(Sql(Server + tail)));
 
+        private const string Login = "User ID=u;Password=p;";
+
+        [Theory]
+        [InlineData("Server=10.0.0.4,1433;")]                          // private network
+        [InlineData("Server=tcp:169.254.169.254,80;")]                 // cloud metadata
+        [InlineData("Server=127.0.0.1;")]
+        [InlineData("Server=tcp:[::1],1433;")]
+        [InlineData("Server=0x7f000001;")]                              // loopback, written as one number
+        [InlineData("Server=2130706433;")]
+        [InlineData("Server=192.168.1.10\\SQLEXPRESS;")]
+        [InlineData("Server=localhost,8080;")]
+        [InlineData("Server=db.localhost;")]
+        [InlineData("Server=.;")]
+        [InlineData("Server=(local);")]
+        [InlineData("Server=(localdb)\\MSSQLLocalDB;")]
+        [InlineData("Server=fileserver;")]                             // a bare name: a machine on the local network
+        [InlineData("Server=np:\\\\host\\pipe\\sql\\query;")]           // named pipes
+        [InlineData("Server=lpc:demo.database.windows.net;")]           // shared memory
+        [InlineData("Server=admin:demo.database.windows.net;")]
+        [InlineData("Server=demo.database.windows.net,99999;")]
+        [InlineData("Server=demo.database.windows.net,abc;")]
+        [InlineData("Server=demo.database.windows.net;Failover Partner=10.1.2.3;")]
+        [InlineData("Server=demo.database.windows.net;Enclave Attestation Url=http://169.254.169.254/metadata;")]
+        [InlineData("Database=Sales;")]                                // no server
+        public void MsSql_AServerThatIsNotOnTheInternet_IsRefused(string server)
+        {
+            var error = DataSourceConfigValidator.Validate(Sql(server + Login));
+
+            Assert.NotNull(error);
+        }
+
+        [Theory]
+        [InlineData("Server=tcp:demo.database.windows.net,1433;")]
+        [InlineData("Server=demo.database.windows.net;")]
+        [InlineData("Data Source=sql.example.com,14330;")]
+        [InlineData("Server=sql.example.com\\REPORTING;")]
+        [InlineData("Server=203.0.114.20,1433;")]                       // a public address
+        [InlineData("Server=demo.database.windows.net;Failover Partner=demo-dr.database.windows.net;")]
+        public void MsSql_AServerOnTheInternet_IsAccepted(string server) =>
+            Assert.Null(DataSourceConfigValidator.Validate(Sql(server + Login)));
+
         private static AdxSourceConfigDto Adx(string clusterUri = "https://mycluster.westus.kusto.windows.net",
             string? connectionString = null, string? clientSecret = "secret") => new()
         {

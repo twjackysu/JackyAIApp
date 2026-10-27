@@ -35,7 +35,8 @@ namespace JackyAIApp.Server.Extensions
         /// <summary>
         /// What makes the server reach an MCP server a reader named (probe, add, test a connector), per reader: each is a
         /// press in the add dialog or on a connector, so only a loop comes near the limit, which keeps the server from
-        /// being anyone's free client of other hosts (D-155).
+        /// being anyone's free client of other hosts (D-155). Saving a Data Analysis source (a SQL Server or cluster the
+        /// server will connect to) is held to it too (D-164).
         /// </summary>
         public const string ConnectorProbe = "connector-probe";
 

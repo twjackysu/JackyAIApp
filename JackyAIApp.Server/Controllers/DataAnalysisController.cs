@@ -42,6 +42,7 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>Save a new data-source connector for the current user.</summary>
         [Authorize]
         [HttpPost("sources")]
+        [EnableRateLimiting(RateLimitPolicies.ConnectorProbe)] // each names a host the server will connect to (D-164)
         public async Task<IActionResult> CreateSource(
             [FromBody] SaveDataSourceConfigDto dto,
             CancellationToken ct = default) =>
@@ -50,6 +51,7 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>Update one of the current user's data-source connectors.</summary>
         [Authorize]
         [HttpPut("sources/{id:guid}")]
+        [EnableRateLimiting(RateLimitPolicies.ConnectorProbe)] // each names a host the server will connect to (D-164)
         public async Task<IActionResult> UpdateSource(
             Guid id,
             [FromBody] SaveDataSourceConfigDto dto,
