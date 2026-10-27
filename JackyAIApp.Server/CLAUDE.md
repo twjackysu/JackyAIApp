@@ -383,7 +383,7 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   always at its own URL and its own way of signing in (`ConnectorInstallService`, which also adds a server of the
   reader's own: no credentials, an API key in a header of theirs, a bearer token, or OAuth; stored with
   `ConnectorSecrets`). The MCP client is `McpToolClient` (the official SDK over Streamable HTTP, every request
-  through `SafeHttp`, a session per request); the chat gets a reader's connectors' tools from
+  through `SafeHttp`, a session per request, each response held to 8 MB, `ResponseSizeLimit`); the chat gets a reader's connectors' tools from
   `ConnectorToolSource` (named `m1__…` per turn, their connector the installation's id; the reader's permission for one is
   kept and looked up under the server's own name, `AiToolDescriptor.PermissionName`; two that come to one name are offered once). A call the server
   refuses for its credentials marks the connector NeedsAuth
@@ -409,8 +409,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   public https address; else the client id the reader typed — the reader's own id wins), sends the reader there (`POST
   installations/{id}/authorize`: PKCE S256, `resource`, `scope`, a signed `state`; the verifier stays in
   `IMemoryCache` on the server, 10 minutes, once), and takes them back at `GET api/connectors/callback/mcp` (a
-  literal route, matched before the account connections' `callback/{provider}`): the state, then `iss` (RFC 9207),
-  then the code for tokens, kept encrypted as a `McpOAuthGrant`. `McpOAuthTokens` gives each call its credentials,
+  literal route, matched before the account connections' `callback/{provider}`): the state, then that the reader signed
+  in here is the one who started it (else `wrong_account`: a sign-in URL sent to someone else must not put their account
+  into the sender's connector; the account connections' callback checks the same), then `iss` (RFC 9207), then the code for tokens, kept encrypted as a `McpOAuthGrant`. `McpOAuthTokens` gives each call its credentials,
   refreshing a token due within 60s, one refresh at a time per connector (a rotated refresh token spent twice
   would end the sign-in); a refused refresh of an expired token marks the connector NeedsAuth and keeps the
   client. The redirect URI and the metadata URL come from `Connectors:CallbackBaseUrl` (`McpOAuthUrls`); an

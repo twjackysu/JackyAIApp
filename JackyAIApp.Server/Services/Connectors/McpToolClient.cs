@@ -87,6 +87,12 @@ namespace JackyAIApp.Server.Services.Connectors
         /// <summary>The most tools of one server kept; a server listing more is cut.</summary>
         public const int MaxTools = 100;
 
+        /// <summary>
+        /// The most one response of a server may hold (<see cref="ResponseSizeLimit"/>): far more than a list of
+        /// <see cref="MaxTools"/> tools or a tool's answer for the model, far less than would strain the app.
+        /// </summary>
+        public const long MaxResponseBytes = 8 * 1024 * 1024;
+
         private const int MaxDescriptionChars = 1_000;
 
         public async Task<McpServerTools> ListToolsAsync(Uri server, McpAuth auth, CancellationToken ct)
@@ -116,7 +122,7 @@ namespace JackyAIApp.Server.Services.Connectors
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(RequestTimeout);
-            var refusals = new RefusalRecorder(handlers.Create());
+            var refusals = new RefusalRecorder(new ResponseSizeLimit(handlers.Create(), MaxResponseBytes));
             var http = new HttpClient(refusals, disposeHandler: true) { Timeout = Timeout.InfiniteTimeSpan };
             try
             {
@@ -182,6 +188,8 @@ namespace JackyAIApp.Server.Services.Connectors
         {
             for (Exception? e = ex; e != null; e = e.InnerException)
             {
+                if (e is ResponseTooLargeException)
+                    return new McpServerException(McpFailure.Unreachable, "伺服器的回應太大，沒有讀取。", ex);
                 if (e is BlockedAddressException)
                     return new McpServerException(McpFailure.Blocked, "這個網址不是公開的網路位址，基於安全不能連線。", ex);
                 if (e is HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden })

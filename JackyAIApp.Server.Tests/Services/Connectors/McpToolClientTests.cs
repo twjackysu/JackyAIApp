@@ -107,6 +107,29 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Fact]
+        public async Task AnAnswerTooLargeToHold_IsAFailure_NotReadIntoMemory()
+        {
+            var huge = new string('a', (int)McpToolClient.MaxResponseBytes + 1);
+            var server = new FakeMcpServer
+            {
+                ToolsJson = JsonSerializer.Serialize(new { tools = new[] { new { name = "big", description = huge, inputSchema = new { type = "object" } } } }),
+            };
+
+            var ex = await Assert.ThrowsAsync<McpServerException>(() => Client(server).ListToolsAsync(Server, McpAuth.None, CancellationToken.None));
+
+            Assert.Equal(McpFailure.Unreachable, ex.Failure);
+        }
+
+        [Fact]
+        public void AnAnswerTooLarge_IsSaidSo()
+        {
+            var ex = McpToolClient.Classify(new HttpRequestException("x", new ResponseTooLargeException(10)), timedOut: false);
+
+            Assert.Equal(McpFailure.Unreachable, ex.Failure);
+            Assert.Contains("太大", ex.Message);
+        }
+
+        [Fact]
         public void AnyOtherFailure_IsUnreachable_WithoutTheServersOwnText()
         {
             var ex = McpToolClient.Classify(new InvalidOperationException("secret internals"), timedOut: false);
