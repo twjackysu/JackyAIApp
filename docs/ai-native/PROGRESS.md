@@ -1,5 +1,15 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-28 03:42 – 第 49 輪（無障礙收尾：對話紀錄的列、選取工具列的鍵盤入口；第十次巡檢：本站 OAuth 授權伺服器）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，用既有的 clone 切到 `feature/ai-native`（完整歷史）。
+- **NEXT 0.5(a)**：對話紀錄的列不再是按鈕包按鈕（`ConversationRow`：`li` 裡開啟按鈕＋旁邊的改名／刪除，版面與列高不變，D-186）；鍵盤刪除後焦點到補上來的那一列／上一列／「新對話」（`utils/focusAfterDelete`，D-187）。
+- **NEXT 0.5(b)**：選取工具列用 **Alt+A** 進入（以 `code` 判斷）、左右鍵／Home／End 移動、Escape 回原處、一個 Tab 位置，選取停下時隱藏的 status 說出快捷鍵（`selectionShortcut`，D-188）。
+- **審查**（subagent）：兩個高風險都在抽屜裡、jsdom 測不出來——刪除鈕停用後抽屜的焦點陷阱把焦點放到 paper，被當成「已離開」；Studio 的工具列在 Modal 外，Alt+A 的焦點被陷阱搶回 → 包住對話欄的元素也算自己的、抽屜開著時工具列掛在抽屜裡；另修再按 Alt+A、選完動作焦點回原處、roving tabindex、觸控的 hover（D-189）。兩個新測試確認在修正前會失敗。
+- **第十次巡檢**（subagent 唯讀：`SiteOAuthServer` 與同意頁）：無高、中風險。四個低風險都修（D-190）：過期 token 仍算進 10 個上限（用久了 OAuth 登入一定被拒）、同意頁加 `X-Frame-Options`／`frame-ancestors`（`FrameGuardMiddleware`，只限 `/oauth/authorize`）、名稱去掉 Format 字元與主機用 `IdnHost`（仿冒網域顯示成 punycode）、同意的 POST 每人每分鐘 20 次。
+- 驗證：前端 lint、全套測試（1833 個）、build 全過；`rename.cjs` 改用 `li` 找列並多拍 `rename-focus`，與 repo 比對差異 0.03%（第一次列高少 2px、hover 列不亮，已修回）；`selection.cjs` 重拍，Studio 抽屜裡的選取無差異；cscheck 0 個新診斷。CI 40573957756（2a69872c）綠；**40576006479（278f4fed）紅**：抽屜刪除測試檢查了中間狀態（CI 上回合在 act 內就完成了）→ 拿掉那行；**40577752025（44eda73b，含 D-190 後端，本輪最後一次含程式碼的 push）綠**。
+- 問題：MUI 焦點陷阱在 jsdom 不會自己動（`document.hasFocus()` 是 false），抽屜相關的焦點要在測試裡自己模擬。
+
 ## 2026-10-28 02:35 – 第 48 輪（第八次巡檢：共用 chat 引擎的穩健度；第九次巡檢：新 AI 介面的無障礙）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，直接 clone（完整歷史）。
