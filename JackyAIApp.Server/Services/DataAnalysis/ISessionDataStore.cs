@@ -10,7 +10,11 @@ namespace JackyAIApp.Server.Services.DataAnalysis
     /// </summary>
     public interface ISessionDataStore
     {
-        ServiceResult<SessionUploadResponseDto> Upload(SessionUploadDto dto);
+        /// <summary>
+        /// Stores the rows as a new session. <paramref name="caller"/> (a signed-in user, else an address) is held
+        /// to <see cref="SessionUploadOptions.MaxBytesPerCaller"/>; null only counts the session against the whole budget.
+        /// </summary>
+        ServiceResult<SessionUploadResponseDto> Upload(SessionUploadDto dto, string? caller = null);
         ServiceResult<SessionSchemaDto> GetSchema(string sessionId);
         ServiceResult<SessionMaxDateDto> GetMaxDate(string sessionId, string dateField);
         ServiceResult<SessionDistinctValuesDto> GetDistinctValues(string sessionId, string field, int limit = 200);

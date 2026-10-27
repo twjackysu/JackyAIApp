@@ -190,6 +190,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   (the attempt log and the SM-2 schedules). Which exam endpoints charge is pinned by `UsageLimitEndpointTests`
 - The vocabulary exams (cloze, translation, sentence) are one `IWordExamGenerator<TQuestion>` each, returning
   their own DTO, and one typed method each on `IWordExamService`, which picks the word for all of them
+- A spoken answer's transcription (`whisper/transcribe`) costs one unit whatever its length while Whisper bills by the minute,
+  so a recording is held to `ConversationPracticeController.MaxAudioBytes` (4 MB, refused before Whisper is asked, so the
+  charge is refunded); the exam pages record at 64 kbps and stop at two minutes, about 1 MB (the client's
+  `useVoiceRecording`, its test holding the two numbers together; D-159)
 
 ## Portfolio
 
@@ -524,6 +528,11 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 - The anonymous session upload's rows are read by `SessionRowsJsonConverter`, which counts their estimated size in memory as
   `SessionDataStore.Measure` does while it reads and stops past `SessionUploadOptions.MaxReadBytes` (a 400): the admission
   filter only sees the body's length, and tiny cells cost far more in memory than in JSON (D-158)
+- Each caller's live sessions may hold at most `SessionUploadOptions.MaxBytesPerCaller` (128 MB, half the 256 MB budget,
+  two of the largest uploads) of the session budget (`SessionUploadBudget.TryReserve(bytes, caller)`, given back when a
+  session expires): the caller is the signed-in user, else the address Cloudflare saw
+  (`DataAnalysisController.SessionUploadCaller`), so one visitor cannot hold the whole budget for two hours (D-159). Over
+  their share is 429 with `CallerShareMessage`; over the whole budget still `BusyMessage`
 - Tests build the controller with `TestHelpers/DataAnalysisControllerBuilder`, never its constructor;
   `DataAnalysisControllerResponseTests` pins what each endpoint answers
 - The page's AI assistant is the chat profile `data-analysis` (`Services/DataAnalysis/Assistant`,

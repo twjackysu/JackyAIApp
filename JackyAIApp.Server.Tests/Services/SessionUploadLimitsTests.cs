@@ -197,6 +197,113 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.Equal(0, budget.RemainingBytes);
         }
 
+        // ── Each caller's share of the budget (D-159) ────────────────────────
+
+        [Fact]
+        public void Upload_OverTheCallersShare_IsRefusedWithoutStoring_WhileOthersStillFit()
+        {
+            var rows = Rows(50);
+            var (perUpload, _) = SessionDataStore.Measure(rows, new SessionUploadOptions());
+            var (store, cache, budget) = Store(new SessionUploadOptions
+            {
+                MaxTotalBytes = perUpload * 4,
+                MaxBytesPerCaller = perUpload * 2,
+            });
+
+            Assert.True(store.Upload(new SessionUploadDto { Rows = rows }, "address:1.2.3.4").IsSuccess);
+            var second = store.Upload(new SessionUploadDto { Rows = rows }, "address:1.2.3.4");
+            Assert.True(second.IsSuccess);
+
+            var refused = store.Upload(new SessionUploadDto { Rows = rows }, "address:1.2.3.4");
+            Assert.Equal(ErrorCodes.TooManyRequests, refused.Error);
+            Assert.Equal(SessionUploadOptions.CallerShareMessage, refused.ErrorMessage);
+            Assert.Null(refused.Data);
+            Assert.Equal(2, cache.Count);
+            Assert.Equal(perUpload * 2, budget.UsedBytes);
+            Assert.Equal(perUpload * 2, budget.UsedBy("address:1.2.3.4"));
+
+            // Someone else still has the rest of the budget.
+            Assert.True(store.Upload(new SessionUploadDto { Rows = rows }, "address:5.6.7.8").IsSuccess);
+            Assert.True(store.Upload(new SessionUploadDto { Rows = rows }, "user:abc").IsSuccess);
+            Assert.Equal(perUpload * 4, budget.UsedBytes);
+
+            // An expired session gives its caller's share back.
+            cache.Remove(SessionDataStore.SessionCachePrefix + SessionId(second));
+            Assert.Equal(perUpload, budget.UsedBy("address:1.2.3.4"));
+            Assert.Equal(perUpload * 3, budget.UsedBytes);
+            Assert.True(store.Upload(new SessionUploadDto { Rows = rows }, "address:1.2.3.4").IsSuccess);
+        }
+
+        [Fact]
+        public void Upload_WithinTheCallersShare_ButOverTheWholeBudget_SaysTheSiteIsBusy()
+        {
+            var rows = Rows(50);
+            var (perUpload, _) = SessionDataStore.Measure(rows, new SessionUploadOptions());
+            var (store, _, budget) = Store(new SessionUploadOptions
+            {
+                MaxTotalBytes = perUpload,
+                MaxBytesPerCaller = perUpload * 2,
+            });
+
+            Assert.True(store.Upload(new SessionUploadDto { Rows = rows }, "address:1.2.3.4").IsSuccess);
+            var refused = store.Upload(new SessionUploadDto { Rows = rows }, "address:5.6.7.8");
+
+            Assert.Equal(SessionUploadOptions.BusyMessage, refused.ErrorMessage);
+            Assert.Equal(0, budget.UsedBy("address:5.6.7.8"));
+            Assert.Equal(perUpload, budget.UsedBytes);
+        }
+
+        [Fact]
+        public void Budget_ConcurrentReservationsOfOneCaller_NeverOvershootTheirShare()
+        {
+            var budget = new SessionUploadBudget(Options.Create(new SessionUploadOptions
+            {
+                MaxTotalBytes = 1_000,
+                MaxBytesPerCaller = 300,
+            }));
+            var granted = 0;
+
+            Parallel.For(0, 2_000, i =>
+            {
+                if (budget.TryReserve(1, i % 2 == 0 ? "a" : "b") == SessionReservation.Reserved)
+                    Interlocked.Increment(ref granted);
+            });
+
+            Assert.Equal(600, granted);
+            Assert.Equal(300, budget.UsedBy("a"));
+            Assert.Equal(300, budget.UsedBy("b"));
+            Assert.Equal(600, budget.UsedBytes);
+
+            budget.Release(300, "a");
+            Assert.Equal(0, budget.UsedBy("a"));
+            Assert.Equal(300, budget.UsedBytes);
+        }
+
+        [Fact]
+        public void TheDefaultShare_TakesTheLargestUploadTwice_AndIsHalfTheBudget()
+        {
+            var defaults = new SessionUploadOptions();
+            Assert.Equal(defaults.MaxSessionBytes * 2, defaults.MaxBytesPerCaller);
+            Assert.Equal(defaults.MaxTotalBytes / 2, defaults.MaxBytesPerCaller);
+        }
+
+        [Fact]
+        public void TheCaller_IsTheSignedInUser_ElseTheAddressCloudflareSaw()
+        {
+            var http = new DefaultHttpContext();
+            http.Request.Headers[RateLimitPolicies.CloudflareClientIpHeader] = "203.0.113.9";
+            http.Connection.RemoteIpAddress = IPAddress.Parse("10.0.0.1");
+
+            var signedIn = new Mock<JackyAIApp.Server.Services.ICurrentUser>();
+            signedIn.Setup(u => u.Id).Returns("google-123");
+            var anonymous = new Mock<JackyAIApp.Server.Services.ICurrentUser>();
+
+            Assert.Equal("user:google-123",
+                JackyAIApp.Server.Controllers.DataAnalysisController.SessionUploadCaller(signedIn.Object, http));
+            Assert.Equal("address:203.0.113.9",
+                JackyAIApp.Server.Controllers.DataAnalysisController.SessionUploadCaller(anonymous.Object, http));
+        }
+
         // ── Before the body is read ──────────────────────────────────────────
 
         private static Mock<IMyResponseFactory> ResponseFactory()

@@ -31,6 +31,9 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         /// <summary>What a caller is told when the upload is refused for load, not for its content.</summary>
         public const string BusyMessage = "目前上傳的資料量已達上限，請稍後再試。";
 
+        /// <summary>What a caller is told when their own live sessions already hold <see cref="MaxBytesPerCaller"/>.</summary>
+        public const string CallerShareMessage = "你上傳的資料已達上限，之前的上傳會在 2 小時內釋放，請稍後再試。";
+
         public int MaxRows { get; set; } = 50_000;
 
         public int MaxColumns { get; set; } = 200;
@@ -51,6 +54,14 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         /// get a bit over half of it.
         /// </summary>
         public long MaxTotalBytes { get; set; } = 256L * 1024 * 1024;
+
+        /// <summary>
+        /// Estimated size one caller's live sessions may hold together (a signed-in user, else an address as
+        /// Cloudflare saw it): half of <see cref="MaxTotalBytes"/>, two of the largest uploads, so no single
+        /// visitor can take the whole budget for two hours (D-159). At least <see cref="MaxSessionBytes"/>, or
+        /// no upload of that size could fit.
+        /// </summary>
+        public long MaxBytesPerCaller { get; set; } = 128L * 1024 * 1024;
 
         /// <summary>
         /// New uploads are refused before their body is read while the machine's memory load (as the GC

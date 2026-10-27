@@ -35,7 +35,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         /// </summary>
         internal const int PerCellOverheadBytes = 76;
 
-        public ServiceResult<SessionUploadResponseDto> Upload(SessionUploadDto dto)
+        public ServiceResult<SessionUploadResponseDto> Upload(SessionUploadDto dto, string? caller = null)
         {
             if (dto.Rows is null || dto.Rows.Count == 0)
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "沒有可上傳的資料列。");
@@ -50,9 +50,21 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                 return ServiceResult.Fail(ErrorCodes.PayloadTooLarge,
                     $"資料量太大（單次上傳上限約 {_limits.MaxSessionBytes >> 20} MB 記憶體），請減少列數或欄數後再試。");
 
-            // Nothing is stored — no session id, cache untouched — unless the whole session fits the budget.
-            if (!_budget.TryReserve(bytes))
+            // Nothing is stored — no session id, cache untouched — unless the whole session fits the budget
+            // (and the caller's share of it).
+            var reservation = caller is null
+                ? (_budget.TryReserve(bytes) ? SessionReservation.Reserved : SessionReservation.OverTotal)
+                : _budget.TryReserve(bytes, caller);
+            if (reservation == SessionReservation.OverCallerShare)
+                return ServiceResult.Fail(ErrorCodes.TooManyRequests, SessionUploadOptions.CallerShareMessage);
+            if (reservation != SessionReservation.Reserved)
                 return ServiceResult.Fail(ErrorCodes.TooManyRequests, SessionUploadOptions.BusyMessage);
+
+            void Release()
+            {
+                if (caller is null) _budget.Release(bytes);
+                else _budget.Release(bytes, caller);
+            }
 
             var schema = InferSchema(dto.Rows);
             var expires = DateTimeOffset.UtcNow.Add(SessionTtl);
@@ -60,7 +72,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             var name = dto.Name?.Trim() is { Length: > 0 } n ? n : "Uploaded Data";
 
             var entryOptions = new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = SessionTtl }
-                .RegisterPostEvictionCallback((_, _, _, _) => _budget.Release(bytes));
+                .RegisterPostEvictionCallback((_, _, _, _) => Release());
             try
             {
                 _cache.Set(SessionCachePrefix + id, new SessionData
@@ -73,7 +85,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             }
             catch
             {
-                _budget.Release(bytes);
+                Release();
                 throw;
             }
 

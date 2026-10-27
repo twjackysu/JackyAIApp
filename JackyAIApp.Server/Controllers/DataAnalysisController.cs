@@ -2,6 +2,7 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.DataAnalysis;
 using JackyAIApp.Server.Extensions;
+using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.DataAnalysis;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -137,8 +138,17 @@ namespace JackyAIApp.Server.Controllers
         [EnableRateLimiting(RateLimitPolicies.SessionUpload)]
         [ServiceFilter(typeof(SessionUploadAdmissionFilter))]
         [RequestSizeLimit(SessionUploadOptions.MaxRequestBodyBytes)]
-        public IActionResult UploadSession([FromBody] SessionUploadDto dto) =>
-            _responseFactory.ToActionResult(_sessionStore.Upload(dto));
+        public IActionResult UploadSession([FromBody] SessionUploadDto dto, [FromServices] ICurrentUser currentUser) =>
+            _responseFactory.ToActionResult(_sessionStore.Upload(dto, SessionUploadCaller(currentUser, HttpContext)));
+
+        /// <summary>
+        /// Whose share of the session budget an upload counts against (D-159): a signed-in user's own, else the
+        /// visitor's address as Cloudflare saw it.
+        /// </summary>
+        internal static string SessionUploadCaller(ICurrentUser currentUser, HttpContext http) =>
+            currentUser.Id is { Length: > 0 } userId
+                ? "user:" + userId
+                : "address:" + RateLimitPolicies.ClientAddress(http);
 
         /// <summary>Returns the schema of a session.</summary>
         [HttpGet("session/{sessionId}/schema")]
