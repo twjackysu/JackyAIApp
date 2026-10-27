@@ -6,7 +6,7 @@
 - **全站 `console.error` 收尾**（D-172）：麥克風打不開時說原因、對話練習開始失敗時情境還在可以再選、AI 訊息語音播不出來時說（自動播放被擋不算）、登出被拒時選單留著並說。新測試 `useAudioPlayback.test.ts`、`UserProfileMenu.test.tsx`，`useVoiceRecording`／`ConversationTestCard` 各加案例。
 - **第七次巡檢**（subagent 唯讀，D-175）：登入登出、帳號連線、匿名端點。修了高風險的 **TTS**（匿名、沒有頻率限制、結果存進沒上限的快取：`TtsCache` 自己的 128 MB `MemoryCache`＋每位址每分鐘 30 次，D-173）與兩個低風險（帳號連線 refresh 一次一個、callback 的 provider 先正規化，D-174）。匿名查字典無限產生新字是產品決定，交給 Jacky（FOR_JACKY 18）。
 - **字典的發音播不出來時改用瀏覽器的聲音**（D-176）：被頻率限制或額度擋下時，按「播放」仍聽得到。
-- 驗證：前端 lint、全套測試（172 檔 1803 個）、build 全過；截圖 `.loop/shots/practice-errors.cjs` → `practice-start-failed`、`practice-playback-failed`（無頭瀏覽器沒有麥克風，順便拍到麥克風提示）；cscheck 0 個新診斷；CI 40538697557（D-172）、40539824667（D-173）、40540915064（D-174）綠；D-176 的 CI 見 NEXT 的 CI 狀態。
+- 驗證：前端 lint、全套測試（172 檔 1803 個）、build 全過；截圖 `.loop/shots/practice-errors.cjs` → `practice-start-failed`、`practice-playback-failed`（無頭瀏覽器沒有麥克風，順便拍到麥克風提示）；cscheck 0 個新診斷；CI 40538697557（D-172）、40539824667（D-173）、40540915064（D-174）綠；40542669764（D-176，本輪最後一次含程式碼的 push）綠。
 
 ## 2026-10-27 22:55 – 第 46 輪（表格貼進文件、巡檢低風險收尾、送出失敗的提示）
 

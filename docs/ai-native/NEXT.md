@@ -11,7 +11,7 @@
 
 ## 1. CI 狀態
 
-- 第 47 輪：前端（D-172）＋後端（D-173、D-174）；CI 每次都第一次就綠，cscheck 0 個新診斷（測試裡 `using var db = new AzureSQLDBContext` 的 CS1674、`UseInMemoryDatabase(name, root)` 的 CS1503 是雜訊；後者為保險改用只給名稱）。jsdom 的 `HTMLMediaElement.play()` 會印「Not implemented」，是對話練習頁測試的既有雜訊。
+- 第 47 輪：前端（D-172、D-176）＋後端（D-173、D-174）；CI 每次都第一次就綠（最後一次 40542669764），cscheck 0 個新診斷（測試裡 `using var db = new AzureSQLDBContext` 的 CS1674、`UseInMemoryDatabase(name, root)` 的 CS1503 是雜訊；後者為保險改用只給名稱）。jsdom 的 `HTMLMediaElement.play()` 會印「Not implemented」，是對話練習頁測試的既有雜訊。
 - 第 46 輪：前端為主＋後端一處（`YahooChart.SymbolUrl`）；CI 每次都第一次就綠，cscheck 0 個新診斷。頁面測試若要 mock 子元件，照 `ConversationTestCard.test.tsx`／`DailyChallenge.test.tsx`（`vi.mock('./components/X')`）；React 的 `onKeyPress` 測試要帶 `charCode: 13`。
 - 第 45 輪：後端為主＋前端三處；CI 每次都第一次就綠。cscheck 對 `SqlConnectionStringBuilder` 報「找不到的名稱」是第三方套件雜訊（validator 早就在用）。**改了服務回傳型別要 grep 測試裡所有 Moq setup**（`SaveHoldingsAsync` 改成 `ServiceResult<bool>` 後 `UpdateHoldingToolTests` 的 `.Returns(Task.CompletedTask)` 要跟著改）。
 - 第 44 輪：後端為主＋前端兩行；CI 有一次紅在 master 既有的計時測試（`NlValueSourcesTests` 牆鐘上限，已放寬到 15 秒）。cscheck 對 `_db.DashboardShares.Single()`／`Assert.Single(DbSet)` 報 CS1061／CS1503 是 EF 雜訊（cscheck 的 DbSet 沒有 IEnumerable），CI 會過。`DataSourceResolver` 多了 `IServerAddressCheck` 參數：測試一律經 `DataAnalysisControllerBuilder`／`DashboardServiceBuilder`（預設 `TestHelpers/PublicAddresses`，每個名稱都算公開）。
