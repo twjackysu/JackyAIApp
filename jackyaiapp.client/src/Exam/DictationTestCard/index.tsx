@@ -1,4 +1,5 @@
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -14,6 +15,7 @@ import {
   useRecordExamResultMutation,
 } from '@/apis/examApis';
 import { DictationGradeResponse } from '@/apis/examApis/types';
+import { getCaughtErrorMessage } from '@/apis/utils/errorMessage';
 import ExamRoundShell from '@/Exam/components/ExamRoundShell';
 import { useExamRound } from '@/Exam/hooks/useExamRound';
 import { useOneShotAudio } from '@/Exam/hooks/useOneShotAudio';
@@ -29,6 +31,8 @@ function DictationTestCard() {
   const [userInput, setUserInput] = useState('');
   const [gradeResult, setGradeResult] = useState<DictationGradeResponse | null>(null);
   const [srsNote, setSrsNote] = useState<string | null>(null);
+  // Why the answer was not graded; it stays in the box, so 送出 again resends it.
+  const [gradingError, setGradingError] = useState<string | null>(null);
 
   const { data, isFetching, refetch, isError, error } = useGetDictationPromptQuery();
   const [gradeDictation, { isLoading: isGrading }] = useGradeDictationMutation();
@@ -46,6 +50,7 @@ function DictationTestCard() {
   const handleSubmit = async () => {
     if (!userInput.trim() || !prompt) return;
 
+    setGradingError(null);
     try {
       const result = await gradeDictation({
         wordId: prompt.wordId,
@@ -75,7 +80,7 @@ function DictationTestCard() {
           /* recording is best-effort; ignore failures */
         });
     } catch (err) {
-      console.error('Error grading dictation submission:', err);
+      setGradingError(getCaughtErrorMessage(err, '評分失敗，請再按一次送出。'));
     }
   };
 
@@ -83,6 +88,7 @@ function DictationTestCard() {
     setUserInput('');
     setGradeResult(null);
     setSrsNote(null);
+    setGradingError(null);
     if (round.advance()) {
       refetch();
     }
@@ -93,6 +99,7 @@ function DictationTestCard() {
     setUserInput('');
     setGradeResult(null);
     setSrsNote(null);
+    setGradingError(null);
     refetch();
   };
 
@@ -149,6 +156,11 @@ function DictationTestCard() {
               >
                 {isGrading ? '評分中...' : '送出'}
               </Button>
+              {gradingError && !isGrading && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {gradingError}
+                </Alert>
+              )}
             </Box>
           )}
         </CardContent>
