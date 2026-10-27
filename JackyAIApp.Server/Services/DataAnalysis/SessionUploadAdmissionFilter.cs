@@ -11,7 +11,9 @@ namespace JackyAIApp.Server.Services.DataAnalysis
     /// is over <see cref="SessionUploadOptions.MaxRequestBodyBytes"/>, 429 when the body is bigger than
     /// what is left of the session budget (an upload's in-memory size is at least about its JSON size),
     /// or when the machine is already short of memory. A body without Content-Length is still capped by
-    /// the action's [RequestSizeLimit], and the parsed rows are measured precisely by the store.
+    /// the action's [RequestSizeLimit]. The body's length is not its size in memory (tiny cells cost far more
+    /// once read), so the rows are measured while they are read too (<see cref="SessionRowsJsonConverter"/>, D-158)
+    /// and then precisely by the store.
     /// Apply with <c>[ServiceFilter(typeof(SessionUploadAdmissionFilter))]</c>.
     /// </summary>
     public sealed class SessionUploadAdmissionFilter(
