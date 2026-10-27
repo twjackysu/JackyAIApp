@@ -98,6 +98,13 @@ describe('settleToolSteps', () => {
     expect(settleToolSteps(open(), true).map((s) => s.status)).toEqual(['failed', 'done']);
   });
 
+  it('closes one of our own tools still waiting as failed, even after a stop that kept the answer', () => {
+    // The reader stopped while a write waited for their yes: the server ran nothing.
+    let steps = applyToolEvent([], { type: 'tool_use', name: 'update_holding', id: 't9' });
+    steps = applyToolEvent(steps, { type: 'tool_use', name: 'get_stock_history' });
+    expect(settleToolSteps(steps, true).map((s) => s.status)).toEqual(['failed', 'done']);
+  });
+
   it('closes them as failed when no answer came', () => {
     expect(settleToolSteps(open(), false).map((s) => s.status)).toEqual(['failed', 'failed']);
   });

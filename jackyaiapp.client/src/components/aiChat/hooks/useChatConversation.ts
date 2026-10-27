@@ -311,7 +311,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
           parsedBlocks: undefined,
           serverId: assistantMessageId,
         });
-        // The calls made before the stop did run; none is left spinning.
+        // None is left spinning: a hosted call made before the stop did run, one of ours with no result did not.
         settleSteps(true);
         closeApproval();
       },

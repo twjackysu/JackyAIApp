@@ -66,8 +66,14 @@ export function applyToolEvent(steps: readonly ToolStep[], event: ToolEvent): To
 }
 
 /**
- * The steps once the answer has ended: those still running are done if it answered (a hosted
- * tool's result is in the answer), failed if it did not.
+ * The steps once the answer has ended: a hosted tool's still running is done if it answered (its
+ * result is in the answer), failed if it did not. One of our own (it has an `id`) that never got its
+ * `tool_result` did not finish, answer or not: the reader stopped while it ran or waited for their
+ * yes (a write that never happened must not look done), or the turn ran out of tool rounds.
  */
 export const settleToolSteps = (steps: readonly ToolStep[], answered: boolean): ToolStep[] =>
-  steps.map((s) => (s.status === 'running' ? { ...s, status: answered ? 'done' : 'failed' } : s));
+  steps.map((s) =>
+    s.status === 'running'
+      ? { ...s, status: answered && s.id === undefined ? 'done' : 'failed' }
+      : s,
+  );
