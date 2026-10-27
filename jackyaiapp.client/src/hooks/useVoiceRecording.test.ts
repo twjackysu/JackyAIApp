@@ -5,9 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import controllerCs from '../../../JackyAIApp.Server/Controllers/ConversationPracticeController.cs?raw';
 
 import {
+  AUTO_STOPPED_NOTE,
   MAX_RECORDING_SECONDS,
   RECORDING_BITS_PER_SECOND,
   START_RECORDING_LABEL,
+  TRANSCRIPTION_FAILED_NOTE,
   useVoiceRecording,
 } from './useVoiceRecording';
 
@@ -99,6 +101,7 @@ describe('useVoiceRecording', () => {
     expect(recorder.stopCalls).toBe(1);
     expect(hook.result.current.isRecording).toBe(false);
     expect(transcribe).toHaveBeenCalledTimes(1);
+    expect(hook.result.current.recordingNote).toBe(AUTO_STOPPED_NOTE);
 
     vi.useRealTimers();
     await act(async () => {
@@ -145,6 +148,22 @@ describe('useVoiceRecording', () => {
     vi.advanceTimersByTime(MAX_RECORDING_SECONDS * 1000);
     expect(recorder.stopCalls).toBe(stopsAtUnmount);
     expect(transcribe).not.toHaveBeenCalled();
+  });
+
+  it('says so when the recording was not turned into text, and forgets it on the next recording', async () => {
+    const { hook } = await ready();
+    transcribe.mockReturnValue({ unwrap: () => Promise.reject(new Error('413')) });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    act(() => hook.result.current.toggleRecording());
+    await act(async () => {
+      hook.result.current.toggleRecording();
+      await Promise.resolve();
+    });
+    expect(hook.result.current.recordingNote).toBe(TRANSCRIPTION_FAILED_NOTE);
+
+    act(() => hook.result.current.toggleRecording());
+    expect(hook.result.current.recordingNote).toBeNull();
   });
 
   it('says the limit on the microphone button', () => {

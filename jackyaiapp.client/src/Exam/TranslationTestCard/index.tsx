@@ -44,9 +44,10 @@ function TranslationCard() {
 
   const { data, isFetching, refetch, isError, error } = useGetTranslationTestQuery();
 
-  const { isRecording, isTranscribing, mediaRecorder, toggleRecording } = useVoiceRecording({
-    onTranscriptionComplete: (text) => setInput(text),
-  });
+  const { isRecording, isTranscribing, mediaRecorder, recordingNote, toggleRecording } =
+    useVoiceRecording({
+      onTranscriptionComplete: (text) => setInput(text),
+    });
 
   const [getTranslationQualityGrading, { isFetching: isGrading }] =
     useLazyGetTranslationQualityGradingQuery();
@@ -208,6 +209,11 @@ function TranslationCard() {
           {isTranscribing && (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
               正在轉換語音為文字...
+            </Typography>
+          )}
+          {recordingNote && !isTranscribing && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {recordingNote}
             </Typography>
           )}
           {gradingError && (

@@ -12,6 +12,8 @@ interface MessageInputProps {
   onSendMessage: () => void;
   onToggleRecording: () => void;
   isRecording: boolean;
+  /** A line about the last recording (it stopped by itself, or was not turned into text). */
+  recordingNote?: string | null;
   isTranscribing: boolean;
   isResponding: boolean;
   mediaRecorder: MediaRecorder | null;
@@ -23,6 +25,7 @@ function MessageInput({
   onSendMessage,
   onToggleRecording,
   isRecording,
+  recordingNote,
   isTranscribing,
   isResponding,
   mediaRecorder,
@@ -106,6 +109,11 @@ function MessageInput({
       {isTranscribing && (
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
           正在轉換語音為文字...
+        </Typography>
+      )}
+      {recordingNote && !isTranscribing && (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
+          {recordingNote}
         </Typography>
       )}
     </Paper>

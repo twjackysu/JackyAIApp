@@ -14,6 +14,12 @@ export const MAX_RECORDING_SECONDS = 120;
 /** The microphone button's hint before recording, so the two-minute stop is no surprise. */
 export const START_RECORDING_LABEL = `點擊開始錄音（最長 ${MAX_RECORDING_SECONDS / 60} 分鐘）`;
 
+/** Said under the input once a recording reached {@link MAX_RECORDING_SECONDS} and stopped by itself. */
+export const AUTO_STOPPED_NOTE = `已錄滿 ${MAX_RECORDING_SECONDS / 60} 分鐘，自動停止並轉成文字。`;
+
+/** Said under the input when the recording could not be turned into text. */
+export const TRANSCRIPTION_FAILED_NOTE = '語音沒有轉成文字，請再錄一次或直接輸入。';
+
 /** The bitrate asked of the browser's recorder: plenty for speech, and keeps two minutes near 1 MB. */
 export const RECORDING_BITS_PER_SECOND = 64_000;
 
@@ -31,6 +37,8 @@ interface UseVoiceRecordingProps {
  */
 export function useVoiceRecording({ onTranscriptionComplete }: UseVoiceRecordingProps) {
   const [isRecording, setIsRecording] = useState(false);
+  /** A line for the reader about the last recording (it stopped by itself, or failed); null when there is none. */
+  const [recordingNote, setRecordingNote] = useState<string | null>(null);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [transcribeAudio, { isLoading: isTranscribing }] = useTranscribeAudioMutation();
   const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -122,6 +130,7 @@ export function useVoiceRecording({ onTranscriptionComplete }: UseVoiceRecording
       }
     } catch (error) {
       console.error('Error transcribing audio:', error);
+      setRecordingNote(TRANSCRIPTION_FAILED_NOTE);
     }
   };
 
@@ -138,6 +147,7 @@ export function useVoiceRecording({ onTranscriptionComplete }: UseVoiceRecording
       if (mediaRecorder.state === 'inactive') {
         mediaRecorder.start();
         setIsRecording(true);
+        setRecordingNote(null);
         // Stopping fires onstop, which sends what was said so far, as pressing the button would.
         stopTimer.current = setTimeout(() => {
           stopTimer.current = null;
@@ -145,6 +155,7 @@ export function useVoiceRecording({ onTranscriptionComplete }: UseVoiceRecording
             mediaRecorder.stop();
           }
           setIsRecording(false);
+          setRecordingNote(AUTO_STOPPED_NOTE);
         }, MAX_RECORDING_SECONDS * 1000);
       }
     }
@@ -154,6 +165,7 @@ export function useVoiceRecording({ onTranscriptionComplete }: UseVoiceRecording
     isRecording,
     isTranscribing,
     mediaRecorder,
+    recordingNote,
     toggleRecording,
   };
 }

@@ -47,12 +47,13 @@ function ConversationTestCard() {
 
   // Custom hooks
   const messagesEndRef = useAutoScroll(conversationState?.history, isResponding);
-  const { isRecording, isTranscribing, mediaRecorder, toggleRecording } = useVoiceRecording({
-    onTranscriptionComplete: (text, deliveryFeedback) => {
-      setInput(text);
-      setPendingDeliveryFeedback(deliveryFeedback ?? null);
-    },
-  });
+  const { isRecording, isTranscribing, mediaRecorder, recordingNote, toggleRecording } =
+    useVoiceRecording({
+      onTranscriptionComplete: (text, deliveryFeedback) => {
+        setInput(text);
+        setPendingDeliveryFeedback(deliveryFeedback ?? null);
+      },
+    });
 
   const handleStartConversation = async (
     scenario: string,
@@ -203,6 +204,7 @@ function ConversationTestCard() {
         isTranscribing={isTranscribing}
         isResponding={isResponding}
         mediaRecorder={mediaRecorder}
+        recordingNote={recordingNote}
       />
 
       <Box
