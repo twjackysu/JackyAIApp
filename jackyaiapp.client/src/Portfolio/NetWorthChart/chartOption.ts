@@ -4,6 +4,7 @@ import { BreakdownSeries } from './breakdown';
 
 import { NetWorthDataPoint } from '@/apis/portfolioApis/types';
 import { ECOption } from '@/charts/echarts';
+import { escapeHtml } from '@/components/HtmlViewer/escapeHtml';
 import { fmtCompact } from '@/utils/format';
 
 // Some groups (e.g. Liability) are negative — fmtCompact already compares by magnitude, so a
@@ -38,9 +39,10 @@ export function buildNetWorthOption(
           value: number;
           dataIndex: number;
         }[];
-        const date = p[0]?.axisValue ?? '';
+        const date = escapeHtml(p[0]?.axisValue ?? '');
         const dayTotal = totals[p[0]?.dataIndex ?? 0] || 0;
-        const line = (s: { seriesName: string; value: number }) => {
+        const line = (series: { seriesName: string; value: number }) => {
+          const s = { ...series, seriesName: escapeHtml(series.seriesName) };
           if (mode === 'full') return `${s.seriesName}：NT$${fmt(s.value)}`;
           // 'changes' hides both amounts and ratios; 'hidden' shows share-of-total instead.
           if (mode === 'changes') return `${s.seriesName}：${MASK}`;

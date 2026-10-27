@@ -1,6 +1,7 @@
 import { MASK, PrivacyMode } from './privacy';
 
 import { ECOption } from '@/charts/echarts';
+import { escapeHtml } from '@/components/HtmlViewer/escapeHtml';
 import { fmtCompactTWD, GAIN_COLOR, LOSS_COLOR, signPrefix } from '@/utils/format';
 
 export const MAX_ITEM_BARS = 7;
@@ -98,9 +99,10 @@ export function buildWaterfallOption(
         const p = (params as { axisValue: string; dataIndex: number }[])[0];
         if (!p) return '';
         const isAnchor = p.dataIndex === 0 || p.dataIndex === items.length + 1;
-        if (isAnchor) return `<b>${p.axisValue}</b><br/>${formatAnchor(values[p.dataIndex])}`;
+        if (isAnchor)
+          return `<b>${escapeHtml(p.axisValue)}</b><br/>${formatAnchor(values[p.dataIndex])}`;
         const raw = items[p.dataIndex - 1].value;
-        return `<b>${p.axisValue}</b><br/>${signPrefix(raw)}${formatDelta(raw)}`;
+        return `<b>${escapeHtml(p.axisValue)}</b><br/>${signPrefix(raw)}${formatDelta(raw)}`;
       },
     },
     grid: { top: 16, right: 16, bottom: 48, left: 56 },

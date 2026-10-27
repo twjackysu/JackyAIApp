@@ -18,6 +18,7 @@ import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
 import ReactECharts from '@/charts/ReactECharts';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { InfoPopover } from '@/components/hints';
+import { escapeHtml } from '@/components/HtmlViewer/escapeHtml';
 import { fmtCompact, fmtNum, fmtSignedPct } from '@/utils/format';
 
 // QQQ/VOO/VT track the Nasdaq-100/S&P500/global-stock indices closely enough via their
@@ -87,9 +88,11 @@ export function BenchmarkChart() {
       appendToBody: true,
       formatter: (params: unknown) => {
         const p = params as { axisValue: string; seriesName: string; value: number }[];
-        const date = p[0]?.axisValue ?? '';
+        const date = escapeHtml(p[0]?.axisValue ?? '');
         const lines = p.map((s) =>
-          mode === 'full' ? `${s.seriesName}：NT$${fmtNum(s.value)}` : `${s.seriesName}：${MASK}`,
+          mode === 'full'
+            ? `${escapeHtml(s.seriesName)}：NT$${fmtNum(s.value)}`
+            : `${escapeHtml(s.seriesName)}：${MASK}`,
         );
         return [`<b>${date}</b>`, ...lines].join('<br/>');
       },

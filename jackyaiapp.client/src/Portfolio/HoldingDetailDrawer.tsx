@@ -22,6 +22,7 @@ import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
 import ReactECharts from '@/charts/ReactECharts';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { ActionTooltip, InfoPopover } from '@/components/hints';
+import { escapeHtml } from '@/components/HtmlViewer/escapeHtml';
 import MarkdownMessage from '@/components/MarkdownMessage';
 import { fmtNum, fmtQty, fmtSigned, GAIN_COLOR, LOSS_COLOR, pnlColor } from '@/utils/format';
 
@@ -99,10 +100,13 @@ function PriceChart({ market, symbol }: { market: string; symbol: string }) {
       formatter: (params: unknown) => {
         const p = params as { axisValue: string; seriesName: string; value: number | string }[];
         return [
-          `<b>${p[0]?.axisValue ?? ''}</b>`,
+          `<b>${escapeHtml(p[0]?.axisValue ?? '')}</b>`,
           ...p
             .filter((s) => typeof s.value === 'number')
-            .map((s) => `${s.seriesName}：${hist.currency} ${value(fmt(Number(s.value)))}`),
+            .map(
+              (s) =>
+                `${escapeHtml(s.seriesName)}：${escapeHtml(hist.currency)} ${value(fmt(Number(s.value)))}`,
+            ),
         ].join('<br/>');
       },
     },

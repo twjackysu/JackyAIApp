@@ -86,6 +86,21 @@ describe('buildWaterfallOption tooltip formatting', () => {
     const anchorEnd = tooltip.formatter([{ axisValue: '目前總值', dataIndex: 3 }]);
     expect(anchorEnd).toContain('ANCHOR(1200)'); // 1000 + 500 - 300
   });
+
+  it('writes a holding name as text: ECharts puts the tooltip in with innerHTML (D-160)', () => {
+    const option = buildWaterfallOption(
+      [{ name: '<img src=x onerror=alert(1)>', value: 5 }],
+      10,
+      String,
+      String,
+      String,
+    );
+    const tooltip = option.tooltip as { formatter: (params: unknown) => string };
+
+    const html = tooltip.formatter([{ axisValue: '<img src=x onerror=alert(1)>', dataIndex: 1 }]);
+    expect(html).not.toContain('<img');
+    expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+  });
 });
 
 describe('privacy-mode formatters', () => {

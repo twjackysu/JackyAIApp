@@ -15,6 +15,7 @@ import { useGetNetWorthHistoryQuery, useGetUpdateHistoryQuery } from '@/apis/por
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
 import ReactECharts from '@/charts/ReactECharts';
 import CenteredSpinner from '@/components/CenteredSpinner';
+import { escapeHtml } from '@/components/HtmlViewer/escapeHtml';
 import { fmtCompact, fmtNum, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
 
 const LINE_COLOR = '#F59E0B';
@@ -107,7 +108,7 @@ export function NetWorthTrendChart() {
       formatter: (params: unknown) => {
         const p = (params as { axisValue: string; value: number }[])[0];
         if (!p) return '';
-        return `<b>${p.axisValue}</b><br/>流動資產淨值：${
+        return `<b>${escapeHtml(p.axisValue)}</b><br/>流動資產淨值：${
           mode === 'full' ? `NT$${fmtNum(p.value)}` : MASK
         }`;
       },

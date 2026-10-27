@@ -16,6 +16,7 @@ import { useGetDrawdownQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
 import ReactECharts from '@/charts/ReactECharts';
 import CenteredSpinner from '@/components/CenteredSpinner';
+import { escapeHtml } from '@/components/HtmlViewer/escapeHtml';
 import { LOSS_COLOR } from '@/utils/format';
 
 export function DrawdownChart() {
@@ -56,7 +57,7 @@ export function DrawdownChart() {
       formatter: (params: unknown) => {
         const p = (params as { axisValue: string; value: number }[])[0];
         if (!p) return '';
-        return `<b>${p.axisValue}</b><br/>回撤：${p.value.toFixed(2)}%`;
+        return `<b>${escapeHtml(p.axisValue)}</b><br/>回撤：${p.value.toFixed(2)}%`;
       },
     },
     grid: { top: 16, right: 16, bottom: 24, left: 48 },

@@ -20,6 +20,7 @@ import { useGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
 import ReactECharts from '@/charts/ReactECharts';
 import CenteredSpinner from '@/components/CenteredSpinner';
+import { escapeHtml } from '@/components/HtmlViewer/escapeHtml';
 import { fmtCompact, fmtNum, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
 
 const GRANULARITIES: { label: string; value: Granularity }[] = [
@@ -77,7 +78,7 @@ export function FinancialChangesChart() {
         const p = (params as { axisValue: string; value: number }[])[0];
         if (!p) return '';
         const sign = p.value >= 0 ? '+' : '−';
-        return `<b>${p.axisValue}</b><br/>淨值變化：${
+        return `<b>${escapeHtml(p.axisValue)}</b><br/>淨值變化：${
           mode !== 'hidden' ? `${sign}NT$${fmtNum(Math.abs(p.value))}` : MASK
         }`;
       },
