@@ -394,5 +394,30 @@ const busyTurn = [{ type: 'start', conversationId: 'c1', userMessageId: 1 }, { t
     await page.screenshot({ path: `${out}/search-title-${name}.png` });
     await page.close();
   }
+  // 第 51 輪：手機寬（紀錄在抽屜裡）與 Studio 抽屜：搜尋內容 → 按下 → 抽屜關掉後仍捲到並亮。
+  for (const [name, url, opener] of [
+    ['mobile', '/finance', async (page) => { await page.locator('input[aria-label]').first().click(); }],
+    ['studio', '/english/repository', async (page) => { await page.keyboard.press('Control+k'); }],
+  ]) {
+    answered = true;
+    titled = true;
+    many = true;
+    const viewport = name === 'mobile' ? { width: 390, height: 844 } : { width: 1280, height: 900 };
+    const page = await open(browser, viewport, financeTrend);
+    await page.goto(`http://localhost:5173${url}`);
+    await page.waitForTimeout(2000);
+    await opener(page);
+    await page.waitForTimeout(1200);
+    await page.getByRole('button', { name: '對話紀錄' }).last().click();
+    await page.waitForTimeout(800);
+    await page.getByLabel('搜尋對話').last().fill('毛利率');
+    await page.waitForTimeout(1600);
+    await page.screenshot({ path: `${out}/search-content-${name}.png` });
+    await page.locator('li .MuiListItemButton-root', { hasText: '外資連續賣超' }).last().click();
+    await page.waitForTimeout(700);
+    await page.screenshot({ path: `${out}/search-reveal-${name}.png` });
+    console.log(name, 'lit:', await page.locator('[data-revealed]').count());
+    await page.close();
+  }
   await browser.close();
 })();
