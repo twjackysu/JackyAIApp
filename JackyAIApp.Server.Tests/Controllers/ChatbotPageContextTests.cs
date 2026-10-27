@@ -13,6 +13,8 @@ namespace JackyAIApp.Server.Tests.Controllers
             Assert.Equal("Message is too long.",
                 ChatbotController.MessageRefusal(new ChatRequest { Message = new string('字', ChatbotController.MaxMessageLength + 1) }));
             Assert.NotNull(ChatbotController.MessageRefusal(new ChatRequest { Message = "" }));
+            // The Messages API refuses a text block of white space only, so every later turn would fail.
+            Assert.NotNull(ChatbotController.MessageRefusal(new ChatRequest { Message = " \n\t " }));
             Assert.NotNull(ChatbotController.MessageRefusal(null));
         }
 

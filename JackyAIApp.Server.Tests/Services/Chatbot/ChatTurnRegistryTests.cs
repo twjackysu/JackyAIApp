@@ -48,6 +48,46 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             Assert.True(second.Token.IsCancellationRequested);
         }
 
+        [Fact]
+        public async Task Settle_StopsTheRunningTurn_AndWaitsUntilItHasSaved()
+        {
+            var turns = new ChatTurnRegistry();
+            var running = turns.Begin("u1", "c1");
+
+            var settle = turns.SettleAsync("u1", "c1", TimeSpan.FromSeconds(30), CancellationToken.None);
+
+            Assert.True(running.Token.IsCancellationRequested);
+            // The stopped turn is still saving its answer: the new message must not be stored yet.
+            await Task.Delay(50);
+            Assert.False(settle.IsCompleted);
+
+            running.Dispose();
+            await settle.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        [Fact]
+        public async Task Settle_WithNoTurnRunning_GoesOnAtOnce()
+        {
+            var turns = new ChatTurnRegistry();
+            turns.Begin("u1", "c1").Dispose();
+
+            await turns.SettleAsync("u1", "c1", TimeSpan.FromSeconds(30), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+            // Another user's turn on a conversation of the same id is neither stopped nor waited for.
+            using var other = turns.Begin("u2", "c1");
+            await turns.SettleAsync("u1", "c1", TimeSpan.FromSeconds(30), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(other.Token.IsCancellationRequested);
+        }
+
+        [Fact]
+        public async Task Settle_DoesNotWaitForeverForATurnThatDoesNotEnd()
+        {
+            var turns = new ChatTurnRegistry();
+            using var stuck = turns.Begin("u1", "c1");
+
+            await turns.SettleAsync("u1", "c1", TimeSpan.FromMilliseconds(50), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(stuck.Token.IsCancellationRequested);
+        }
+
         [Theory]
         [InlineData("台積電目前", "台積電目前\n\n（已中斷）")]
         [InlineData("台積電目前\n", "台積電目前\n\n（已中斷）")]

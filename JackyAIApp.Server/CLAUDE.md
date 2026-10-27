@@ -252,7 +252,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   reply that stops with tool_use is collected whole while it streams (the SDK's `BetaMessageContentAggregator`),
   `ClientToolRunner` runs its calls one by one (30s each; the reader sees `tool_use` with `id`/`displayName`,
   then `tool_result` with `ok`, `card`, `durationMs`), and the next request sends the reply back unchanged
-  (thinking signatures included) with the results, at most `ModelTurn.MaxToolRounds` requests a turn. A result
+  (thinking signatures included) with the results, at most `ModelTurn.MaxToolRounds` requests a turn (a turn still
+  calling tools at the last one is not an answer, `no_answer`, even after a lead-in line: its calls never ran; D-178). A result
   goes back wrapped as untrusted data (`ClientToolRunner.Wrap`, `<tool_output trust="untrusted">`, which the
   content cannot close), and the request's system prompt says what that means
   (`ChatTurnRequest.UntrustedToolOutputInstruction`). What the AI may do with each tool is the reader's
@@ -377,7 +378,13 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   drops any text it had, so reopening the conversation shows what the reader saw, and the model never
   takes a cut-off answer for a finished one. Server and client keep to this together (`TurnVerdictTests`,
   and the assistant panel's test for a reply that fails after some text)
-- What a reader sends is bounded before it costs memory or is stored (D-158): a message at most
+- A conversation answers one turn at a time, in order: a new message or an edit first stops a turn still running in that
+  conversation and waits until it has saved what it keeps (`ChatTurnRegistry.SettleAsync`, at most `SettleTimeout`, 5s;
+  in `ChatbotController.Chat`, once charged, before an edit rewinds the history), so the stopped answer never lands after
+  the new question — the reader's "stop and ask this instead" sends the next message at once, and a second tab may be on the
+  same conversation (D-177)
+- What a reader sends is bounded before it costs memory or is stored (D-158): a message not empty or only white space
+  (the API refuses such a text block, so the conversation could never be answered again), at most
   `ChatbotController.MaxMessageLength` (20,000 UTF-16 code units, the client's `MAX_MESSAGE_LENGTH`, held to it by its test)
   and its request 1 MB, refused with 400 before any charge, since a message is stored before the model is asked and kept
   when the answer fails; an attachment's upload 20 a minute per reader (`RateLimitPolicies.ChatAttachmentUpload`); a Word or

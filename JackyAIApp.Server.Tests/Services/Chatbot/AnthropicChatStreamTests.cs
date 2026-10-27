@@ -1030,6 +1030,21 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         [Fact]
+        public async Task AModelStillCallingToolsAtTheLastRound_IsNotAnAnswer_EvenAfterALeadIn()
+        {
+            // Haiku writes a line before its calls; at the cap that line is not an answer.
+            for (var i = 0; i < ModelTurn.MaxToolRounds; i++)
+                _anthropic.Reply(Sse.Start(), Sse.Text("我來查一下。"), Sse.ClientToolUse($"toolu_{i}", "lookup_word", "{}"), Sse.End("tool_use"));
+
+            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+
+            Assert.Equal(ModelTurn.MaxToolRounds, _anthropic.Requests.Count);
+            Assert.Equal("error", Type(turn.Events[^1]));
+            Assert.Equal(ChatErrorCodes.NoAnswer, turn.Events[^1].GetProperty("code").GetString());
+            Assert.Equal(new[] { "user" }, Messages().Select(m => m.Role));
+        }
+
+        [Fact]
         public async Task AFinanceTurnThatStopsForATool_IsNotTreatedAsAToolRound()
         {
             // Finance has no tools of its own: a tool_use stop is read as before (no text: no answer).

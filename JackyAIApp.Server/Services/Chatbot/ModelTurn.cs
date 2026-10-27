@@ -81,6 +81,9 @@ namespace JackyAIApp.Server.Services.Chatbot
                 {
                     logger.LogWarning("Chat turn for conversation {ConversationId} still calling tools after {Rounds} requests; ending it",
                         conversationId, round);
+                    // Not an answer, even with text: what it wrote so far is a lead-in to calls that never
+                    // ran ("我來查一下…"), and kept as the answer it would read as finished.
+                    errorCode = ChatErrorCodes.NoAnswer;
                     break;
                 }
 

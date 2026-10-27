@@ -94,6 +94,12 @@ namespace JackyAIApp.Server.Controllers
                 return;
             }
 
+            // A turn still being answered in this conversation (the reader stopped it to ask this instead, or
+            // another tab) is stopped and saves its answer first, so the history stays in order. Only once
+            // charged: a refused message stops nothing.
+            if (!string.IsNullOrEmpty(request.ConversationId))
+                await _turns.SettleAsync(userId, request.ConversationId, ChatTurnRegistry.SettleTimeout, HttpContext.RequestAborted);
+
             // Only once charged: a refused message must not have cut the conversation short.
             if (editId != null)
             {
@@ -144,7 +150,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Why a message is not taken, or null when it is.</summary>
         internal static string? MessageRefusal(ChatRequest? request) =>
-            request == null || string.IsNullOrEmpty(request.Message) ? "Message cannot be null or empty."
+            request == null || string.IsNullOrWhiteSpace(request.Message) ? "Message cannot be null or empty."
             : request.Message.Length > MaxMessageLength ? "Message is too long."
             : null;
 
