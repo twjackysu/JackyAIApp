@@ -210,6 +210,8 @@ try
     // Outside ExceptionMiddleware, so it sees an unhandled exception as the 500 it becomes.
     app.UseMiddleware<UsageSettlementMiddleware>();
     app.UseMiddleware<ExceptionMiddleware>();
+    // The OAuth consent page is never shown in another site's frame (clickjacking, D-190).
+    app.UseMiddleware<FrameGuardMiddleware>();
 
     // Link-preview bots (LINE/Facebook/etc.) don't execute JS, so intercept them before the
     // SPA static-file/fallback pipeline with a server-rendered title/OG shell — see

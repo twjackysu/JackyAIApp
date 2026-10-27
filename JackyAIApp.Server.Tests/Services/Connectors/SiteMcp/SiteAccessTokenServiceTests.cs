@@ -97,6 +97,18 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         }
 
         [Fact]
+        public async Task ExpiredTokens_DoNotCountTowardTheLimit()
+        {
+            for (var i = 0; i < SiteAccessTokenService.Limit; i++) await CreateAsync(days: 30);
+            Assert.Equal(ErrorCodes.BadRequest, (await Service().CreateAsync(Request(), CancellationToken.None)).Error);
+
+            // A month later they have all expired: an OAuth sign-in, or a new token, is not refused for them (D-190).
+            _clock.Now = _clock.Now.AddDays(31);
+            Assert.NotNull(await Service().IssueAsync(User, "Claude", allowWrites: false, days: 90, CancellationToken.None));
+            Assert.True((await Service().CreateAsync(Request(), CancellationToken.None)).IsSuccess);
+        }
+
+        [Fact]
         public async Task AGoodToken_StandsForItsOwner()
         {
             var token = await CreateAsync(writes: true);

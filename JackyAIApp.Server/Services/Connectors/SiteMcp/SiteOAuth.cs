@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -27,8 +28,11 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                 (parsed.Scheme == Uri.UriSchemeHttp && parsed.IsLoopback);
         }
 
-        /// <summary>The part of the address the reader is shown on the consent page ("claude.ai").</summary>
-        public static string HostOf(string uri) => new Uri(uri).Host;
+        /// <summary>
+        /// The part of the address the reader is shown on the consent page ("claude.ai"), an international name in its
+        /// ASCII (punycode) form, so a lookalike ("сlaude.ai" with a Cyrillic с) does not read as the real one (D-190).
+        /// </summary>
+        public static string HostOf(string uri) => new Uri(uri).IdnHost;
     }
 
     /// <summary>A client as it registered: what it calls itself and where its sign-ins may come back to.</summary>
@@ -81,10 +85,15 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
             }
         }
 
-        /// <summary>The client's own name, cut to fit and stripped of control characters; "AI" when it gave none.</summary>
+        /// <summary>
+        /// The client's own name, cut to fit and stripped of control and format characters (a right-to-left override or
+        /// a zero-width space could make it read as another name, D-190); "AI" when it gave none.
+        /// </summary>
         internal static string NameOf(string? clientName)
         {
-            var cleaned = new string((clientName ?? "").Where(c => !char.IsControl(c)).ToArray()).Trim();
+            var cleaned = new string((clientName ?? "")
+                .Where(c => !char.IsControl(c) && char.GetUnicodeCategory(c) != UnicodeCategory.Format)
+                .ToArray()).Trim();
             if (cleaned.Length == 0) return "AI";
             return cleaned.Length > MaxNameLength ? cleaned[..MaxNameLength] : cleaned;
         }

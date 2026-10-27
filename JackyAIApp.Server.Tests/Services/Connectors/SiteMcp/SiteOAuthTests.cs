@@ -65,10 +65,21 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         [InlineData(null, "AI")]
         [InlineData("   ", "AI")]
         [InlineData(" Claude\u0007 ", "Claude")]
+        [InlineData("Cl\u200Baude\u202E", "Claude")]
         [InlineData("A client whose name goes on and on and on forever", "A client whose name goes on and on and o")]
         public void AClientsName_IsCleanedAndCut(string? name, string expected)
         {
             Assert.Equal(expected, SiteOAuthClients.NameOf(name));
+        }
+
+        [Theory]
+        [InlineData("https://claude.ai/api/cb", "claude.ai")]
+        // A Cyrillic с: shown as what it is, not as claude.ai (D-190).
+        [InlineData("https://\u0441laude.ai/cb", "xn--laude-0ye.ai")]
+        [InlineData("http://127.0.0.1:33418/callback", "127.0.0.1")]
+        public void TheHostShownOnTheConsentPage_IsInAscii(string uri, string expected)
+        {
+            Assert.Equal(expected, SiteOAuthRedirects.HostOf(uri));
         }
 
         private static SiteOAuthGrant Grant() =>

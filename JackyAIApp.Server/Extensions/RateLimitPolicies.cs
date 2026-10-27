@@ -33,6 +33,14 @@ namespace JackyAIApp.Server.Extensions
         internal const int SiteOAuthPermitsPerMinute = 30;
 
         /// <summary>
+        /// The reader's answer on the consent page (POST /api/oauth/consent), per reader: an approval holds a code in
+        /// memory for five minutes, so a loop would fill it (D-190). One sign-in is one press.
+        /// </summary>
+        public const string SiteOAuthConsent = "site-oauth-consent";
+
+        internal const int SiteOAuthConsentPermitsPerMinute = 20;
+
+        /// <summary>
         /// What makes the server reach an MCP server a reader named (probe, add, test a connector), per reader: each is a
         /// press in the add dialog or on a connector, so only a loop comes near the limit, which keeps the server from
         /// being anyone's free client of other hosts (D-155). Saving a Data Analysis source (a SQL Server or cluster the
@@ -125,6 +133,12 @@ namespace JackyAIApp.Server.Extensions
                 "address:" + ClientAddress(http),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = SiteOAuthPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
 
+        /// <summary>Each reader their own window (the endpoint takes a sign-in, so there is always one).</summary>
+        internal static RateLimitPartition<string> SiteOAuthConsentPartition(HttpContext http) =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                "user:" + (http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? AnonymousPartition),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = SiteOAuthConsentPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+
         /// <summary>Each reader their own window (the endpoints take a sign-in, so there is always one).</summary>
         internal static RateLimitPartition<string> ConnectorProbePartition(HttpContext http) =>
             RateLimitPartition.GetFixedWindowLimiter(
@@ -192,6 +206,7 @@ namespace JackyAIApp.Server.Extensions
                 options.AddPolicy(SessionUpload, SessionUploadPartition);
                 options.AddPolicy(SiteMcp, SiteMcpPartition);
                 options.AddPolicy(SiteOAuth, SiteOAuthPartition);
+                options.AddPolicy(SiteOAuthConsent, SiteOAuthConsentPartition);
                 options.AddPolicy(ConnectorProbe, ConnectorProbePartition);
                 options.AddPolicy(ChatAttachmentUpload, ChatAttachmentUploadPartition);
                 options.AddPolicy(PdfUnlock, PdfUnlockPartition);

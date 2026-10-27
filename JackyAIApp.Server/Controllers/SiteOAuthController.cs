@@ -56,6 +56,7 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>The reader's answer: where to send them.</summary>
         [Authorize]
         [HttpPost("/api/oauth/consent")]
+        [EnableRateLimiting(RateLimitPolicies.SiteOAuthConsent)]
         public IActionResult Decide([FromBody] SiteOAuthDecisionDto decision) =>
             responseFactory.ToActionResult(oauth.Decide(decision, Urls));
 

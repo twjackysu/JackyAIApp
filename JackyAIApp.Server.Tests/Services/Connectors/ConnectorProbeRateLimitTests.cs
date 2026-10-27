@@ -106,6 +106,21 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Equal(RateLimitPolicies.ConnectorProbe, method.GetCustomAttribute<EnableRateLimitingAttribute>()?.PolicyName);
         }
 
+        [Fact]
+        public void TheConsentPagesAnswer_IsHeldPerReader()
+        {
+            var alice = RateLimitPolicies.SiteOAuthConsentPartition(Reader("alice"));
+            Assert.NotEqual(alice.PartitionKey, RateLimitPolicies.SiteOAuthConsentPartition(Reader("bob")).PartitionKey);
+            using (var limiter = alice.Factory(alice.PartitionKey))
+            {
+                for (var i = 0; i < RateLimitPolicies.SiteOAuthConsentPermitsPerMinute; i++)
+                    Assert.True(limiter.AttemptAcquire().IsAcquired, $"permit {i + 1}");
+                Assert.False(limiter.AttemptAcquire().IsAcquired);
+            }
+            Assert.Equal(RateLimitPolicies.SiteOAuthConsent,
+                typeof(SiteOAuthController).GetMethod(nameof(SiteOAuthController.Decide))!.GetCustomAttribute<EnableRateLimitingAttribute>()?.PolicyName);
+        }
+
         [Theory]
         [InlineData(nameof(AiConnectorsController.Probe))]
         [InlineData(nameof(AiConnectorsController.Create))]

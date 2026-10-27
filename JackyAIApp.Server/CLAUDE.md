@@ -510,7 +510,12 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   `resource`), which answers with one of the reader's personal access tokens, named after the client, 90 days, no
   refresh token. The anonymous `register` and `token` are held to 30 requests a minute per address
   (`RateLimitPolicies.SiteOAuth`, by `CF-Connecting-IP`: the site takes only Cloudflare's traffic), answered in OAuth's
-  error shape; a token made this way is `ViaOAuth`, which the connectors page shows
+  error shape; a token made this way is `ViaOAuth`, which the connectors page shows. Only tokens not yet expired count
+  toward a reader's limit of 10 (expired rows stay listed, and every sign-in makes one). The consent page shows the
+  client's self-given name without control or format characters (`NameOf`) and the redirect's host in ASCII (`HostOf`,
+  `IdnHost`: a lookalike name shows as punycode); its answer is held to 20 a minute per reader
+  (`RateLimitPolicies.SiteOAuthConsent`: each approval holds a code in memory), and `/oauth/authorize` is served with
+  `X-Frame-Options: DENY` and `frame-ancestors 'none'` (`FrameGuardMiddleware`, clickjacking), D-190
 - The site's MCP server is also an MCP App (the `io.modelcontextprotocol/ui` extension, design/03 §9.2), so a client that
   draws apps (Claude, ChatGPT) shows a tool's card the way the site's own chat does: `SiteMcpApp` is one self-contained
   HTML page (`ui://jacky-studio/card.html`, script and style inline, values written as text, links only through the

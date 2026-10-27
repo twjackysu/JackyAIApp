@@ -116,10 +116,12 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
         private async Task<(SQL.SiteAccessToken Row, string Token)?> IssueRowAsync(
             string userId, string name, bool allowWrites, int days, bool viaOAuth, CancellationToken ct)
         {
-            if (await db.SiteAccessTokens.CountAsync(t => t.UserId == userId, ct) >= Limit) return null;
+            // Only the tokens still good count: every OAuth sign-in makes one, and an expired one is not deleted (the
+            // reader still sees it on the connectors page), so counting them all would one day refuse every sign-in (D-190).
+            var now = time.GetUtcNow().UtcDateTime;
+            if (await db.SiteAccessTokens.CountAsync(t => t.UserId == userId && t.ExpiresAt > now, ct) >= Limit) return null;
 
             var token = SiteAccessTokenFormat.Generate();
-            var now = time.GetUtcNow().UtcDateTime;
             var row = new SQL.SiteAccessToken
             {
                 UserId = userId,
