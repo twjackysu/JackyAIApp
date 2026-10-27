@@ -285,9 +285,18 @@ async function open(browser, viewport, events) {
       const q = url.searchParams.get('q');
       await new Promise((r) => setTimeout(r, 400));
       return json({ data: q === '毛利率' ? [
-        { conversationId: 'c9', snippet: '…外資賣超的時候常是看財報，台積電這季毛利率 59.5%，比上一季高 1.2 個百分點，所以這波賣壓比較像…' },
-        { conversationId: 'c5', snippet: 'ADR 溢價跟毛利率沒有直接關係，主要是匯率與…' },
+        { conversationId: 'c9', messageId: 92, snippet: '…外資賣超的時候常是看財報，台積電這季毛利率 59.5%，比上一季高 1.2 個百分點，所以這波賣壓比較像…' },
+        { conversationId: 'c5', messageId: 51, snippet: 'ADR 溢價跟毛利率沒有直接關係，主要是匯率與…' },
       ] : [] });
+    }
+    if (p === '/api/chatbot/conversations/c9/messages') {
+      const t = (id, role, content) => ({ id, role, content, createdAt: at(80), attachments: [] });
+      return json({ data: [
+        t(91, 'user', '外資連續賣超的時候，散戶應該怎麼看？有沒有歷史可以參考？'),
+        t(92, 'assistant', '外資賣超不一定是看壞，常見原因有三種：\n\n1. **匯率**：新台幣走弱時外資會先調節。\n2. **全球資金**：美債殖利率上升時資金回流美國。\n3. **基本面**：外資賣超的時候常是看財報，台積電這季毛利率 59.5%，比上一季高 1.2 個百分點，所以這波賣壓比較像是資金面，不是基本面轉弱。\n\n歷史上 2022 年外資連續賣超 30 天後，三個月內大盤平均反彈 8%。'),
+        t(93, 'user', '那現在適合加碼嗎？'),
+        t(94, 'assistant', '要看你的資金配置與持股比例。如果 0050 已經佔股票部位一半以上，可以分批、拉長時間買進，而不是一次加碼。\n\n'.repeat(6)),
+      ] });
     }
     if (p === '/api/chatbot/conversations') return json({ data: conversationList() });
     if (p.startsWith('/api/chatbot/conversations')) return json({ data: [] });
@@ -376,6 +385,10 @@ const busyTurn = [{ type: 'start', conversationId: 'c1', userMessageId: 1 }, { t
     await page.screenshot({ path: `${out}/search-pending-${name}.png` });
     await page.waitForTimeout(1500);
     await page.screenshot({ path: `${out}/search-content-${name}.png` });
+    // 第 50 輪（D-193）：按下內容找到的對話 → 捲到那則訊息並亮一下。
+    await page.locator('li .MuiListItemButton-root', { hasText: '外資連續賣超' }).click();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: `${out}/search-reveal-${name}.png` });
     await box.fill('台積電');
     await page.waitForTimeout(1500);
     await page.screenshot({ path: `${out}/search-title-${name}.png` });
