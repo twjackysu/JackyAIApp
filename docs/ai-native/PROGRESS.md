@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-27 07:42 – 第 39 輪（表格卡片：複製到試算表、下載 CSV、按欄名排序）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`gh` 沒登入，CI 用公開 API 看。
+- **表格卡片可以帶走**（D-150，只動前端）：每張表格卡片（與 Data Analysis 的圖表，經 `cardTables`）下方「複製表格」（TSV，貼進 Excel／Google 試算表一格一格）、「下載 CSV」（BOM、CRLF、卡片標題＋台北日期當檔名）。工具給的字會防公式注入（伺服器 `CsvExportWriter` 的規則；截圖時發現「-18.0%」被加 `'`，「數字」改成也認千分位與百分比）。只含畫面上的列，工具找到更多時會說。`cards/tableExport`、`TableCardActions`。
+- **審查**（subagent，D-151）：高——TSV 開頭是 `"` 的格子貼上會被解引號，帶進活的公式（含 `"` 的格子一律加引號）；中——`0050` 變 50（加 `'`）、`copyText` 的退路複製失敗不丟例外（看 `execCommand` 回傳，三個既有呼叫端接住）；低——同樣的提示重新計時、檔名去 bidi（匯出對話也是）、`ToolCards` 的清單 memo。都已修並補測試。
+- **表格卡片按欄名排序**（D-152）：數字欄先大到小、文字欄 zh-TW、文字寫的數字照數值、空格最後、第三下回原順序；複製與 CSV 跟畫面順序。數字欄的箭頭放在欄名左邊的空隙（不加寬欄位，手機才不會超出；第一版加寬了 20px、表格被捲走一截）。截圖 `table-export-*`（新腳本 `.loop/shots/table-export.cjs`，印出 CSV、剪貼簿與表格是否超出），SHOWCASE 亮點、demo 第 9 步、日誌。
+- 驗證：前端 lint、test（157 檔 1693 個；之後相關 35 檔 394 個）、build、`tsc -b` 全過；CI 40423210582（D-150）綠；**40425515584（本輪最後一次含程式碼的 push fb9391e1：D-151＋D-152）綠**。`chat.cjs` 全部重拍比對：差異只在有表格／圖表卡片的 6 張（卡片下多了複製與下載），已更新。
+- 問題：無阻礙。`pkill -f vitest` 會殺掉自己的 shell（指令列含 vitest），不要用。
+
 ## 2026-10-27 05:42 – 第 38 輪（改名收尾、匯出對話、截圖巡檢）
 
 - 開工：master 沒有新 commit（`chore: remove details` 已在 branch 裡）；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`gh` 沒登入，CI 用公開 API 看。
