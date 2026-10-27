@@ -4,7 +4,7 @@ import { Avatar, Box, IconButton, Paper, Stack, Typography } from '@mui/material
 import { useTheme } from '@mui/material/styles';
 import { Fragment, useEffect, useRef } from 'react';
 
-import { useAudioPlayback } from '../hooks/useAudioPlayback';
+import { PLAYBACK_FAILED_NOTE, useAudioPlayback } from '../hooks/useAudioPlayback';
 
 import CorrectionAlert from './CorrectionAlert';
 import DeliveryFeedbackAlert from './DeliveryFeedbackAlert';
@@ -21,7 +21,7 @@ interface ChatMessagesProps {
 
 function ChatMessages({ messages, isResponding, ref }: ChatMessagesProps) {
   const theme = useTheme();
-  const { playingMessageId, playMessage, stopPlaying } = useAudioPlayback();
+  const { playingMessageId, failedMessageId, playMessage, stopPlaying } = useAudioPlayback();
   const lastAIMessageIndexRef = useRef<number>(-1);
 
   // Auto-play the latest AI message (only when a new one appears)
@@ -38,7 +38,7 @@ function ChatMessages({ messages, isResponding, ref }: ChatMessagesProps) {
     if (latestMessage.speaker === 'ai' && currentLatestIndex > lastAIMessageIndexRef.current) {
       // Only play if this is a new AI message
       const messageId = `ai-${currentLatestIndex}`;
-      playMessage(latestMessage.message, messageId);
+      playMessage(latestMessage.message, messageId, { auto: true });
       lastAIMessageIndexRef.current = currentLatestIndex;
     }
   }, [messages, playMessage]);
@@ -180,6 +180,11 @@ function ChatMessages({ messages, isResponding, ref }: ChatMessagesProps) {
                         </ActionTooltip>
                       )}
                     </Box>
+                    {failedMessageId === messageId && (
+                      <Typography variant="caption" role="status" color="error">
+                        {PLAYBACK_FAILED_NOTE}
+                      </Typography>
+                    )}
                   </Stack>
                 </Paper>
                 {isOwnMessage && (

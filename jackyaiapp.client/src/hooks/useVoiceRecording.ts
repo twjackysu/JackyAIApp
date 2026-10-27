@@ -20,6 +20,12 @@ export const AUTO_STOPPED_NOTE = `已錄滿 ${MAX_RECORDING_SECONDS / 60} 分鐘
 /** Said under the input when the recording could not be turned into text. */
 export const TRANSCRIPTION_FAILED_NOTE = '語音沒有轉成文字，請再錄一次或直接輸入。';
 
+/**
+ * Said under the input when the microphone could not be opened (no permission, no device, or a page
+ * not served over HTTPS); the button stays disabled, so this is the only place the reason shows.
+ */
+export const MICROPHONE_UNAVAILABLE_NOTE = '無法使用麥克風（可能沒有允許存取），請直接輸入。';
+
 /** The bitrate asked of the browser's recorder: plenty for speech, and keeps two minutes near 1 MB. */
 export const RECORDING_BITS_PER_SECOND = 64_000;
 
@@ -92,8 +98,10 @@ export function useVoiceRecording({ onTranscriptionComplete }: UseVoiceRecording
         };
 
         setMediaRecorder(recorder);
-      } catch (error) {
-        console.error('Error accessing microphone:', error);
+      } catch {
+        // A stream opened for a recorder the browser could not make is handed back at once.
+        releaseMicrophone();
+        if (!cancelled) setRecordingNote(MICROPHONE_UNAVAILABLE_NOTE);
       }
     };
 

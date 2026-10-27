@@ -7,6 +7,7 @@ import controllerCs from '../../../JackyAIApp.Server/Controllers/ConversationPra
 import {
   AUTO_STOPPED_NOTE,
   MAX_RECORDING_SECONDS,
+  MICROPHONE_UNAVAILABLE_NOTE,
   RECORDING_BITS_PER_SECOND,
   START_RECORDING_LABEL,
   TRANSCRIPTION_FAILED_NOTE,
@@ -164,6 +165,59 @@ describe('useVoiceRecording', () => {
 
     act(() => hook.result.current.toggleRecording());
     expect(hook.result.current.recordingNote).toBeNull();
+  });
+
+  it('says why the microphone button stays off when the microphone cannot be opened', async () => {
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: () => Promise.reject(new DOMException('denied', 'NotAllowedError')) },
+    });
+    const result = { current: null as unknown as ReturnType<typeof useVoiceRecording> };
+    function Probe() {
+      result.current = useVoiceRecording({ onTranscriptionComplete: vi.fn() });
+      return null;
+    }
+    const root = createRoot(document.createElement('div'));
+    await act(async () => {
+      root.render(createElement(Probe));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.mediaRecorder).toBeNull();
+    expect(result.current.recordingNote).toBe(MICROPHONE_UNAVAILABLE_NOTE);
+    act(() => root.unmount());
+  });
+
+  it('hands back a stream the browser could not record from', async () => {
+    const stop = vi.fn();
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: () => Promise.resolve({ getTracks: () => [{ stop }] }) },
+    });
+    vi.stubGlobal(
+      'MediaRecorder',
+      class {
+        constructor() {
+          throw new DOMException('unsupported', 'NotSupportedError');
+        }
+      },
+    );
+    let note: string | null = null;
+    function Probe() {
+      note = useVoiceRecording({ onTranscriptionComplete: vi.fn() }).recordingNote;
+      return null;
+    }
+    const root = createRoot(document.createElement('div'));
+    await act(async () => {
+      root.render(createElement(Probe));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(note).toBe(MICROPHONE_UNAVAILABLE_NOTE);
+    act(() => root.unmount());
   });
 
   it('says the limit on the microphone button', () => {

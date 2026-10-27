@@ -16,9 +16,13 @@ import { useState } from 'react';
 import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { ActionTooltip } from '@/components/hints';
 
+/** Said in the menu, which stays open, when signing out did not go through. */
+export const LOGOUT_FAILED_NOTE = '登出沒有成功，請再按一次。';
+
 function UserProfileMenu() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
+  const [logoutFailed, setLogoutFailed] = useState(false);
 
   const { data: user, isLoading } = useGetUserInfoQuery();
 
@@ -28,16 +32,23 @@ function UserProfileMenu() {
 
   const handleClose = () => {
     setAnchorEl(null);
+    setLogoutFailed(false);
   };
 
   const handleLogout = async () => {
+    setLogoutFailed(false);
     try {
-      await fetch('/api/account/logout', { method: 'POST' });
-      window.location.href = '/';
-    } catch (error) {
-      console.error('Logout failed:', error);
+      // fetch resolves on an error status too: only a 2xx means the sign-in cookie is gone.
+      const response = await fetch('/api/account/logout', { method: 'POST' });
+      if (response.ok) {
+        window.location.href = '/';
+        return;
+      }
+    } catch {
+      // Offline, or the request never got through; said in the menu below.
     }
-    handleClose();
+    // The menu stays open with the reason, so the reader is not left signed in without knowing.
+    setLogoutFailed(true);
   };
 
   const handleLogin = () => {
@@ -107,6 +118,16 @@ function UserProfileMenu() {
               <LogoutIcon sx={{ mr: 1 }} />
               Logout
             </MenuItem>
+            {logoutFailed && (
+              <Typography
+                role="alert"
+                variant="caption"
+                color="error"
+                sx={{ display: 'block', px: 2, pb: 1, maxWidth: 220 }}
+              >
+                {LOGOUT_FAILED_NOTE}
+              </Typography>
+            )}
           </>
         )}
       </Menu>

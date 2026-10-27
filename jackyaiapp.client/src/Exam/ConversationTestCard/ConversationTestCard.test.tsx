@@ -7,13 +7,14 @@ import ConversationTestCard from '.';
 
 const mocks = vi.hoisted(() => ({
   start: vi.fn(),
+  startState: { isLoading: false, error: undefined as unknown },
   respond: vi.fn(),
   summarize: vi.fn(),
   summaryState: { data: undefined, isLoading: false, error: undefined as unknown },
 }));
 
 vi.mock('@/apis/examApis', () => ({
-  useStartConversationTestMutation: () => [mocks.start, { isLoading: false, error: undefined }],
+  useStartConversationTestMutation: () => [mocks.start, mocks.startState],
   useRespondToConversationMutation: () => [mocks.respond, { isLoading: false }],
   useSummarizeConversationMutation: () => [
     mocks.summarize,
@@ -169,5 +170,35 @@ describe('ConversationTestCard', () => {
     await act(async () => button('結束並看總結').click());
 
     expect(container.querySelector('[data-testid="summary"]')?.textContent).toBe('總結服務錯誤');
+  });
+});
+
+describe('ConversationTestCard, a conversation that did not start', () => {
+  afterEach(() => {
+    mocks.startState.error = undefined;
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('says why over the scenarios, which stay there to pick again', async () => {
+    mocks.startState.error = { status: 503, data: { error: { message: 'AI 服務暫時忙碌。' } } };
+    mocks.start
+      .mockReset()
+      .mockReturnValue({ unwrap: () => Promise.reject(mocks.startState.error) });
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    act(() =>
+      root.render(
+        <MemoryRouter>
+          <ConversationTestCard />
+        </MemoryRouter>,
+      ),
+    );
+
+    expect(alertText()).toBe('AI 服務暫時忙碌。 請再選一次情境。');
+    await act(async () => button('start').click());
+    expect(mocks.start).toHaveBeenCalledTimes(1);
+    expect(button('start')).toBeDefined();
   });
 });

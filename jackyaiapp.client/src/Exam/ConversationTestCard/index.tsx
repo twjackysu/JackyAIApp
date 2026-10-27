@@ -1,4 +1,4 @@
-import { Box, Button, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { Alert, Box, Button, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 
 import ChatMessages from './components/ChatMessages';
@@ -10,6 +10,8 @@ import {
   SEND_FAILED_MESSAGE,
   SEND_FAILED_KEPT_NOTE,
   SEND_FAILED_RETRY_NOTE,
+  START_FAILED_MESSAGE,
+  START_FAILED_RETRY_NOTE,
   SUMMARY_FAILED_MESSAGE,
 } from './conversationErrors';
 import { useVoiceRecording, useAutoScroll } from './hooks';
@@ -22,7 +24,6 @@ import {
 import { ConversationContext, ConversationTurn, DeliveryFeedback } from '@/apis/examApis/types';
 import { getApiErrorMessage, getCaughtErrorMessage } from '@/apis/utils/errorMessage';
 import AILoading from '@/components/AILoading';
-import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 
 interface ConversationState {
   context: ConversationContext;
@@ -100,8 +101,8 @@ function ConversationTestCard() {
         isActive: true,
         difficultyLevel,
       });
-    } catch (error) {
-      console.error('Failed to start conversation:', error);
+    } catch {
+      // Shown over the scenarios (startError), which stay there to pick again.
     }
   };
 
@@ -195,12 +196,17 @@ function ConversationTestCard() {
     return <AILoading />;
   }
 
-  if (startError) {
-    return <FetchBaseQueryErrorMessage error={startError} />;
-  }
-
   if (!conversationState) {
-    return <ScenarioSelector onSelectScenario={handleStartConversation} disabled={isStarting} />;
+    return (
+      <>
+        {startError && (
+          <Alert severity="error" role="alert" sx={{ mb: 2, maxWidth: 800, mx: 'auto' }}>
+            {`${getApiErrorMessage(startError, START_FAILED_MESSAGE)} ${START_FAILED_RETRY_NOTE}`}
+          </Alert>
+        )}
+        <ScenarioSelector onSelectScenario={handleStartConversation} disabled={isStarting} />
+      </>
+    );
   }
 
   return (
