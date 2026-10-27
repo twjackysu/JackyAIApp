@@ -131,7 +131,7 @@ jackyaiapp.client/src/
   conversations it finds join the list in its order (`findConversations`; only finds for the words in the box now), each
   with its snippet under the title, the words marked (`highlightParts`, folding one unit at a time so … keeps the places);
   opening such a find scrolls the conversation to the message it was found in and lights it for a moment rather than
-  going to the end (`MessageArea`'s `reveal`, once per open, each message being one element of the column; D-193); the box takes `MAX_SEARCH_LENGTH` (held to the
+  going to the end (`MessageArea`'s `reveal`, once per open, each message being one element of the column; D-193; the same find opened again while still lit is lit again for the whole time, D-194; any other conversation opened goes to its end, `conversationId`); the box takes `MAX_SEARCH_LENGTH` (held to the
   server's by its test); with nothing found the column says whether the messages are still being searched or could not be;
   Escape empties it before it closes anything. Each row's pencil (shown as its delete button is) turns its title into a box,
   `ConversationTitleEditor` (D-144): Enter or leaving the box saves, Escape keeps the title and goes no further;

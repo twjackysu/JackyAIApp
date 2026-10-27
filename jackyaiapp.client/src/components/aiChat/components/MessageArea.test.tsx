@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Message } from '../types';
 
-import MessageArea from './MessageArea';
+import MessageArea, { REVEAL_MS, type MessageReveal } from './MessageArea';
 
 import { AiChatConfigContext } from '@/components/aiChat/config';
 import { FINANCE_AI_CHAT } from '@/Finance/aiChatConfig';
@@ -196,6 +196,60 @@ describe('MessageArea', () => {
     expect(marks[0].textContent).toBe('由 Studio AI 轉來');
     const users = container.querySelectorAll('[data-testid="user-message"]');
     expect(users[0].contains(marks[0])).toBe(true);
+  });
+
+  const renderOpen = (
+    messages: Message[],
+    conversationId: string,
+    reveal: MessageReveal | null = null,
+  ) =>
+    act(() =>
+      root.render(
+        <AiChatConfigContext value={FINANCE_AI_CHAT}>
+          <MessageArea
+            messages={messages}
+            onPreview={vi.fn()}
+            active
+            conversationId={conversationId}
+            reveal={reveal}
+          />
+        </AiChatConfigContext>,
+      ),
+    );
+  const stored = (serverId: number, content: string, isUser = false): Message => ({
+    ...message(`s${serverId}`, content, isUser),
+    serverId,
+  });
+
+  it('goes to the end of another conversation opened, even one as long as where the reader scrolled up', () => {
+    renderOpen([stored(1, 'hi', true), stored(2, 'answer')], 'c1');
+    readerScrollsTo(100);
+
+    geometry.scrollHeight = 1200;
+    renderOpen([stored(3, 'other', true), stored(4, 'other answer')], 'c2');
+
+    expect(geometry.scrollTop).toBe(1200);
+  });
+
+  it('lights a found message again for the whole time when the same find is opened again (D-193)', () => {
+    vi.useFakeTimers();
+    try {
+      const messages = [stored(1, 'q', true), stored(2, '找到的那句')];
+      renderOpen(messages, 'c1', { messageId: 2 });
+      const lit = () =>
+        [...container.querySelectorAll('[data-revealed]')].map((m) => m.textContent);
+      expect(lit()).toEqual([expect.stringContaining('找到的那句')]);
+
+      act(() => vi.advanceTimersByTime(REVEAL_MS - 400));
+      renderOpen(messages, 'c1', { messageId: 2 });
+      // The first opening's timer must not put the second one out early.
+      act(() => vi.advanceTimersByTime(600));
+      expect(lit()).toHaveLength(1);
+      act(() => vi.advanceTimersByTime(REVEAL_MS));
+      expect(lit()).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('never scrolls the page itself', () => {

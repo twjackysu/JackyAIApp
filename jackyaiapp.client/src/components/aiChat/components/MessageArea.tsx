@@ -1,6 +1,6 @@
 import { Box, ButtonBase, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { useAiChatConfig } from '../config';
 import { ACCENT, accentWash, hairline } from '../style';
@@ -49,6 +49,8 @@ interface MessageAreaProps {
   onRetry?: (answer: Message) => void;
   /** Scroll to this stored message (and light it up) once it is drawn, rather than staying at the end. */
   reveal?: MessageReveal | null;
+  /** The conversation shown: opening another one goes to its end, wherever the last one was left. */
+  conversationId?: string | null;
 }
 
 /** An empty conversation: what the assistant does, and a few questions to start from. */
@@ -132,6 +134,7 @@ function MessageArea({
   onFollowUp,
   onRetry,
   reveal,
+  conversationId,
 }: MessageAreaProps) {
   const theme = useTheme();
   const { followUps: followUpRules } = useAiChatConfig();
@@ -171,6 +174,7 @@ function MessageArea({
   const scrollRef = useRef<HTMLDivElement>(null);
   const followingRef = useRef(true);
   const messageCountRef = useRef(messages.length);
+  const conversationRef = useRef(conversationId);
 
   // Scrolls this box itself, never the page: the chat now sits inside the page, and
   // scrollIntoView on a sentinel would drag the whole page along with every streamed token.
@@ -179,17 +183,26 @@ function MessageArea({
     if (!el || !active) return;
     // A new bubble (the reader's own message, or the reply starting) always follows to the end;
     // a bubble that is merely growing as it streams follows only if the reader has not scrolled up.
-    if (messages.length !== messageCountRef.current) {
+    // So does another conversation, even one as long as the last: where the last was left says nothing about it.
+    if (messages.length !== messageCountRef.current || conversationId !== conversationRef.current) {
       messageCountRef.current = messages.length;
+      conversationRef.current = conversationId;
       followingRef.current = true;
     }
     if (followingRef.current) el.scrollTop = el.scrollHeight;
-  }, [messages, active]);
+  }, [messages, active, conversationId]);
 
   // A conversation opened from a search's find shows the message it was found in, not its end (D-193): once, after the
   // effect above has gone to the end. Each message is one element of the column, in order.
   const columnRef = useRef<HTMLDivElement>(null);
   const revealedRef = useRef<MessageReveal | null>(null);
+  const lit = useRef<{ target: HTMLElement; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const unlight = useCallback(() => {
+    if (!lit.current) return;
+    clearTimeout(lit.current.timer);
+    lit.current.target.removeAttribute('data-revealed');
+    lit.current = null;
+  }, []);
   useEffect(() => {
     const box = scrollRef.current;
     if (!reveal || !box || !active || revealedRef.current === reveal) return;
@@ -200,10 +213,16 @@ function MessageArea({
     box.scrollTop +=
       target.getBoundingClientRect().top - box.getBoundingClientRect().top - REVEAL_MARGIN_PX;
     followingRef.current = false;
+    // The same find opened again while still lit lights it again for the whole time: the old timer must not put
+    // it out early, and an attribute that stays set would not restart the animation, so it is taken off and the
+    // element laid out once before it goes back on.
+    unlight();
+    void target.offsetWidth;
     target.setAttribute('data-revealed', '');
-    // Not cleared with the effect: a later render must not leave the message lit.
-    setTimeout(() => target.removeAttribute('data-revealed'), REVEAL_MS);
-  }, [reveal, messages, active]);
+    // Not cleared with the effect: a later render must not leave the message lit, or put it out early.
+    lit.current = { target, timer: setTimeout(unlight, REVEAL_MS) };
+  }, [reveal, messages, active, unlight]);
+  useEffect(() => unlight, [unlight]);
 
   const handleScroll = () => {
     const el = scrollRef.current;

@@ -319,6 +319,7 @@ function AiAssistantPanel({
             onFollowUp={(question) => conversation.send(question, [])}
             onRetry={conversation.retry}
             reveal={reveal}
+            conversationId={conversationId}
           />
           {inputAccessory}
           <ChatInput
