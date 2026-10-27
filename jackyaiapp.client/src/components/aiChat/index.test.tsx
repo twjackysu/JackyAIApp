@@ -13,6 +13,7 @@ import type {
 } from '@/apis/chatbotApis/types';
 
 import { chatbotApis } from '@/apis/chatbotApis';
+import { MAX_MESSAGE_LENGTH } from '@/apis/chatbotApis/chatErrors';
 import { AiChatConfigContext } from '@/components/aiChat/config';
 import { RENAME_FAILED_TEXT } from '@/components/aiChat/utils/conversationTitle';
 import { FINANCE_AI_CHAT } from '@/Finance/aiChatConfig';
@@ -446,6 +447,25 @@ describe('AiAssistantPanel', () => {
       attachmentIds: [],
       profile: 'finance',
     });
+  });
+
+  it('keeps a message too long for the server in the box, saying so, and sends it once shortened', async () => {
+    await mount();
+    const long = '字'.repeat(MAX_MESSAGE_LENGTH + 1);
+    await send(long);
+
+    expect(chatBodies).toEqual([]);
+    expect(textarea().value).toBe(long);
+    expect(container.textContent).toContain('訊息太長（20,001／20,000 字）');
+    expect(buttonByLabel('送出')!.disabled).toBe(true);
+
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '收到長訊息' }, { type: 'done', conversationId: 'c' }),
+    );
+    await send('字'.repeat(MAX_MESSAGE_LENGTH));
+    await waitForText('收到長訊息');
+    expect(chatBodies).toHaveLength(1);
+    expect(container.textContent).not.toContain('訊息太長');
   });
 
   it('takes a spoken message after what was typed, for the reader to send', async () => {

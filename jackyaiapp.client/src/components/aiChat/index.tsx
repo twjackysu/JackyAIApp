@@ -25,6 +25,8 @@ import { stillSpoken } from './utils/spokenDraft';
 
 import type { ChatAsk } from './hooks/useAskQueue';
 
+import { messageTooLongNote } from '@/apis/chatbotApis/chatErrors';
+
 /** What the folded one-line box shows about a conversation it is hiding. */
 export interface AssistantActivity {
   /** A reply is being written. */
@@ -209,6 +211,8 @@ function AiAssistantPanel({
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
     if (attachments.uploading) return;
+    // The server refuses it (ChatbotController.MaxMessageLength); the box says so and keeps the text.
+    if (messageTooLongNote(inputValue)) return;
     const text = inputValue;
     // With files picked, the message is the reader's own: a ready-made request would leave them behind.
     if (attachments.pending.length === 0 && onSendDraft?.(text)) {

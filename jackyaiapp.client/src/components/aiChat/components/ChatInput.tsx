@@ -30,7 +30,11 @@ import { PendingAttachment, QueuedMessage } from '../types';
 
 import AttachmentChip from './AttachmentChip';
 
-import { ATTACHMENT_ACCEPT, MAX_ATTACHMENTS } from '@/apis/chatbotApis/chatErrors';
+import {
+  ATTACHMENT_ACCEPT,
+  MAX_ATTACHMENTS,
+  messageTooLongNote,
+} from '@/apis/chatbotApis/chatErrors';
 import { attachmentContentUrl } from '@/apis/chatbotApis/types';
 import { ActionTooltip } from '@/components/hints';
 
@@ -93,7 +97,8 @@ const ChatInput = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const uploading = attachments.some((a) => !a.attachment && !a.error);
-  const canSend = Boolean(value.trim()) && !uploading;
+  const tooLong = messageTooLongNote(value);
+  const canSend = Boolean(value.trim()) && !uploading && !tooLong;
   const failures = attachments.filter((a) => a.error);
   const canAttach = attachments.length - failures.length < MAX_ATTACHMENTS;
   const dark = theme.palette.mode === 'dark';
@@ -380,6 +385,16 @@ const ChatInput = ({
           </Box>
         </Box>
 
+        {tooLong && (
+          <Typography
+            variant="caption"
+            component="p"
+            role="alert"
+            sx={{ textAlign: 'center', color: 'error.main', mt: 0.75, mb: 0 }}
+          >
+            {tooLong}
+          </Typography>
+        )}
         {speech.error && (
           <Typography
             variant="caption"

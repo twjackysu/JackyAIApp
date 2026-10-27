@@ -4,6 +4,8 @@ import { useState } from 'react';
 
 import { ACCENT, hairline } from '../style';
 
+import { messageTooLongNote } from '@/apis/chatbotApis/chatErrors';
+
 interface MessageEditorProps {
   initial: string;
   /** The message has files, which go again with the new wording. */
@@ -19,7 +21,8 @@ interface MessageEditorProps {
 function MessageEditor({ initial, attachmentCount, onCancel, onSubmit }: MessageEditorProps) {
   const theme = useTheme();
   const [text, setText] = useState(initial);
-  const canSubmit = Boolean(text.trim()) && text !== initial;
+  const tooLong = messageTooLongNote(text.trim());
+  const canSubmit = Boolean(text.trim()) && text !== initial && !tooLong;
 
   return (
     <Box
@@ -60,6 +63,11 @@ function MessageEditor({ initial, attachmentCount, onCancel, onSubmit }: Message
         <Typography variant="caption" color="text.secondary" sx={{ flex: 1, minWidth: 160 }}>
           送出後，這則之後的對話會重新產生
           {attachmentCount > 0 && `，附件（${attachmentCount} 個）會一併送出`}
+          {tooLong && (
+            <Box component="span" role="alert" sx={{ display: 'block', color: 'error.main' }}>
+              {tooLong}
+            </Box>
+          )}
         </Typography>
         <Button
           size="small"

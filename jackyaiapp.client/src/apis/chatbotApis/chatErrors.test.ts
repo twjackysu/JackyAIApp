@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import chatbotControllerCs from '../../../../JackyAIApp.Server/Controllers/ChatbotController.cs?raw';
+
 import {
   ATTACHMENT_ERROR_MESSAGES,
   attachmentErrorMessage,
   isRetryableChatError,
+  MAX_MESSAGE_LENGTH,
+  messageTooLongNote,
 } from './chatErrors';
 
 const envelope = (status: number, code: string) => ({
@@ -53,5 +57,20 @@ describe('isRetryableChatError (D-139)', () => {
   it('not when the same question would fail the same way', () => {
     for (const code of ['context_too_long', 'request_too_large', 'refused', 'unavailable'])
       expect(isRetryableChatError(code)).toBe(false);
+  });
+});
+
+describe('messageTooLongNote', () => {
+  it("is the server's own limit", () => {
+    const limit = /MaxMessageLength = ([\d_]+);/.exec(chatbotControllerCs);
+    expect(limit).not.toBeNull();
+    expect(Number(limit![1].replace(/_/g, ''))).toBe(MAX_MESSAGE_LENGTH);
+  });
+
+  it('says nothing up to the limit, and how long the message is past it', () => {
+    expect(messageTooLongNote('a'.repeat(MAX_MESSAGE_LENGTH))).toBeNull();
+    expect(messageTooLongNote('a'.repeat(MAX_MESSAGE_LENGTH + 1))).toBe(
+      '訊息太長（20,001／20,000 字），長文請存成文字檔附加',
+    );
   });
 });

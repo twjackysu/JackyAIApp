@@ -37,6 +37,18 @@ export const isRetryableChatError = (code: string | undefined): boolean =>
 /** Shown under an answer that ran into the length limit. */
 export const TRUNCATED_NOTE = '回覆因長度上限被截斷，內容可能不完整。';
 
+/**
+ * Longest message the server takes (ChatbotController.MaxMessageLength), counted as it counts it (UTF-16
+ * code units, as `length` does). A longer text goes as an attachment, which is cut to a size of its own.
+ */
+export const MAX_MESSAGE_LENGTH = 20_000;
+
+/** Why a draft cannot be sent as it is, said under its box; null when it can. */
+export const messageTooLongNote = (text: string): string | null =>
+  text.length > MAX_MESSAGE_LENGTH
+    ? `訊息太長（${text.length.toLocaleString('en-US')}／${MAX_MESSAGE_LENGTH.toLocaleString('en-US')} 字），長文請存成文字檔附加`
+    : null;
+
 /** The file types the server takes (AttachmentTextExtractor.KindOf), for the file picker. */
 export const ATTACHMENT_ACCEPT = '.docx,.xlsx,.csv,.txt,.md,.json,.pdf,.png,.jpg,.jpeg,.gif,.webp';
 
