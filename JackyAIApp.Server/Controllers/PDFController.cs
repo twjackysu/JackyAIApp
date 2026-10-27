@@ -2,8 +2,10 @@
 using iText.Kernel.Pdf;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
+using JackyAIApp.Server.Extensions;
 using JackyAIApp.Server.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
@@ -19,6 +21,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly ICurrentUser _currentUser = currentUser;
         private readonly IMemoryCache _memoryCache = memoryCache;
         [HttpPost("unlock")]
+        [EnableRateLimiting(RateLimitPolicies.PdfUnlock)]
         public async Task<IActionResult> UnlockPdf(IFormFile pdfFile, [FromForm] string password)
         {
             if (pdfFile == null || pdfFile.Length == 0)

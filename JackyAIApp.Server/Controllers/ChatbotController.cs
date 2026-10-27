@@ -1,11 +1,13 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Extensions;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Assistant;
 using JackyAIApp.Server.Services.Chatbot;
 using JackyAIApp.Server.Services.Finance.Assistant;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace JackyAIApp.Server.Controllers
 {
@@ -160,6 +162,7 @@ namespace JackyAIApp.Server.Controllers
         /// Free in itself: the charge is on the message that sends it.
         /// </summary>
         [HttpPost("attachments")]
+        [EnableRateLimiting(RateLimitPolicies.ChatAttachmentUpload)]
         [RequestSizeLimit(ChatAttachmentLimits.MaxUploadBytes + 64 * 1024)]
         [RequestFormLimits(MultipartBodyLengthLimit = ChatAttachmentLimits.MaxUploadBytes + 64 * 1024)]
         public async Task<IActionResult> UploadAttachment(IFormFile? file, CancellationToken ct = default)

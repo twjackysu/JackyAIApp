@@ -42,6 +42,22 @@ namespace JackyAIApp.Server.Extensions
         internal const int ConnectorProbePermitsPerMinute = 20;
 
         /// <summary>
+        /// A chat attachment's upload, per reader: free in itself, it holds the file in memory a few times over while
+        /// it is read and puts images and PDFs in Anthropic's Files API, and a message takes at most five (D-158).
+        /// </summary>
+        public const string ChatAttachmentUpload = "chat-attachment-upload";
+
+        internal const int ChatAttachmentUploadPermitsPerMinute = 20;
+
+        /// <summary>
+        /// The PDF unlocker, per address: it takes no sign-in and reads and rewrites a whole document in memory, so a
+        /// few requests at once from one place could take the server's memory (D-158).
+        /// </summary>
+        public const string PdfUnlock = "pdf-unlock";
+
+        internal const int PdfUnlockPermitsPerMinute = 10;
+
+        /// <summary>
         /// The visitor's address as Cloudflare saw it. The site only takes requests from Cloudflare's ranges (the App
         /// Service's access restrictions, root CLAUDE.md "Deployment"), so the header is Cloudflare's own; without it (a
         /// developer's machine) the connection's address.
@@ -83,6 +99,18 @@ namespace JackyAIApp.Server.Extensions
                 "user:" + (http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? AnonymousPartition),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = ConnectorProbePermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
 
+        /// <summary>Each reader their own window (the endpoint takes a sign-in, so there is always one).</summary>
+        internal static RateLimitPartition<string> ChatAttachmentUploadPartition(HttpContext http) =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                "user:" + (http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? AnonymousPartition),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = ChatAttachmentUploadPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+
+        /// <summary>Each visitor's address its own window: the unlocker takes no sign-in.</summary>
+        internal static RateLimitPartition<string> PdfUnlockPartition(HttpContext http) =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                "address:" + ClientAddress(http),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = PdfUnlockPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+
         internal static string ClientAddress(HttpContext http)
         {
             var forwarded = http.Request.Headers[CloudflareClientIpHeader].ToString().Trim();
@@ -105,6 +133,8 @@ namespace JackyAIApp.Server.Extensions
                 options.AddPolicy(SiteMcp, SiteMcpPartition);
                 options.AddPolicy(SiteOAuth, SiteOAuthPartition);
                 options.AddPolicy(ConnectorProbe, ConnectorProbePartition);
+                options.AddPolicy(ChatAttachmentUpload, ChatAttachmentUploadPartition);
+                options.AddPolicy(PdfUnlock, PdfUnlockPartition);
             });
 
         /// <summary>The same envelope <see cref="IMyResponseFactory"/> gives every other API error.</summary>
