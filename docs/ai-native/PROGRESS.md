@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-27 09:42 – 第 40 輪（表格卡片一鍵變圖）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`gh` 沒登入，CI 用公開 API 看；`add_repo` 工具這輪不存在，直接 clone 也能 push。
+- **表格卡片「畫成圖」**（D-153，只動前端）：表格卡片下方多一顆長條圖示，按下圖表原地取代表格（再按回表格）。`cards/tableChart` 決定可畫的欄（一次一欄，先畫排序的那欄）、列的名字（代號＋名稱）、適合的圖（長條照畫面順序最多 20 條；折線只給日期／期間、照時間；圓餅只給沒有負數、不是百分比的，超過 8 塊合成「其他」），tooltip 跳脫工具給的字。`TableChartView` 用 `React.lazy`（build 出 1.8 kB 的獨立 chunk，ECharts 走既有的共用 chunk）。截圖 `table-chart-*`（新腳本 `.loop/shots/table-chart.cjs`），SHOWCASE 亮點、demo 第 9 步、日誌。
+- **審查**（subagent，D-154）：XSS 無（查 ECharts 6.1 原始碼確認 tooltip 是唯一 HTML 出口）。中——負值的數字壓到名稱（`barAxisMin`）、月/日跨年、「—／N/A」毀掉整欄、`20261027`／`1150930` 不是日期、lazy chunk 失敗整頁空白（`ChartLoadBoundary` 退回表格）；低——英文名字當代號、「率」欄給圓餅、0 的扇形、深色 tooltip、按鈕名稱。都已修並補測試。截圖再發現手機圓餅外圈名稱被截 → 改 legend。
+- **巡檢**：`chat.cjs` 全部重拍比對，差異只有持倉卡片多了一顆圖示（已更新 `studio-portfolio-*`）與動畫時間差，Data Analysis 的圖表卡片沒有多按鈕（正確）。
+- 驗證：前端 lint、test（159 檔 1731 個，審查修正後相關 5 檔 82 個）、build、`tsc -b` 全過；**CI 40436041196（本輪唯一含程式碼的 push 8afbc06a）第一次就綠**。
+- 問題：無阻礙。**vitest 不做型別檢查**，測試檔用 `.at()` 在 `tsc -b`（lib 不到 es2022）才會抓到——跑 `npm run build` 前別以為測試過了就好。
+
 ## 2026-10-27 07:42 – 第 39 輪（表格卡片：複製到試算表、下載 CSV、按欄名排序）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`gh` 沒登入，CI 用公開 API 看。
