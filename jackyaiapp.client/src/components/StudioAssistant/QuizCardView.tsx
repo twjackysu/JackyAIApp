@@ -3,7 +3,7 @@ import CloseIcon from '@mui/icons-material/HighlightOff';
 import QuizIcon from '@mui/icons-material/QuizOutlined';
 import { Box, Button, ButtonBase, Stack, Typography } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 
 import { parseQuizCard, qualityOf, quizSummary, type QuizCardData } from './quizCard';
@@ -45,6 +45,23 @@ function Quiz({ quiz, saved }: { quiz: QuizCardData; saved: boolean }) {
   const dueCount = saved ? 0 : quiz.questions.filter((q) => q.due).length;
   const recorded = dueCount > 0;
 
+  // The focus follows the quiz for a keyboard or screen-reader user (D-183): a pressed option to the button that goes
+  // on, the next question to its prompt, the end to the score. Not on the first question: the card arrives in an answer.
+  const nextRef = useRef<HTMLButtonElement>(null);
+  const promptRef = useRef<HTMLElement>(null);
+  const summaryRef = useRef<HTMLElement>(null);
+  const answeredNow = picked[index] !== null;
+  const movedOn = useRef(false);
+  useEffect(() => {
+    if (answeredNow && movedOn.current) nextRef.current?.focus();
+  }, [answeredNow]);
+  useEffect(() => {
+    if (movedOn.current) promptRef.current?.focus();
+  }, [index]);
+  useEffect(() => {
+    if (finished) summaryRef.current?.focus();
+  }, [finished]);
+
   const send = () =>
     void submit({
       reviews: quiz.questions.flatMap((q, i) =>
@@ -73,7 +90,12 @@ function Quiz({ quiz, saved }: { quiz: QuizCardData; saved: boolean }) {
     return (
       <Box data-testid="quiz-card">
         {header}
-        <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+        <Typography
+          ref={summaryRef}
+          tabIndex={-1}
+          variant="body2"
+          sx={{ fontWeight: 600, mb: 1, outline: 'none' }}
+        >
           {quizSummary(right, total)}
         </Typography>
         <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.75, mb: 1.25 }}>
@@ -88,7 +110,8 @@ function Quiz({ quiz, saved }: { quiz: QuizCardData; saved: boolean }) {
                 sx={{ alignItems: 'center' }}
               >
                 <Icon
-                  aria-label={ok ? '答對' : '答錯'}
+                  // An icon is hidden from screen readers unless it has a title: right or wrong is not colour only.
+                  titleAccess={ok ? '答對' : '答錯'}
                   sx={{ fontSize: 16, color: ok ? 'success.main' : 'error.main' }}
                 />
                 <Typography variant="body2">{q.word}</Typography>
@@ -138,7 +161,12 @@ function Quiz({ quiz, saved }: { quiz: QuizCardData; saved: boolean }) {
     // Until this question is answered, selecting it offers no help (SelectionBar would give the answer away).
     <Box data-testid="quiz-card" {...noSelectionAsk(!answered)}>
       {header}
-      <Typography variant="body2" sx={{ mb: 1, overflowWrap: 'anywhere' }}>
+      <Typography
+        ref={promptRef}
+        tabIndex={-1}
+        variant="body2"
+        sx={{ mb: 1, overflowWrap: 'anywhere', outline: 'none' }}
+      >
         {q.prompt}
       </Typography>
       <Stack spacing={0.75} role="group" aria-label={`第 ${index + 1} 題的選項`}>
@@ -154,8 +182,13 @@ function Quiz({ quiz, saved }: { quiz: QuizCardData; saved: boolean }) {
           return (
             <ButtonBase
               key={i}
-              disabled={answered}
-              onClick={() => setPicked((was) => was.map((p, j) => (j === index ? i : p)))}
+              // Not `disabled`: that would drop the focus of the option just pressed.
+              aria-disabled={answered || undefined}
+              onClick={() => {
+                if (answered) return;
+                movedOn.current = true;
+                setPicked((was) => was.map((p, j) => (j === index ? i : p)));
+              }}
               sx={{
                 justifyContent: 'flex-start',
                 textAlign: 'left',
@@ -167,7 +200,7 @@ function Quiz({ quiz, saved }: { quiz: QuizCardData; saved: boolean }) {
                 bgcolor: color ? alpha(color, 0.12) : 'transparent',
                 transition: 'border-color 120ms, background-color 120ms',
                 '&:hover': { borderColor: answered ? undefined : ACCENT },
-                '&.Mui-disabled': { color: 'text.primary' },
+                cursor: answered ? 'default' : 'pointer',
               }}
             >
               <Typography
@@ -184,8 +217,9 @@ function Quiz({ quiz, saved }: { quiz: QuizCardData; saved: boolean }) {
           );
         })}
       </Stack>
-      {answered && (
-        <Box aria-live="polite" sx={{ mt: 1 }}>
+      {/* Always there, so a screen reader hears the result put into it. */}
+      <Box aria-live="polite" sx={{ mt: answered ? 1 : 0 }}>
+        {answered && (
           <Typography
             variant="body2"
             sx={{
@@ -195,6 +229,10 @@ function Quiz({ quiz, saved }: { quiz: QuizCardData; saved: boolean }) {
           >
             {chosen === q.correctIndex ? '答對了！' : `答案是 ${LETTERS[q.correctIndex]}`}
           </Typography>
+        )}
+      </Box>
+      {answered && (
+        <Box>
           {q.explanation && (
             <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
               {q.explanation}
@@ -202,6 +240,7 @@ function Quiz({ quiz, saved }: { quiz: QuizCardData; saved: boolean }) {
           )}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
             <Button
+              ref={nextRef}
               size="small"
               variant="contained"
               onClick={() => {

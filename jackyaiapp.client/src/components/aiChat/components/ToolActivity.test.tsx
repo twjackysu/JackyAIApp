@@ -47,7 +47,7 @@ describe('ToolActivity', () => {
       ),
     );
 
-    const items = [...container.querySelectorAll('li')].map((li) => li.getAttribute('aria-label'));
+    const items = [...container.querySelectorAll('li')].map((li) => li.textContent);
     expect(items).toEqual([
       'realtime quote（完成）',
       'stock history（查詢中）',

@@ -34,3 +34,16 @@ export const revealActionsOnHover = {
 /** Lines inside the panel: quieter than the theme's divider. */
 export const hairline = (theme: Theme) =>
   theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)';
+
+/** Read by a screen reader, not drawn: a live region's text, a status said only in words. */
+export const visuallyHidden = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  margin: '-1px',
+  padding: 0,
+  border: 0,
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  whiteSpace: 'nowrap',
+} as const;

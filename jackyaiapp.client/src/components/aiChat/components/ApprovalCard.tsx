@@ -11,7 +11,7 @@ import {
   Typography,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   ApprovalCall,
@@ -62,6 +62,13 @@ const resolvedLabel = (approve: boolean | undefined, expired: boolean) =>
         ? '沒有在時限內回覆，沒有執行'
         : '已拒絕';
 
+/**
+ * The card the reader just decided on here (its `pendingId`): its buttons go once it is sent, and it moves above the
+ * answer's text once resolved (so it is drawn anew), which would drop the focus to the page's start. The card takes it
+ * instead, so a keyboard or screen-reader user stays where they were and hears what was decided (D-184).
+ */
+const decidedHere: { pendingId: string | null } = { pendingId: null };
+
 /** One tool of one connector: what a permission is set for. */
 const toolKey = (call: ApprovalCall) => `${call.connector}/${call.tool}`;
 
@@ -99,6 +106,7 @@ export default function ApprovalCard({
   const firstOfTool = new Map<string, ApprovalCall>();
   for (const c of approval.calls) if (!firstOfTool.has(toolKey(c))) firstOfTool.set(toolKey(c), c);
   const submit = (sent: ApprovalDecision[]) => {
+    decidedHere.pendingId = approval.pendingId;
     onSubmit(sent);
     const approved = new Set(sent.filter((d) => d.approve).map((d) => d.toolUseId));
     // A tool ticked to run on its own, for which at least one of its calls was allowed.
@@ -125,13 +133,22 @@ export default function ApprovalCard({
   const allChosen = approval.calls.every((c) => c.toolUseId in chosen);
   const now = useNow(open && approval.askedAt !== undefined);
   const timeLeft = open ? approvalTimeLeft(approval.askedAt, now) : null;
+  const cardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (open || decidedHere.pendingId !== approval.pendingId) return;
+    cardRef.current?.focus({ preventScroll: true });
+    if (state === 'resolved') decidedHere.pendingId = null;
+  }, [open, state, approval.pendingId]);
 
   return (
     <Box
       data-testid="approval-card"
+      ref={cardRef}
+      tabIndex={-1}
       role="group"
       aria-label="需要你的確認"
       sx={{
+        outline: 'none',
         my: 1,
         p: 1.5,
         borderRadius: 3,
@@ -210,6 +227,7 @@ export default function ApprovalCard({
           {!open ? (
             <Typography
               variant="caption"
+              role="status"
               sx={{
                 display: 'block',
                 mt: 0.5,

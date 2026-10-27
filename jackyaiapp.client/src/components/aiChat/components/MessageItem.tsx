@@ -113,6 +113,8 @@ const BlockRenderer = ({
 /** The answer has not started: three dots in place of text. */
 const ThinkingDots = () => (
   <Box
+    // A plain box's name is not read: as an image it is.
+    role="img"
     aria-label="AI 助手思考中"
     sx={{
       display: 'flex',

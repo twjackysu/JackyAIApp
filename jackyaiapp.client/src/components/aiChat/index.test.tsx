@@ -846,7 +846,7 @@ describe('AiAssistantPanel', () => {
 
     await waitForText('台積電今天收 1000 元');
     const steps = [...container.querySelectorAll('[data-testid="tool-activity"] li')];
-    expect(steps.map((li) => li.getAttribute('aria-label'))).toEqual([
+    expect(steps.map((li) => li.textContent)).toEqual([
       // Finance's own words for its hosted tools (FINANCE_TOOL_LABELS); one it has none for keeps its name.
       '即時報價（完成）',
       '個股歷史股價（完成）',

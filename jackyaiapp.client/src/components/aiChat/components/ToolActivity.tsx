@@ -3,7 +3,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
-import { accentWash, hairline } from '../style';
+import { accentWash, hairline, visuallyHidden } from '../style';
 import { ToolStep, ToolStepStatus } from '../utils/toolActivity';
 
 const STATUS_TEXT: Record<ToolStepStatus, string> = {
@@ -32,7 +32,6 @@ export default function ToolActivity({ steps }: { steps: readonly ToolStep[] }) 
         <Box
           component="li"
           key={step.key}
-          aria-label={`${step.label}（${STATUS_TEXT[step.status]}）`}
           sx={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -54,6 +53,10 @@ export default function ToolActivity({ steps }: { steps: readonly ToolStep[] }) 
           <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 220 }}>
             {step.label}
           </Typography>
+          {/* In the item's text: many screen readers read a list item's text and skip an aria-label on it. */}
+          <Box component="span" sx={visuallyHidden}>
+            （{STATUS_TEXT[step.status]}）
+          </Box>
         </Box>
       ))}
     </Box>

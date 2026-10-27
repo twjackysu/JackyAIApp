@@ -6,7 +6,7 @@ import IconButton from '@mui/material/IconButton';
 import InputBase from '@mui/material/InputBase';
 import { alpha, useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import { useEffect, useRef, useState } from 'react';
+import { type Ref, useEffect, useRef, useState } from 'react';
 
 import { useAiChatConfig } from '../config';
 import { ACCENT, ACCENT_GRADIENT, panelSurface } from '../style';
@@ -27,6 +27,8 @@ interface CompactChatBarProps {
   busy: boolean;
   /** The folded panel holds a conversation. */
   hasConversation: boolean;
+  /** The 開啟 button, which gets the focus when the panel folds back. */
+  openButtonRef?: Ref<HTMLButtonElement>;
 }
 
 /** How long each example question stays in the idle box before the next one. */
@@ -55,7 +57,9 @@ const placeholderFor = (
  * in it opens the full conversation.
  */
 export function CompactChatBar(props: CompactChatBarProps) {
-  const { value, onChange, onActivate, state, busy } = props;
+  // The ref apart: what the box shows is read from the rest.
+  const { openButtonRef, ...shown } = props;
+  const { value, onChange, onActivate, state, busy } = shown;
   const theme = useTheme();
   const inputRef = useRef<HTMLInputElement>(null);
   const ready = state === 'ready';
@@ -64,7 +68,7 @@ export function CompactChatBar(props: CompactChatBarProps) {
 
   // A different question every few seconds shows how much can be asked.
   const [exampleIndex, setExampleIndex] = useState(0);
-  const idle = isIdle(props);
+  const idle = isIdle(shown);
   useEffect(() => {
     if (!idle) return;
     const timer = setInterval(
@@ -120,7 +124,7 @@ export function CompactChatBar(props: CompactChatBarProps) {
         readOnly={!ready}
         disabled={state === 'loading'}
         placeholder={placeholderFor(
-          props,
+          shown,
           examples[exampleIndex % examples.length],
           signedOutPlaceholder,
         )}
@@ -146,6 +150,7 @@ export function CompactChatBar(props: CompactChatBarProps) {
           <IconButton
             size="small"
             aria-label="開啟 AI 助手"
+            ref={openButtonRef}
             disabled={!ready}
             onClick={(e) => {
               e.stopPropagation();

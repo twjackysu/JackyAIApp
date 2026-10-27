@@ -214,6 +214,16 @@ sent or stored, so a reopened conversation shows a plain message. A site tool's 
   done (`AssistantActivity.answered`: not when the reader stopped it, or it failed), since the assistant is part of the page
   it would leave. Leaving a page that holds a chat stops
   its answer (`useChatStreaming` stops on unmount), and a stream that ends without `done` or `error` is a failure
+- What the chat says to a screen reader, and where the focus goes (D-181–D-185): one hidden live region per panel
+  (`hooks/useChatAnnouncer`, `utils/announcement`, `style.visuallyHidden`) says only changes of state — an answer started
+  (AI 回覆中…), ended (done, stopped, or failed with its reason) and a confirmation card waiting (its tools by name) — never
+  the streaming text, nor anything for a reopened conversation. Folding the inline panel (its 收合, or Escape in the message
+  box) puts the focus on the one-line box's 開啟 button, not in its input, which opens the panel on focus. A decided
+  `ApprovalCard` takes the focus (`tabIndex={-1}`) as it is sent and again when it is drawn above the text, only for the card
+  decided here (a module-level `decidedHere`), its result captions `role="status"`. `QuizCardView` moves it to 下一題 after a
+  press (the options are `aria-disabled`, not `disabled`, which would drop it), then to the next prompt and to the score, its
+  right/wrong in a live region that is always there and its summary icons titled. `QuickChips` is not live itself: a hidden
+  status says how many chips there are. A tool chip's status is text in its list item, not an `aria-label`
 - A dashboard is read on a phone one chart a row (`Dashboard/viewLayout`, below 600px, in the saved layout's reading
   order): only the view; editing, and wider screens, keep the layout as saved
 - An answer's HTML preview (`HtmlViewer`) is a `sandbox=""` iframe, never markup in the page: the answer can

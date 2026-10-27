@@ -193,6 +193,17 @@ describe('AiAssistantLauncher', () => {
     expect(panelShown()).toBe(true);
   });
 
+  it('folds back with the focus on its open button, not in the box that would open it again (D-182)', async () => {
+    await render(signedIn);
+    await focusBox();
+    await act(async () => panel.props!.onCollapse());
+
+    expect(panelShown()).toBe(false);
+    expect(document.activeElement).toBe(
+      container.querySelector('button[aria-label="開啟 AI 助手"]'),
+    );
+  });
+
   it('hands what was typed in the box to the conversation', async () => {
     await render(signedIn);
     type('2330 今天');

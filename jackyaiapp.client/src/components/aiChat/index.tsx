@@ -11,6 +11,7 @@ import MessageArea from './components/MessageArea';
 import PreviewDialog from './components/PreviewDialog';
 import { useAiChatConfig } from './config';
 import { useAgentStatus } from './hooks/useAgentStatus';
+import { useChatAnnouncer } from './hooks/useChatAnnouncer';
 import { useChatConversation } from './hooks/useChatConversation';
 import { useKeepPasteFormatting } from './hooks/useKeepPasteFormatting';
 import { usePendingAttachments } from './hooks/usePendingAttachments';
@@ -18,7 +19,7 @@ import { usePreview } from './hooks/usePreview';
 import { stopReading } from './hooks/useSpeechOutput';
 import { useWaitingTitle } from './hooks/useWaitingTitle';
 import { useWarnBeforeLeaving } from './hooks/useWarnBeforeLeaving';
-import { ACCENT, ACCENT_GRADIENT, hairline, panelSurface } from './style';
+import { ACCENT, ACCENT_GRADIENT, hairline, panelSurface, visuallyHidden } from './style';
 import { hasOpenApproval } from './utils/approval';
 import { insertPastedText, readPaste } from './utils/paste';
 import { stillSpoken } from './utils/spokenDraft';
@@ -114,6 +115,8 @@ function AiAssistantPanel({
   const attachments = usePendingAttachments();
   const [keepFormatting, setKeepFormatting] = useKeepPasteFormatting();
   const { statusText } = useAgentStatus(conversation.streamingStatus);
+  // Said to a screen reader: an answer started, ended, or a write waits for the reader (D-181).
+  const announcement = useChatAnnouncer(messages, busy);
 
   // Folded away (or the drawer closed): an answer being read stops with it, as one leaving the screen does.
   const wasActive = useRef(active);
@@ -241,6 +244,13 @@ function AiAssistantPanel({
         ref={setPanelEl}
         component="section"
         aria-label="AI 助手"
+        // Escape in the message box folds an inline panel, as its header's 收合 does (the drawer closes on its own).
+        onKeyDown={(e: React.KeyboardEvent) => {
+          if (e.key !== 'Escape' || sheet || e.defaultPrevented || e.target !== inputRef.current)
+            return;
+          e.preventDefault();
+          onCollapse();
+        }}
         sx={{
           // `relative` + `overflow: hidden` keep the history drawer inside the panel.
           position: 'relative',
@@ -323,6 +333,10 @@ function AiAssistantPanel({
             onKeepFormattingChange={setKeepFormatting}
             onSpoken={setHeardWords}
           />
+        </Box>
+
+        <Box role="status" aria-live="polite" aria-atomic="true" sx={visuallyHidden}>
+          {announcement}
         </Box>
 
         <ConversationDrawer

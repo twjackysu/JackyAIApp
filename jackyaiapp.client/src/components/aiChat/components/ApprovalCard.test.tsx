@@ -99,6 +99,29 @@ describe('ApprovalCard', () => {
     expect(refuse).toHaveBeenCalledWith([{ toolUseId: 'a', approve: false }]);
   });
 
+  it('keeps the focus on the card once decided, as it is sent and drawn again resolved (D-184)', () => {
+    const approval = { pendingId: 'p-focus', calls: [call('a')] };
+    render(approval);
+    button('允許').focus();
+    click(button('允許'));
+    render(approval, vi.fn(), 'sending');
+    const card = () => container.querySelector('[data-testid="approval-card"]');
+    expect(document.activeElement).toBe(card());
+
+    // Resolved, the answer draws it anew above its text: still the card.
+    act(() => root.render(<></>));
+    render(approval, vi.fn(), 'resolved', [{ toolUseId: 'a', approve: true }]);
+    expect(document.activeElement).toBe(card());
+    expect(card()!.textContent).toContain('已允許');
+  });
+
+  it('does not take the focus for a card decided elsewhere (the time ran out)', () => {
+    render({ pendingId: 'p-timeout', calls: [call('a')] }, vi.fn(), 'resolved', [
+      { toolUseId: 'a', approve: false },
+    ]);
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it('several calls are decided one by one and sent together, once all are decided', () => {
     const onSubmit = render({
       pendingId: 'p',

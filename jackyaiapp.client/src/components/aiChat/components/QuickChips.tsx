@@ -5,7 +5,7 @@ import SendIcon from '@mui/icons-material/SendOutlined';
 import { Box, ButtonBase, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
-import { ACCENT, accentWash, hairline } from '../style';
+import { ACCENT, accentWash, hairline, visuallyHidden } from '../style';
 
 const ICONS = {
   page: ArrowOutwardIcon,
@@ -42,9 +42,20 @@ export default function QuickChips<T extends QuickChipItem>({
 }) {
   const theme = useTheme();
   const commands = actions.some((a) => a.kind === 'command');
-  // Always there, so a screen reader announces the actions as they appear while the reader types.
+  // A screen reader hears how many there are, and only when that changes — not every chip again on each keystroke
+  // (the chips themselves are not in a live region, D-185). Always there, so the change is heard.
+  const onEnterFirst = enterPicksFirst && commands;
+  const summary =
+    actions.length === 0
+      ? ''
+      : commands
+        ? `${actions.length} 個現成指令${onEnterFirst ? '，Enter 送出第一個' : ''}`
+        : `${actions.length} 個不用問 AI 的捷徑`;
   return (
-    <Box aria-live="polite">
+    <Box>
+      <Box role="status" sx={visuallyHidden}>
+        {summary}
+      </Box>
       {actions.length > 0 && (
         <Box
           role="group"

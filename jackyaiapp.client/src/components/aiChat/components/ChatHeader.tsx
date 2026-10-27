@@ -127,6 +127,7 @@ const ChatHeader = ({
       </ActionTooltip>
       {busy && (
         <LinearProgress
+          aria-label="回覆中"
           sx={{
             position: 'absolute',
             left: 0,

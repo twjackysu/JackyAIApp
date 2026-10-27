@@ -75,7 +75,19 @@ export function AiAssistantLauncher({
     setOpened(true);
     setExpanded(true);
   }, [isAuthenticated]);
-  const collapse = useCallback(() => setExpanded(false), []);
+  // Folding hides the button that was pressed (or the box that had the focus): the focus goes to the one-line box's
+  // 開啟 button rather than the page's start, and not into its input, which would open the panel again (D-182).
+  const openButtonRef = useRef<HTMLButtonElement>(null);
+  const focusOpenButton = useRef(false);
+  const collapse = useCallback(() => {
+    focusOpenButton.current = true;
+    setExpanded(false);
+  }, []);
+  useEffect(() => {
+    if (expanded || !focusOpenButton.current) return;
+    focusOpenButton.current = false;
+    openButtonRef.current?.focus();
+  }, [expanded]);
 
   // What the reader selected (`selectionStepOf`): a word's dictionary page is a page to go to (leaving this one,
   // as any link would); the rest opens the conversation, from the page as a new one with `quotesPageText`.
@@ -181,6 +193,7 @@ export function AiAssistantLauncher({
       value={draft}
       onChange={changeDraft}
       onActivate={open}
+      openButtonRef={openButtonRef}
       state={isAuthLoading ? 'loading' : isAuthenticated ? 'ready' : 'signedOut'}
       busy={activity.busy}
       hasConversation={activity.hasConversation}

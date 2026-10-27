@@ -88,8 +88,10 @@ describe('QuizCardView', () => {
     press('a fruit');
     expect(container.textContent).toContain('答案是 A');
     expect(container.textContent).toContain('意外發現美好事物');
-    // Answered: the options no longer take a press.
-    expect(buttons().filter((b) => b.disabled)).toHaveLength(4);
+    // Answered: the options no longer take a press (marked, not disabled, so the focus stays, D-183).
+    expect(buttons().filter((b) => b.getAttribute('aria-disabled') === 'true')).toHaveLength(4);
+    press('luck in finding');
+    expect(container.textContent).toContain('答案是 A');
 
     press('下一題');
     expect(container.textContent).toContain('第 2 / 2 題');
@@ -108,6 +110,17 @@ describe('QuizCardView', () => {
     });
     // Five due in all besides these two.
     expect(container.textContent).toContain('還有 5 個字，去複習');
+  });
+
+  it('moves the focus along the quiz: the button that goes on, the next prompt, the score (D-183)', () => {
+    render(card());
+    press('a fruit');
+    expect(document.activeElement?.textContent).toBe('下一題');
+    press('下一題');
+    expect(document.activeElement?.textContent).toBe('The joy was ___.');
+    press('ephemeral');
+    press('看結果');
+    expect(document.activeElement?.textContent).toContain('答對 1 / 2 題');
   });
 
   it('keeps SelectionBar off a question until it is answered (asking about it would give the answer away)', () => {
