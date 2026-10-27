@@ -14,6 +14,7 @@ import SiteMcpSection from './SiteMcpSection';
 import {
   useConnectProviderMutation,
   useDisconnectProviderMutation,
+  useGetConnectorCatalogQuery,
   useGetConnectorStatusQuery,
 } from '@/apis/connectorsApis/connectorsApis';
 import { CustomConnectRequest } from '@/apis/connectorsApis/types';
@@ -30,6 +31,8 @@ interface State {
 const Connectors: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { data: connectors, isLoading, error, refetch } = useGetConnectorStatusQuery();
+  // Read here for the callback's notice only: the names it may show (AiConnectorsSection reads the same cache).
+  const { data: catalog, isLoading: catalogLoading } = useGetConnectorCatalogQuery();
   const [connectProvider] = useConnectProviderMutation();
   const [disconnectProvider] = useDisconnectProviderMutation();
   // The AI part keeps its own data; this tells it to read it again with the account status.
@@ -53,9 +56,20 @@ const Connectors: React.FC = () => {
 
     setState({ ...state, open: false });
   };
-  // Handle OAuth callback results
+  // Handle OAuth callback results, once the reader's own names are known (the notice names only those),
+  // and once per query: the refresh below reads the lists again.
+  const handledQuery = React.useRef<string | null>(null);
   useEffect(() => {
-    const notice = callbackNotice(searchParams);
+    if (isLoading || catalogLoading) return;
+    const query = searchParams.toString();
+    if (handledQuery.current === query) return;
+    handledQuery.current = query;
+
+    const knownNames = [
+      ...(connectors ?? []).flatMap((c) => [c.provider, c.providerDisplayName]),
+      ...(catalog?.installed ?? []).map((c) => c.displayName),
+    ];
+    const notice = callbackNotice(searchParams, knownNames);
     if (notice) {
       setState({ open: true, ...notice });
       if (notice.severity === 'success') refreshAll();
@@ -65,7 +79,7 @@ const Connectors: React.FC = () => {
     if (searchParams.get('success') || searchParams.get('error')) {
       window.history.replaceState({}, '', '/connectors');
     }
-  }, [searchParams, refreshAll]);
+  }, [searchParams, refreshAll, isLoading, catalogLoading, connectors, catalog]);
 
   const handleToggle = async (
     provider: string,

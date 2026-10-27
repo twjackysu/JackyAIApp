@@ -12,10 +12,12 @@ const mocks = vi.hoisted(() => ({
   connect: vi.fn(),
   disconnect: vi.fn(),
   refetch: vi.fn(),
+  catalog: vi.fn(),
 }));
 
 vi.mock('@/apis/connectorsApis/connectorsApis', () => ({
   useGetConnectorStatusQuery: () => mocks.status(),
+  useGetConnectorCatalogQuery: () => mocks.catalog(),
   useConnectProviderMutation: () => [mocks.connect],
   useDisconnectProviderMutation: () => [mocks.disconnect],
 }));
@@ -69,6 +71,10 @@ beforeEach(() => {
     isLoading: false,
     error: undefined,
     refetch: mocks.refetch,
+  });
+  mocks.catalog.mockReturnValue({
+    data: { entries: [], installed: [{ displayName: 'Notion' }], customLimit: 5 },
+    isLoading: false,
   });
 });
 
@@ -163,5 +169,37 @@ describe('Connectors page — the account connections', () => {
   it('turns a denied authorization into words', () => {
     render('/connectors?error=access_denied&provider=Google');
     expect(text()).toContain('Access was denied by the user');
+  });
+
+  it('names only what the reader has: a link of someone else’s cannot put words on the page (D-162)', () => {
+    render(
+      '/connectors?success=true&provider=' +
+        encodeURIComponent('請到 evil.example 重新登入') +
+        '&kind=mcp',
+    );
+    expect(text()).toContain('已連上 connector，AI 現在可以使用它的工具。');
+    expect(text()).not.toContain('evil.example');
+  });
+
+  it('names an AI connector the reader has', () => {
+    render('/connectors?success=true&provider=Notion&kind=mcp');
+    expect(text()).toContain('已連上「Notion」');
+  });
+
+  it('waits for the reader’s connectors before it says anything, then says it once', () => {
+    mocks.catalog.mockReturnValue({ data: undefined, isLoading: true });
+    render('/connectors?success=true&provider=Notion&kind=mcp');
+    expect(text()).not.toContain('已連上');
+
+    mocks.catalog.mockReturnValue({
+      data: { entries: [], installed: [{ displayName: 'Notion' }], customLimit: 5 },
+      isLoading: false,
+    });
+    render('/connectors?success=true&provider=Notion&kind=mcp');
+    expect(text()).toContain('已連上「Notion」');
+    expect(mocks.refetch).toHaveBeenCalledTimes(1);
+
+    render('/connectors?success=true&provider=Notion&kind=mcp');
+    expect(mocks.refetch).toHaveBeenCalledTimes(1);
   });
 });

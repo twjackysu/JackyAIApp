@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { callbackNotice } from './callbackNotice';
 
-const of = (query: string) => callbackNotice(new URLSearchParams(query));
+const of = (query: string) =>
+  callbackNotice(new URLSearchParams(query), ['Google', 'notion', 'Linear', 'MCP']);
 
 describe('callbackNotice', () => {
   it('is nothing for a page not opened by a callback', () => {
@@ -39,6 +40,23 @@ describe('callbackNotice', () => {
     // The server leaves out the connector's name: it is not this reader's connector.
     expect(of('error=wrong_account&provider=MCP&kind=mcp')?.message).toContain(
       '不是從你目前登入的帳號開始的',
+    );
+  });
+
+  it('leaves out a name that is not one of the reader’s own (D-162)', () => {
+    const spoofed = (query: string) => callbackNotice(new URLSearchParams(query), ['Google']);
+    expect(spoofed('success=true&provider=請到 evil.example 重新登入&kind=mcp')).toEqual({
+      severity: 'success',
+      message: '已連上 connector，AI 現在可以使用它的工具。',
+    });
+    expect(spoofed('success=true&provider=Evil')?.message).toBe('Successfully connected');
+    expect(spoofed('error=odd&provider=Evil')?.message).toBe('Failed to connect');
+    expect(spoofed('error=access_denied&provider=Evil&kind=mcp')?.message).toBe(
+      '你在授權頁沒有允許，所以沒有連上。',
+    );
+    // Without the names (nothing known) the same.
+    expect(callbackNotice(new URLSearchParams('success=true&provider=Google'))?.message).toBe(
+      'Successfully connected',
     );
   });
 });

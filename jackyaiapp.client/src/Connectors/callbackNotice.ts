@@ -26,11 +26,23 @@ const MCP_ERRORS: Record<string, string> = {
     '這次授權不是從你目前登入的帳號開始的，所以沒有連上。如果是你自己開始的，請用同一個帳號登入後到 connector 重新授權。',
 };
 
-/** The notice for the callback's query, or null when the page was not opened by one. */
-export function callbackNotice(params: URLSearchParams): CallbackNotice | null {
-  const provider = params.get('provider');
-  if (!provider) return null;
+/**
+ * The notice for the callback's query, or null when the page was not opened by one.
+ *
+ * Anyone can send a reader a link to /connectors with a query of their own, so the name the query carries is
+ * shown only when it is one of the reader's own (`knownNames`: their account connections and AI connectors);
+ * otherwise the notice speaks of the account or the connector without it, never in someone else's words (D-162).
+ */
+export function callbackNotice(
+  params: URLSearchParams,
+  knownNames: readonly string[] = [],
+): CallbackNotice | null {
+  const named = params.get('provider');
+  if (!named) return null;
   const mcp = params.get('kind') === 'mcp';
+  const known = knownNames.some((name) => name.toLowerCase() === named.toLowerCase());
+  if (!known) return unnamedNotice(params, mcp);
+  const provider = named;
   if (params.get('success') === 'true') {
     return {
       severity: 'success',
@@ -45,4 +57,20 @@ export function callbackNotice(params: URLSearchParams): CallbackNotice | null {
     ? (MCP_ERRORS[error] ?? '沒有連上，請重新授權一次。')
     : (ACCOUNT_ERRORS[error] ?? `Failed to connect to ${provider}`);
   return { severity: 'error', message: mcp ? `「${provider}」：${message}` : message };
+}
+
+/** The same notice without a name: the query named something the reader does not have. */
+function unnamedNotice(params: URLSearchParams, mcp: boolean): CallbackNotice | null {
+  if (params.get('success') === 'true') {
+    return {
+      severity: 'success',
+      message: mcp ? '已連上 connector，AI 現在可以使用它的工具。' : 'Successfully connected',
+    };
+  }
+  const error = params.get('error');
+  if (!error) return null;
+  const message = mcp
+    ? (MCP_ERRORS[error] ?? '沒有連上，請重新授權一次。')
+    : (ACCOUNT_ERRORS[error] ?? 'Failed to connect');
+  return { severity: 'error', message };
 }
