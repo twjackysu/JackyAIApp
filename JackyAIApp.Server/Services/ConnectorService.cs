@@ -22,6 +22,7 @@ namespace JackyAIApp.Server.Services
         private readonly ConnectorOptions _connectorOptions;
         private readonly HttpClient _httpClient;
         private readonly ILogger<ConnectorService> _logger;
+        private readonly ICurrentUser _currentUser;
 
         public ConnectorService(
             AzureSQLDBContext context,
@@ -29,7 +30,8 @@ namespace JackyAIApp.Server.Services
             IStateService stateService,
             IOptions<ConnectorOptions> connectorOptions,
             HttpClient httpClient,
-            ILogger<ConnectorService> logger)
+            ILogger<ConnectorService> logger,
+            ICurrentUser currentUser)
         {
             _context = context;
             _tokenEncryption = tokenEncryption;
@@ -37,6 +39,7 @@ namespace JackyAIApp.Server.Services
             _connectorOptions = connectorOptions.Value;
             _httpClient = httpClient;
             _logger = logger;
+            _currentUser = currentUser;
         }
 
         public async Task<ConnectorStatusDto[]> GetUserConnectorStatusAsync(string userId)
@@ -190,6 +193,15 @@ namespace JackyAIApp.Server.Services
                 {
                     _logger.LogWarning("Provider mismatch in OAuth callback: expected {Expected}, got {Actual}",
                         stateProvider, provider);
+                    return false;
+                }
+
+                // The state names who started the sign-in; the browser coming back must be theirs. Otherwise a
+                // sign-in URL someone started and sent to another person would put that person's account, once
+                // they approve it, into the sender's connection (login CSRF).
+                if (_currentUser.Id != userId)
+                {
+                    _logger.LogWarning("OAuth callback for provider {Provider} came back to another browser than the one that started it", provider);
                     return false;
                 }
 

@@ -120,6 +120,15 @@ namespace JackyAIApp.Server.Services.Connectors
                 cache.Get<Pending>(PendingKey(state)) is not { } pending ||
                 pending.UserId != userId || StateProviderPrefix + pending.InstallationId != provider)
                 return new McpOAuthCallbackOutcome(false, "MCP", "invalid_request");
+            // The browser coming back must be the one whose reader started the sign-in. Otherwise a sign-in URL
+            // someone started for their own connector and sent to another person would, once that person
+            // approves it, put the other person's account into the sender's connector. Checked before the
+            // pending sign-in is used up, and without the connector's name: it is not this reader's.
+            if (currentUser.Id != userId)
+            {
+                logger.LogWarning("MCP sign-in for connector {InstallationId} came back to another reader", pending.InstallationId);
+                return new McpOAuthCallbackOutcome(false, "MCP", "wrong_account");
+            }
             // Once only.
             cache.Remove(PendingKey(state));
 

@@ -34,4 +34,11 @@ describe('callbackNotice', () => {
       '「Linear」：沒有連上，請重新授權一次。',
     );
   });
+
+  it('says a sign-in started by another account did not connect', () => {
+    // The server leaves out the connector's name: it is not this reader's connector.
+    expect(of('error=wrong_account&provider=MCP&kind=mcp')?.message).toContain(
+      '不是從你目前登入的帳號開始的',
+    );
+  });
 });

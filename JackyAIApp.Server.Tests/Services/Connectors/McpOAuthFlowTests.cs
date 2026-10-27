@@ -180,7 +180,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             _mcp.Setup(m => m.ListToolsAsync(Url, McpAuth.BearerToken("at-1"), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new McpServerTools("Notes", [new CachedTool("search", null, "", ToolEffect.Read, JsonSerializer.SerializeToElement(new { type = "object" }))]));
 
-            var outcome = await Flow(signedIn: null).CompleteAsync("code-1", state, "https://auth.example.com", null, default);
+            var outcome = await Flow().CompleteAsync("code-1", state, "https://auth.example.com", null, default);
 
             Assert.Equal(new McpOAuthCallbackOutcome(true, "Notes", null), outcome);
             Assert.Equal("authorization_code", form!["grant_type"]);
@@ -197,6 +197,26 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
             // Once only.
             Assert.Equal("invalid_request", (await Flow().CompleteAsync("code-1", state, "https://auth.example.com", null, default)).Error);
+        }
+
+        [Theory]
+        [InlineData("u2")]
+        [InlineData(null)]
+        public async Task ACallbackInAnotherReadersBrowser_IsRefused_AndLeavesTheSignInToItsReader(string? signedIn)
+        {
+            // The sender started a sign-in for their own connector and sent its URL to someone else, who approved it.
+            var (id, state, _) = await StartedAsync();
+
+            var outcome = await Flow(signedIn).CompleteAsync("code-1", state, "https://auth.example.com", null, default);
+
+            Assert.Equal(new McpOAuthCallbackOutcome(false, "MCP", "wrong_account"), outcome);
+            _endpoints.VerifyNoOtherCalls();
+            Assert.Null(_secrets.GrantOf(Row(id))!.AccessToken);
+
+            // Its own reader can still finish it.
+            _endpoints.Setup(e => e.RequestTokenAsync(AuthServer.TokenEndpoint, It.IsAny<IReadOnlyDictionary<string, string>>(), "dyn-1", null, It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new McpOAuthException("no"));
+            Assert.Equal("callback_failed", (await Flow().CompleteAsync("code-1", state, "https://auth.example.com", null, default)).Error);
         }
 
         [Theory]

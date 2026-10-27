@@ -7,7 +7,8 @@ namespace JackyAIApp.Server.Controllers
     /// The two addresses an MCP server's authorization server reaches (docs/ai-native/design/03 §5.2): the
     /// callback a reader is sent back to (a literal route, so it is matched before the account connections'
     /// <c>callback/{provider}</c>, whose flow is unchanged) and our client metadata document, which is our
-    /// client id. Neither takes a sign-in: the callback is checked by its state, the document is public.
+    /// client id. Neither demands a sign-in: the callback is checked by its state and by the reader who started it being
+    /// the one signed in (the sign-in cookie is <c>SameSite=Lax</c>, so it comes with the redirect back); the document is public.
     /// </summary>
     [ApiController]
     [Route("api/connectors")]

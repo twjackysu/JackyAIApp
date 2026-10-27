@@ -21,6 +21,9 @@ const MCP_ERRORS: Record<string, string> = {
     '這次授權的回應無效或已過期（要在 10 分鐘內完成），請到 connector 重新授權一次。',
   callback_failed: '授權伺服器沒有發出 token，請稍後重新授權；connector 的詳細資料會顯示原因。',
   missing_parameters: '授權回應缺少必要的資料，請到 connector 重新授權一次。',
+  // The sign-in was started by another account than the one signed in here (or by a link someone sent).
+  wrong_account:
+    '這次授權不是從你目前登入的帳號開始的，所以沒有連上。如果是你自己開始的，請用同一個帳號登入後到 connector 重新授權。',
 };
 
 /** The notice for the callback's query, or null when the page was not opened by one. */
