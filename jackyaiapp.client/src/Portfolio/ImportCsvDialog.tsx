@@ -41,6 +41,7 @@ export function ImportCsvDialog({ onImport, room }: Props) {
 
   const validRows = (preview ?? []).filter((p) => p.editorRow).map((p) => p.editorRow as EditorRow);
   const invalidCount = (preview ?? []).length - validRows.length;
+  const listed = preview ? previewRowsShown(preview, PREVIEW_LIMIT) : null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -122,7 +123,7 @@ export function ImportCsvDialog({ onImport, room }: Props) {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {previewRowsShown(preview, PREVIEW_LIMIT).map(({ row: p, line }) => (
+                    {listed!.shown.map(({ row: p, line }) => (
                       <TableRow key={line}>
                         <TableCell>{line}</TableCell>
                         <TableCell>{p.raw['類型']}</TableCell>
@@ -147,7 +148,9 @@ export function ImportCsvDialog({ onImport, room }: Props) {
               </TableContainer>
               {preview.length > PREVIEW_LIMIT && (
                 <Typography variant="caption" color="text.secondary">
-                  只列出前 {PREVIEW_LIMIT} 列與有誤的列；「列」是檔案裡的行數（標題是第 1 行）。
+                  只列出前 {PREVIEW_LIMIT} 列與有誤的列
+                  {listed!.moreSkipped > 0 && `（另有 ${listed!.moreSkipped} 列有誤未列出）`}
+                  ；「列」是檔案裡的行數（標題是第 1 行）。
                 </Typography>
               )}
             </Box>

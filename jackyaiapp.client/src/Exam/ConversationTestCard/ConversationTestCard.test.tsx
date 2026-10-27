@@ -131,6 +131,22 @@ describe('ConversationTestCard', () => {
     expect(container.textContent).toContain('Sure, coming up.');
   });
 
+  it('keeps what was typed while the reply was pending, and says the earlier one was not sent', async () => {
+    let fail: (e: unknown) => void = () => {};
+    mocks.respond.mockReturnValue({
+      unwrap: () => new Promise((_, reject) => (fail = reject)),
+    });
+    type('A latte, please.');
+    await send();
+    type('Make it large.');
+
+    await act(async () => fail(new Error('boom')));
+
+    expect(box().value).toBe('Make it large.');
+    expect(alertText()).toContain('剛才那句沒有送出。');
+    expect(alertText()).not.toContain('已放回輸入框');
+  });
+
   it('says so in its own words when the server gives no reason', async () => {
     mocks.respond.mockReturnValue({ unwrap: () => Promise.reject(new Error('boom')) });
     type('Hello');

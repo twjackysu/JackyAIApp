@@ -114,12 +114,19 @@ export interface ImportPreviewRow {
   error: string | null;
 }
 
-/** The preview's rows: the first `limit`, then every row that will be left out wherever it is, each
- * with its line in the file (the header is line 1), so a reader can find and fix it. */
+/** Left-out rows listed after the first ones, at most: a file far past the limit would otherwise draw thousands. */
+export const MAX_SKIPPED_SHOWN = 50;
+
+/** The preview's rows: the first `limit`, then the rows that will be left out wherever they are (up to
+ * `MAX_SKIPPED_SHOWN`, `moreSkipped` counting the rest), each with its line in the file (the header is line 1), so a
+ * reader can find and fix it. */
 export function previewRowsShown(preview: ImportPreviewRow[], limit: number) {
-  return preview
-    .map((row, i) => ({ row, line: i + 2 }))
-    .filter(({ row }, i) => i < limit || !row.editorRow);
+  const lined = preview.map((row, i) => ({ row, line: i + 2 }));
+  const skippedLater = lined.slice(limit).filter(({ row }) => !row.editorRow);
+  return {
+    shown: [...lined.slice(0, limit), ...skippedLater.slice(0, MAX_SKIPPED_SHOWN)],
+    moreSkipped: Math.max(0, skippedLater.length - MAX_SKIPPED_SHOWN),
+  };
 }
 
 /** Maps + validates a parsed CSV's rows, reusing `toRow`/`rowError` as-is so an imported row is

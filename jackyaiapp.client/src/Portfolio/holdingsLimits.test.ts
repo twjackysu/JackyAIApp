@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import holdingsLimitsCs from '../../../JackyAIApp.Server/Services/Portfolio/HoldingsLimits.cs?raw';
 
-import { buildImportPreview, previewRowsShown } from './csvImport';
+import { buildImportPreview, MAX_SKIPPED_SHOWN, previewRowsShown } from './csvImport';
 import { makeRow, rowError } from './editorTypes';
 import {
   lengthProblem,
@@ -85,8 +85,21 @@ describe('previewRowsShown', () => {
       代號: String(1000 + i),
       數量: i === 24 ? '' : '1000',
     }));
-    const shown = previewRowsShown(buildImportPreview(rows), 3);
+    const { shown, moreSkipped } = previewRowsShown(buildImportPreview(rows), 3);
     expect(shown.map((s) => s.line)).toEqual([2, 3, 4, 26]);
     expect(shown[3].row.error).toBe('請輸入股數');
+    expect(moreSkipped).toBe(0);
+  });
+
+  it('lists at most MAX_SKIPPED_SHOWN left-out rows and counts the rest', () => {
+    const rows = Array.from({ length: 400 }, (_, i) => ({
+      類型: 'STOCK',
+      代號: String(1000 + i),
+      數量: '1',
+    }));
+    const { shown, moreSkipped } = previewRowsShown(buildImportPreview(rows), 10);
+    expect(shown).toHaveLength(10 + MAX_SKIPPED_SHOWN);
+    expect(shown[10].line).toBe(MAX_POSITIONS + 2);
+    expect(moreSkipped).toBe(100 - MAX_SKIPPED_SHOWN);
   });
 });

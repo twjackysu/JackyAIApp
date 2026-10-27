@@ -4,5 +4,8 @@ export const SEND_FAILED_MESSAGE = '對方沒有回應。';
 /** Said after the reason: the message is not lost. */
 export const SEND_FAILED_RETRY_NOTE = '你的訊息已放回輸入框，可以再送一次。';
 
+/** Said after the reason when the box already holds something new, which is kept. */
+export const SEND_FAILED_KEPT_NOTE = '剛才那句沒有送出。';
+
 /** The summary dialog's own wording when the summary could not be made. */
 export const SUMMARY_FAILED_MESSAGE = '總結沒有做出來，請稍後再試一次。';

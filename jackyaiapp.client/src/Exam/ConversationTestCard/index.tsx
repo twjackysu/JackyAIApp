@@ -1,12 +1,17 @@
 import { Box, Button, Typography, useMediaQuery, useTheme } from '@mui/material';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import ChatMessages from './components/ChatMessages';
 import ConversationHeader from './components/ConversationHeader';
 import ConversationSummary from './components/ConversationSummary';
 import MessageInput from './components/MessageInput';
 import ScenarioSelector from './components/ScenarioSelector';
-import { SEND_FAILED_MESSAGE, SUMMARY_FAILED_MESSAGE } from './conversationErrors';
+import {
+  SEND_FAILED_MESSAGE,
+  SEND_FAILED_KEPT_NOTE,
+  SEND_FAILED_RETRY_NOTE,
+  SUMMARY_FAILED_MESSAGE,
+} from './conversationErrors';
 import { useVoiceRecording, useAutoScroll } from './hooks';
 
 import {
@@ -32,6 +37,11 @@ function ConversationTestCard() {
 
   const [conversationState, setConversationState] = useState<ConversationState | null>(null);
   const [input, setInput] = useState<string>('');
+  // What the box holds now, for a reply that fails after the reader has typed (or dictated) something new.
+  const inputRef = useRef(input);
+  useEffect(() => {
+    inputRef.current = input;
+  }, [input]);
   const [showSummary, setShowSummary] = useState(false);
   // Set by the most recent voice transcription, attached to the user turn it produces once sent,
   // then cleared — so it doesn't leak onto a later, unrelated turn.
@@ -143,9 +153,17 @@ function ConversationTestCard() {
         context: { ...prev!.context, turnNumber: prev!.context.turnNumber - 1 },
         history: prev!.history.slice(0, userTurnIndex),
       }));
-      setInput((current) => (current.trim() ? current : userMessage));
-      setPendingDeliveryFeedback(deliveryFeedback ?? null);
-      setSendError(getCaughtErrorMessage(error, SEND_FAILED_MESSAGE));
+      // What was typed meanwhile is kept, with its own delivery feedback; then the message is not put back.
+      const restored = !inputRef.current.trim();
+      if (restored) {
+        setInput(userMessage);
+        setPendingDeliveryFeedback(deliveryFeedback ?? null);
+      }
+      setSendError(
+        `${getCaughtErrorMessage(error, SEND_FAILED_MESSAGE)} ${
+          restored ? SEND_FAILED_RETRY_NOTE : SEND_FAILED_KEPT_NOTE
+        }`,
+      );
     }
   };
 
