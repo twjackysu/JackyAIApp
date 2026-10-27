@@ -280,6 +280,20 @@ namespace JackyAIApp.Server.Tests.Services
         }
 
         [Fact]
+        public void TheCallersShare_IsNeverBelowOneUpload()
+        {
+            var budget = new SessionUploadBudget(Options.Create(new SessionUploadOptions
+            {
+                MaxSessionBytes = 500,
+                MaxBytesPerCaller = 100,
+                MaxTotalBytes = 1_000,
+            }));
+
+            Assert.Equal(SessionReservation.Reserved, budget.TryReserve(500, "a"));
+            Assert.Equal(SessionReservation.OverCallerShare, budget.TryReserve(1, "a"));
+        }
+
+        [Fact]
         public void TheDefaultShare_TakesTheLargestUploadTwice_AndIsHalfTheBudget()
         {
             var defaults = new SessionUploadOptions();

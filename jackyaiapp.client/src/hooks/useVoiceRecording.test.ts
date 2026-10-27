@@ -119,11 +119,17 @@ describe('useVoiceRecording', () => {
     expect(recorder.stopCalls).toBe(1);
 
     act(() => hook.result.current.toggleRecording()); // and starts another
+    // Past the moment the first recording's timer would have fired, short of the second's.
     await act(async () => {
-      vi.advanceTimersByTime(MAX_RECORDING_SECONDS * 1000 - 60_001);
+      vi.advanceTimersByTime(60_001);
     });
     expect(recorder.stopCalls).toBe(1);
     expect(hook.result.current.isRecording).toBe(true);
+
+    await act(async () => {
+      vi.advanceTimersByTime(MAX_RECORDING_SECONDS * 1000 - 60_001);
+    });
+    expect(recorder.stopCalls).toBe(2);
   });
 
   it('drops the timer when the page goes away', async () => {
@@ -131,7 +137,9 @@ describe('useVoiceRecording', () => {
     vi.useFakeTimers();
 
     act(() => hook.result.current.toggleRecording());
+    expect(vi.getTimerCount()).toBe(1);
     hook.unmount();
+    expect(vi.getTimerCount()).toBe(0);
     const stopsAtUnmount = recorder.stopCalls;
 
     vi.advanceTimersByTime(MAX_RECORDING_SECONDS * 1000);

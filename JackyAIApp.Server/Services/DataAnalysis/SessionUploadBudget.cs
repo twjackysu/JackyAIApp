@@ -16,7 +16,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis
     public sealed class SessionUploadBudget(IOptions<SessionUploadOptions> options)
     {
         private readonly long _maxBytes = options.Value.MaxTotalBytes;
-        private readonly long _maxBytesPerCaller = options.Value.MaxBytesPerCaller;
+        // Never below one upload's largest size, or a configuration raising that would refuse every such upload.
+        private readonly long _maxBytesPerCaller = Math.Max(options.Value.MaxBytesPerCaller, options.Value.MaxSessionBytes);
         private readonly Dictionary<string, long> _byCaller = new(StringComparer.Ordinal);
         private readonly Lock _callersGate = new();
         private long _usedBytes;
