@@ -103,9 +103,12 @@ const ConversationList = ({
   const rootRef = useRef<HTMLDivElement>(null);
   const newChatRef = useRef<HTMLButtonElement>(null);
   const refocusRow = useRef<string | null>(null);
+  // The pressed delete is disabled while it runs, so the browser drops the focus to <body>, and in a drawer its focus
+  // trap then puts it on the drawer's paper: an element holding the column counts as ours too.
   const focusIsOurs = () => {
     const at = document.activeElement;
-    return !at || at === document.body || !!rootRef.current?.contains(at);
+    const column = rootRef.current;
+    return !at || !column || at.contains(column) || column.contains(at);
   };
 
   const handleDelete = async (id: string, byKey: boolean) => {

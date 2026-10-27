@@ -84,6 +84,8 @@ export default function SelectionBar({
         e.preventDefault();
         e.stopPropagation();
         const at = document.activeElement;
+        // Pressed again from inside the bar: where to go back to is still where the reader was before.
+        if (barRef.current?.contains(at)) return;
         returnFocus.current = at instanceof HTMLElement && at !== document.body ? at : null;
         barRef.current?.querySelector<HTMLElement>('button')?.focus();
         return;
@@ -117,10 +119,14 @@ export default function SelectionBar({
   const pick = useCallback(
     (action: SelectionAction) => {
       if (!selected) return;
-      onAction(action.kind, selected.text, selected.inAssistant);
-      pressing.current = false;
+      // Picked from the keyboard: the focus goes back where it was before the bar goes (an assistant that opens for
+      // the action takes it from there).
+      const back = focusInBar.current ? returnFocus.current : null;
       focusInBar.current = false;
       returnFocus.current = null;
+      back?.focus();
+      onAction(action.kind, selected.text, selected.inAssistant);
+      pressing.current = false;
       setSelected(null);
       window.getSelection?.()?.removeAllRanges();
     },
@@ -204,9 +210,11 @@ export default function SelectionBar({
         >
           <AutoAwesomeIcon sx={{ fontSize: 15 }} />
         </Box>
-        {actions.map((action) => (
+        {actions.map((action, i) => (
           <ButtonBase
             key={action.kind}
+            // One Tab stop for the bar, as in any toolbar: the arrows move along it.
+            tabIndex={i === 0 ? 0 : -1}
             onClick={() => pick(action)}
             sx={{
               px: 1.25,

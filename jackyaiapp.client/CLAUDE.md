@@ -228,10 +228,13 @@ sent or stored, so a reopened conversation shows a plain message. A site tool's 
   rather than inside it, its rename and delete buttons (a button in a button is one control to a screen reader); they show
   on hover, on focus anywhere in the row, on the open conversation, and always on a touch screen. A delete pressed from the
   keyboard (a click with `detail` 0) gives the focus to the row that took its place, else the one above, else 新對話
-  (`utils/focusAfterDelete`, D-187), and not when the focus has meanwhile left the column. The selection bar is reached
+  (`utils/focusAfterDelete`, D-187), and not when the focus has meanwhile left the column (an element holding the column, where a
+  drawer's focus trap puts a dropped focus, still counts as in it, D-189). The selection bar is reached
   with Alt+A (`selectionShortcut`, by `code`, since a Mac's Option+A types å; `aria-keyshortcuts` on the toolbar, D-188):
   a hidden status always mounted beside it says so when a selection settles, the arrows and Home/End move along its
-  buttons, a selection change while the focus is in it is not the reader's, and Escape gives the focus back to where it was
+  buttons (one Tab stop), a selection change while the focus is in it is not the reader's, and Escape or a picked action
+  gives the focus back to where it was. With Studio AI's drawer open its bar is rendered inside the drawer, or the drawer's
+  focus trap would take the focus straight back (D-189)
 - A dashboard is read on a phone one chart a row (`Dashboard/viewLayout`, below 600px, in the saved layout's reading
   order): only the view; editing, and wider screens, keep the layout as saved
 - An answer's HTML preview (`HtmlViewer`) is a `sandbox=""` iframe, never markup in the page: the answer can

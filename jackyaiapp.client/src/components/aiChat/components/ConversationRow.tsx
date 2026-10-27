@@ -55,8 +55,11 @@ const ConversationRow = ({
         '& .conversation-action': { opacity: 0, transition: 'opacity 120ms' },
         '&:hover .conversation-action, &:focus-within .conversation-action': { opacity: 1 },
         // The mouse on a button beside the row's own still lights the row, as when they were inside it.
-        '&:hover .MuiListItemButton-root:not(.Mui-disabled)': {
-          bgcolor: active ? accentWash(theme, 0.14) : theme.palette.action.hover,
+        // Not on a touch screen, where a hover sticks to the row that slides under the finger.
+        '@media (hover: hover)': {
+          '&:hover .MuiListItemButton-root:not(.Mui-disabled)': {
+            bgcolor: active ? accentWash(theme, 0.14) : theme.palette.action.hover,
+          },
         },
         ...(active && { '& .conversation-action': { opacity: 1 } }),
         '@media (hover: none)': { '& .conversation-action': { opacity: 1 } },

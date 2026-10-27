@@ -237,10 +237,13 @@ export default function StudioAssistant() {
   // Signed out, there is nothing to keep. On a page without the button (one of Studio's own links goes to
   // /finance) only the button goes: unmounting the panel would drop the conversation mid-reply.
   if (!signedIn || (!shown && !opened)) return null;
+  const selectionBar = <SelectionBar enabled={shown} onAction={onSelection} />;
 
   return (
     <AiChatConfigContext value={config}>
-      <SelectionBar enabled={shown} onAction={onSelection} />
+      {/* With the drawer open, the bar is inside it: outside, the drawer's focus trap would take back the focus that
+          Alt+A moves into the bar (D-188). Page text cannot be selected behind the open drawer anyway. */}
+      {!open && selectionBar}
       {shown && (
         <ActionTooltip title="Studio AI（⌘K）">
           <Fab
@@ -270,6 +273,7 @@ export default function StudioAssistant() {
         keepMounted={opened}
         slotProps={{ paper: { sx: { width: { xs: '100%', sm: 480 }, maxWidth: '100%' } } }}
       >
+        {open && selectionBar}
         {opened && (
           <Box data-ai-assistant sx={{ height: '100%' }}>
             <Suspense fallback={<CenteredSpinner />}>

@@ -281,6 +281,10 @@ describe('SelectionBar from the keyboard (D-188)', () => {
     });
     expect(bar()).not.toBeNull();
 
+    // Pressed again from inside, it keeps where the reader was.
+    await key({ key: 'å', code: 'KeyA', altKey: true });
+    expect(document.activeElement).toBe(buttons()[0]);
+
     await key({ key: 'Escape' });
     expect(bar()).toBeNull();
     expect(document.activeElement).toBe(link);
@@ -293,6 +297,23 @@ describe('SelectionBar from the keyboard (D-188)', () => {
     await key({ key: 'a', code: 'KeyA', altKey: true });
     await act(async () => (document.activeElement as HTMLButtonElement).click());
     expect(onAction).toHaveBeenCalledWith('explain', 'The market rallied today.', false);
+    expect(bar()).toBeNull();
+  });
+
+  it('is one Tab stop, and a pick from it gives the focus back', async () => {
+    await renderBar();
+    const link = document.createElement('a');
+    link.href = '#';
+    link.textContent = 'where the reader was';
+    page.appendChild(link);
+    link.focus();
+    await selectAndSettle('The market rallied today.', document.getElementById('text')!);
+    expect(buttons().map((b) => b.tabIndex)).toEqual([0, -1, -1]);
+
+    await key({ key: 'a', code: 'KeyA', altKey: true });
+    await key({ key: 'End' });
+    await act(async () => (document.activeElement as HTMLButtonElement).click());
+    expect(document.activeElement).toBe(link);
   });
 
   it('takes no other key, and nothing without a bar', async () => {

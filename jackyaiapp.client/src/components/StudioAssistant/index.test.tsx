@@ -580,6 +580,24 @@ describe('StudioAssistant', () => {
       expect(mocks.panel!.ask!.quotesPageText).toBeUndefined();
     });
 
+    it('Alt+A reaches the bar over its own answer, inside the drawer’s focus trap (D-188)', async () => {
+      await render('/english/repository');
+      await act(async () => button()!.click());
+      await settle();
+      await select('ephemeral', document.querySelector('[data-testid="panel"]')!);
+      const bar = document.querySelector('[data-testid="selection-bar"]')!;
+      expect(document.querySelector('.MuiDrawer-paper')!.contains(bar)).toBe(true);
+
+      await act(async () => {
+        document.activeElement!.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'å', code: 'KeyA', altKey: true, bubbles: true }),
+        );
+      });
+      // The trap checks every 50ms: the focus is still in the bar after it has looked.
+      await act(async () => new Promise((r) => setTimeout(r, 120)));
+      expect(bar.contains(document.activeElement)).toBe(true);
+    });
+
     it('adds a question about the selection after what the reader had typed', async () => {
       await render('/portfolio');
       await act(async () => button()!.click());

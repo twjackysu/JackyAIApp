@@ -2605,21 +2605,45 @@ describe('AiAssistantPanel — conversation history column', () => {
     await mount();
     await waitFor(() => expect(row('ETF 比較')).toBeDefined());
 
+    // A browser drops the focus of the pressed button as it is disabled (jsdom keeps it): played here by a blur.
+    const pressFromKeyboard = (button: HTMLButtonElement) =>
+      act(async () => {
+        button.focus();
+        button.click();
+        button.blur();
+      });
     const del = buttonByLabel('刪除對話', rowItem('台積電財報'))!;
-    del.focus();
-    await act(async () => del.click());
+    await pressFromKeyboard(del);
     await waitFor(() => expect(container.textContent).not.toContain('台積電財報'));
     await waitFor(() => expect(document.activeElement).toBe(row('ETF 比較')));
 
     // The last one gone, 新對話 in the column has it.
-    const last = buttonByLabel('刪除對話', rowItem('ETF 比較'))!;
-    last.focus();
-    await act(async () => last.click());
+    await pressFromKeyboard(buttonByLabel('刪除對話', rowItem('ETF 比較'))!);
     await waitForText('還沒有任何對話');
     const newChatInColumn = [...container.querySelectorAll('button')].find(
       (b) => b.textContent === '新對話',
     )!;
     await waitFor(() => expect(document.activeElement).toBe(newChatInColumn));
+  });
+
+  it('in the history drawer too, past its focus trap (D-187)', async () => {
+    await mount();
+    await waitForText('台積電財報');
+    await act(async () => buttonByLabel('對話紀錄')!.click());
+    const drawer = document.querySelector<HTMLElement>('.MuiDrawer-paper')!;
+
+    await act(async () => {
+      const del = buttonByLabel('刪除對話', rowItem('台積電財報', drawer))!;
+      del.focus();
+      del.click();
+      // What the trap does in a browser (jsdom's document never has focus, so its own check never runs): the
+      // dropped focus goes to its paper.
+      del.blur();
+      drawer.focus();
+    });
+    expect(document.activeElement).toBe(drawer);
+    await waitFor(() => expect(drawer.textContent).not.toContain('台積電財報'));
+    await waitFor(() => expect(document.activeElement).toBe(row('ETF 比較', drawer)));
   });
 
   it('a delete pressed with the mouse leaves the focus alone (D-187)', async () => {
