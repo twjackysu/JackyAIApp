@@ -362,8 +362,9 @@ describe('ToolCards: 畫成圖 (D-153)', () => {
       yAxis?: { data: string[] };
     };
   const settle = async () => {
-    // The chart is loaded on the first press (React.lazy).
-    for (let i = 0; i < 5 && !container.querySelector('[data-testid="echarts"]'); i++) {
+    // The chart is loaded on the first press (React.lazy); the first import can take a while on a busy
+    // machine (it failed once at 50ms while other work ran), so wait up to 2s.
+    for (let i = 0; i < 200 && !container.querySelector('[data-testid="echarts"]'); i++) {
       await act(async () => new Promise((r) => setTimeout(r, 10)));
     }
   };
