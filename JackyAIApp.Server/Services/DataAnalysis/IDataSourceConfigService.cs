@@ -18,6 +18,12 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         /// </summary>
         DataAnalysisEngine BuildEngine(DataSourceConfig source);
 
+        /// <summary>
+        /// The hosts a saved SQL Server source connects to (server and failover partner), to be checked by name before a
+        /// connection (<see cref="IServerAddressCheck"/>); empty for any other source, or one that cannot be read.
+        /// </summary>
+        string[] ServerHostsOf(DataSourceConfig source);
+
         /// <summary>The DAL source key for a connector type (matches the key BuildEngine uses).</summary>
         string SourceKey(DataSourceConnectorType type);
 

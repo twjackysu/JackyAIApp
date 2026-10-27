@@ -86,33 +86,63 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         internal static string? ValidateServer(string? dataSource, bool required)
         {
             const string expected = "The server must be a SQL Server on the internet, e.g. tcp:myserver.database.windows.net,1433.";
-            var server = dataSource?.Trim() ?? "";
-            if (server.Length == 0) return required ? expected : null;
-            if (RefusedProtocols.Any(p => server.StartsWith(p, StringComparison.OrdinalIgnoreCase))) return expected;
+            if (string.IsNullOrWhiteSpace(dataSource)) return required ? expected : null;
+            var host = HostOf(dataSource);
+            if (host is null || host is "." || host.Equals("(local)", StringComparison.OrdinalIgnoreCase)
+                || host.StartsWith("(localdb)", StringComparison.OrdinalIgnoreCase)
+                || host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+                || host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase))
+                return expected;
+            if (IPAddress.TryParse(host, out var address))
+                return OutboundAddressPolicy.IsAllowed(address) ? null : expected;
+            // A plain name: letters, digits, '-' and '.', with a dot (a bare word is a machine on the local network).
+            if (!host.Contains('.') || !host.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '.')) return expected;
+            return null;
+        }
+
+        /// <summary>
+        /// The host part of a server as a connection string names it (<c>tcp:host\instance,port</c>, an IPv6 literal
+        /// maybe bracketed), or null for another protocol, a bad port or nothing at all.
+        /// </summary>
+        internal static string? HostOf(string dataSource)
+        {
+            var server = dataSource.Trim();
+            if (RefusedProtocols.Any(p => server.StartsWith(p, StringComparison.OrdinalIgnoreCase))) return null;
             if (server.StartsWith("tcp:", StringComparison.OrdinalIgnoreCase)) server = server[4..].Trim();
 
-            // host[\instance][,port]; an IPv6 literal may be written in brackets.
             var comma = server.LastIndexOf(',');
             if (comma >= 0)
             {
-                if (!int.TryParse(server[(comma + 1)..].Trim(), out var port) || port is < 1 or > 65535) return expected;
+                if (!int.TryParse(server[(comma + 1)..].Trim(), out var port) || port is < 1 or > 65535) return null;
                 server = server[..comma].Trim();
             }
             var backslash = server.IndexOf('\\');
             if (backslash >= 0) server = server[..backslash].Trim();
             if (server.StartsWith('[') && server.EndsWith(']')) server = server[1..^1];
+            return server.Length == 0 ? null : server;
+        }
 
-            if (server.Length == 0 || server is "." || server.Equals("(local)", StringComparison.OrdinalIgnoreCase)
-                || server.Equals("(localdb)", StringComparison.OrdinalIgnoreCase)
-                || server.StartsWith("(localdb)", StringComparison.OrdinalIgnoreCase)
-                || server.Equals("localhost", StringComparison.OrdinalIgnoreCase)
-                || server.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase))
-                return expected;
-            if (IPAddress.TryParse(server, out var address))
-                return OutboundAddressPolicy.IsAllowed(address) ? null : expected;
-            // A plain name: letters, digits, '-' and '.', with a dot (a bare word is a machine on the local network).
-            if (!server.Contains('.') || !server.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '.')) return expected;
-            return null;
+        /// <summary>
+        /// The hosts a SQL Server source connects to (its server and failover partner), for the check by name that a
+        /// connection string cannot make (<see cref="IServerAddressCheck"/>); empty when it does not parse (then
+        /// <see cref="Validate(MsSqlSourceConfigDto?)"/> refuses it anyway).
+        /// </summary>
+        public static string[] ServerHostsOf(MsSqlSourceConfigDto config)
+        {
+            SqlConnectionStringBuilder builder;
+            try
+            {
+                builder = new SqlConnectionStringBuilder(config.ConnectionString);
+            }
+            catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException or KeyNotFoundException)
+            {
+                return [];
+            }
+            return new[] { builder.DataSource, builder.FailoverPartner }
+                .Where(server => !string.IsNullOrWhiteSpace(server))
+                .Select(server => HostOf(server))
+                .OfType<string>()
+                .ToArray();
         }
 
         public static string? Validate(AdxSourceConfigDto? config)

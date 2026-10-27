@@ -537,7 +537,11 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   before every connection, D-164): no named pipe, shared memory, local name, bare machine name, or address
   `OutboundAddressPolicy` refuses (private, link-local, the metadata service), for the server and its failover partner alike, and
   no `Enclave Attestation Url`, since the driver would reach those from the App Service and its owner is told how each try failed.
-  A name is checked as written, not resolved (NEXT). Saving one is held to `RateLimitPolicies.ConnectorProbe`
+  Before each connection `DataSourceResolver` also resolves the server's names (`IServerAddressCheck`, `DnsServerAddressCheck`:
+  every address public, 5s at most) and refuses one that points inside (`PrivateServerMessage`, 400); the driver resolves again
+  when it connects, so a DNS answer that changes in between is not stopped (it cannot be handed the checked addresses, as
+  `SafeHttp` connects to them). Saving one is held to `RateLimitPolicies.ConnectorProbe`. Tests give the resolver
+  `TestHelpers/PublicAddresses`
 - A dashboard widget's rows (`GET api/dashboard/{id}/widgets/{widgetId}/data`, anonymous for an "Anyone" dashboard) run the
   owner's saved query again on the owner's source, uncharged, so they are held to 600 a minute per reader and 120 per address
   without a sign-in (`RateLimitPolicies.DashboardWidgetData`, D-163); a page asks once per widget when it opens

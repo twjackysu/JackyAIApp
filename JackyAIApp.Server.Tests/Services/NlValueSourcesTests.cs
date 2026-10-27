@@ -91,7 +91,8 @@ namespace JackyAIApp.Server.Tests.Services
             var started = DateTime.UtcNow;
             var first   = await slow.DistinctAsync(["Region"], 300, default);
             Assert.Null(first);
-            Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(3)); // the 30 s query is abandoned at 200 ms
+            // The 30 s query is abandoned at 200 ms; the margin is for a busy CI runner (3 s failed once there, round 44).
+            Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(15));
 
             // A later question on the same source gets "unknown" straight from the cache.
             var second = await slow.DistinctAsync(["Region"], 300, default);

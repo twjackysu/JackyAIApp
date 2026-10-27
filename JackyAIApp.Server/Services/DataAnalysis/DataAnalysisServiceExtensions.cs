@@ -22,6 +22,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             // Shared source resolution (default vs custom, ownership, saved-settings validation),
             // used by the query endpoints, the NL question and dashboard widgets.
             services.AddScoped<IDataSourceResolver, DataSourceResolver>();
+            services.AddSingleton<IServerAddressCheck, DnsServerAddressCheck>();
             services.AddScoped<IDashboardService, DashboardService>();
             services.AddScoped<IDataSourceStore, DataSourceStore>();
             // The NL-query planner (LLM pipeline behind summarize/nl), extracted from the controller.

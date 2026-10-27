@@ -86,8 +86,13 @@ namespace JackyAIApp.Server.Tests.Controllers
         };
 
         private static DataAnalysisController Controller(
-            AzureSQLDBContext? db = null, IDataSourceConfigService? configService = null, string? userId = null) =>
-            new DataAnalysisControllerBuilder { DefaultEngine = FailingEngine(), Db = db, ConfigService = configService, UserId = userId }.Build();
+            AzureSQLDBContext? db = null, IDataSourceConfigService? configService = null, string? userId = null,
+            IServerAddressCheck? addressCheck = null) =>
+            new DataAnalysisControllerBuilder
+            {
+                DefaultEngine = FailingEngine(), Db = db, ConfigService = configService, UserId = userId,
+                AddressCheck = addressCheck ?? new PublicAddresses(),
+            }.Build();
 
         private static SummarizeRequestDto Plan(Guid? sourceId = null) => new()
         {
@@ -178,6 +183,25 @@ namespace JackyAIApp.Server.Tests.Controllers
 
             Assert.Equal(400, status);
             Assert.StartsWith("Integrated Security is not allowed", message);
+        }
+
+        [Fact]
+        public async Task CustomSource_WhoseServerResolvesInside_Is400_AndIsNeverQueried()
+        {
+            // A public-looking name may point at the app's own network (D-164); the driver would be told nothing of it.
+            var (db, id) = await OwnedSource();
+            var config = new Mock<IDataSourceConfigService>();
+            config.Setup(c => c.BuildEngine(It.IsAny<DataSourceConfig>())).Returns(() => FailingEngine());
+            config.Setup(c => c.SourceKey(It.IsAny<DataSourceConnectorType>())).Returns("mssql");
+            config.Setup(c => c.ServerHostsOf(It.IsAny<DataSourceConfig>())).Returns(["sql.example.com", "inside.example.com"]);
+            var addresses = new PublicAddresses();
+            addresses.Private.Add("inside.example.com");
+
+            var (status, message) = Error(await Controller(db, config.Object, userId: "owner", addressCheck: addresses).Summarize(Plan(id)));
+
+            Assert.Equal(400, status);
+            Assert.Equal(DataSourceResolver.PrivateServerMessage, message);
+            Assert.Equal(new[] { "sql.example.com", "inside.example.com" }, addresses.Checked);
         }
 
         [Fact]

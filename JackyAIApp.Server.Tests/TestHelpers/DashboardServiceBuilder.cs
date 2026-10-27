@@ -25,11 +25,14 @@ namespace JackyAIApp.Server.Tests.TestHelpers
         /// <summary>Builds a custom source's engine; needed only for a custom source.</summary>
         public IDataSourceConfigService? ConfigService { get; init; }
 
+        /// <summary>Whether a custom source's server name is on the internet; every name is, unless a test says otherwise.</summary>
+        public IServerAddressCheck AddressCheck { get; init; } = new PublicAddresses();
+
         public DashboardService Build()
         {
             IDataSourceResolver resolver = DefaultEngine is null
                 ? new Mock<IDataSourceResolver>(MockBehavior.Strict).Object
-                : new DataSourceResolver(DefaultEngine, Db, ConfigService!, NullLogger<DataSourceResolver>.Instance);
+                : new DataSourceResolver(DefaultEngine, Db, ConfigService!, AddressCheck, NullLogger<DataSourceResolver>.Instance);
             var engines = new EngineSources(resolver, Viewer, new MemoryCache(new MemoryCacheOptions()), NullLogger<EngineSources>.Instance);
             return new DashboardService(NullLogger<DashboardService>.Instance, Db, engines, Viewer);
         }

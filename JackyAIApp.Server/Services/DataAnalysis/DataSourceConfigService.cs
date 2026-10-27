@@ -34,6 +34,20 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             };
         }
 
+        public string[] ServerHostsOf(DataSourceConfig source)
+        {
+            if (source.ConnectorType != DataSourceConnectorType.MsSql) return [];
+            try
+            {
+                var cfg = JsonSerializer.Deserialize<MsSqlSourceConfigDto>(_encryptionService.DecryptToken(source.ConfigJson), ReadOptions);
+                return cfg is null ? [] : DataSourceConfigValidator.ServerHostsOf(cfg);
+            }
+            catch (JsonException)
+            {
+                return [];
+            }
+        }
+
         private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
 
         /// <summary>

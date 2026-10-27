@@ -27,6 +27,9 @@ namespace JackyAIApp.Server.Tests.TestHelpers
 
         public IDataSourceConfigService? ConfigService { get; init; }
 
+        /// <summary>Whether a custom source's server name is on the internet; every name is, unless a test says otherwise.</summary>
+        public IServerAddressCheck AddressCheck { get; init; } = new PublicAddresses();
+
         public ISessionDataStore? Sessions { get; init; }
 
         public IPromptLoader? Prompts { get; init; }
@@ -54,7 +57,7 @@ namespace JackyAIApp.Server.Tests.TestHelpers
             var cache = Cache ?? new MemoryCache(new MemoryCacheOptions());
 
             var engines = new EngineSources(
-                new DataSourceResolver(DefaultEngine, Db!, ConfigService!, NullLogger<DataSourceResolver>.Instance),
+                new DataSourceResolver(DefaultEngine, Db!, ConfigService!, AddressCheck, NullLogger<DataSourceResolver>.Instance),
                 currentUser, cache, NullLogger<EngineSources>.Instance);
             return new DataAnalysisController(
                 Responses ?? MessageResponses(),

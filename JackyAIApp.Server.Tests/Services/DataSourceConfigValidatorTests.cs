@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using System.Text.Json;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO.DataAnalysis;
@@ -93,6 +95,47 @@ namespace JackyAIApp.Server.Tests.Services
         [InlineData("Server=demo.database.windows.net;Failover Partner=demo-dr.database.windows.net;")]
         public void MsSql_AServerOnTheInternet_IsAccepted(string server) =>
             Assert.Null(DataSourceConfigValidator.Validate(Sql(server + Login)));
+
+        [Theory]
+        [InlineData("Server=tcp:demo.database.windows.net,1433;", new[] { "demo.database.windows.net" })]
+        [InlineData("Server=sql.example.com\\REPORTING;Failover Partner=tcp:dr.example.com,1433;", new[] { "sql.example.com", "dr.example.com" })]
+        [InlineData("Server=tcp:[2001:4860::8888],1433;", new[] { "2001:4860::8888" })]
+        public void MsSql_TheHostsItConnectsTo_AreItsServerAndFailoverPartner(string server, string[] hosts) =>
+            Assert.Equal(hosts, DataSourceConfigValidator.ServerHostsOf(Sql(server + Login)));
+
+        [Fact]
+        public void TheService_ReadsAStoredSqlSourcesHosts_AndNoneForAnyOther()
+        {
+            var sql = Stored(DataSourceConnectorType.MsSql, new { connectionString = Server + Login });
+            var adx = Stored(DataSourceConnectorType.Adx, new { clusterUri = "https://mycluster.kusto.windows.net", database = "db" });
+
+            Assert.Equal(new[] { "demo.database.windows.net" }, Service().ServerHostsOf(sql));
+            Assert.Empty(Service().ServerHostsOf(adx));
+            Assert.Empty(DataSourceConfigValidator.ServerHostsOf(Sql("not a connection string")));
+        }
+
+        [Fact]
+        public async Task TheDnsCheck_TakesANameWhoseEveryAddressIsPublic_AndNothingElse()
+        {
+            var answers = new Dictionary<string, IPAddress[]>
+            {
+                ["public.example.com"] = [IPAddress.Parse("20.1.2.3"), IPAddress.Parse("2603:1030::1")],
+                ["mixed.example.com"] = [IPAddress.Parse("20.1.2.3"), IPAddress.Parse("10.0.0.4")],
+                ["metadata.example.com"] = [IPAddress.Parse("169.254.169.254")],
+                ["empty.example.com"] = [],
+            };
+            var check = new DnsServerAddressCheck((host, _) => answers.TryGetValue(host, out var a)
+                ? Task.FromResult(a)
+                : throw new SocketException((int)SocketError.HostNotFound));
+
+            Assert.True(await check.IsPublicAsync("public.example.com", CancellationToken.None));
+            Assert.False(await check.IsPublicAsync("mixed.example.com", CancellationToken.None));
+            Assert.False(await check.IsPublicAsync("metadata.example.com", CancellationToken.None));
+            Assert.False(await check.IsPublicAsync("empty.example.com", CancellationToken.None));
+            Assert.False(await check.IsPublicAsync("nowhere.example.com", CancellationToken.None));
+            Assert.False(await check.IsPublicAsync("127.0.0.1", CancellationToken.None));
+            Assert.True(await check.IsPublicAsync("20.1.2.3", CancellationToken.None));
+        }
 
         private static AdxSourceConfigDto Adx(string clusterUri = "https://mycluster.westus.kusto.windows.net",
             string? connectionString = null, string? clientSecret = "secret") => new()

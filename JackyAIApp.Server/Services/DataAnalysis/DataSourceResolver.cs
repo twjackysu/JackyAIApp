@@ -54,8 +54,13 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         DataAnalysisEngine defaultEngine,
         AzureSQLDBContext dbContext,
         IDataSourceConfigService configService,
+        IServerAddressCheck addressCheck,
         ILogger<DataSourceResolver> logger) : IDataSourceResolver
     {
+        /// <summary>What the owner is told when their source's server resolves to an address that is not on the internet (D-164).</summary>
+        internal const string PrivateServerMessage =
+            "The server's name does not resolve to an address on the internet; a custom source must be a SQL Server reachable over the internet.";
+
         private const string DefaultMsSqlKey  = "mssql";
         private const string DefaultTable     = "dbo.Orders";
 
@@ -89,6 +94,15 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             {
                 logger.LogWarning("DataAnalysis: refused saved source {id}: {err}", source.Id, ex.Message);
                 return (null, DataSourceResolution.ConfigRefused, ex.Message);
+            }
+
+            // The connection string was checked as written; its server's name could still point inside (D-164).
+            foreach (var host in configService.ServerHostsOf(source))
+            {
+                if (await addressCheck.IsPublicAsync(host, ct)) continue;
+                engine.Dispose();
+                logger.LogWarning("DataAnalysis: refused saved source {id}: its server does not resolve to a public address", source.Id);
+                return (null, DataSourceResolution.ConfigRefused, PrivateServerMessage);
             }
 
             var sourceKey = configService.SourceKey(source.ConnectorType);
