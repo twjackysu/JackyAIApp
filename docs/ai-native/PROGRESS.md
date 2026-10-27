@@ -1,5 +1,13 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-28 02:35 – 第 48 輪（第八次巡檢：共用 chat 引擎的穩健度；第九次巡檢：新 AI 介面的無障礙）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，直接 clone（完整歷史）。
+- **第八次巡檢**（subagent 唯讀：agent loop、取消、半途失敗存了什麼、並行、SSE、/finance 不退化）：無高風險。已修：中——「停下來改問這個」時新訊息與停止的請求賽跑，被停的回答存在新問題之後（歷史順序亂、之後每輪兩則連續 assistant）→ `ChatTurnRegistry.SettleAsync`，新訊息與編輯先停掉並等同一對話的回合存好（最多 5 秒，D-177）；低～中——工具輪數用完時前面那句「我來查一下」被當成回答 → `no_answer`（D-178）；低——停在確認卡上的寫入 chip 打勾 → 有 id 沒結果就是失敗（D-179）；低——只有空白的訊息被收下 → 扣額度前 400（D-180）。
+- **第九次巡檢**（subagent 唯讀：鍵盤與螢幕閱讀器）：高——整個 chat 沒有 live region（回答完成、失敗、**確認卡在等你**都聽不到）→ `useChatAnnouncer`（只說狀態改變，D-181）；高——收合 inline 助理焦點掉到 body、Tab 又回輸入框再展開 → 焦點回「開啟」按鈕、Escape 收合（D-182）；高——測驗作答與換題焦點掉 → 跟著題目走、結果放在常駐的 live region（D-183）；中——決定確認卡後焦點掉（D-184）；中／低——現成指令 chip 每個鍵重念、工具 chip 狀態只在 `aria-label`、思考點與進度條沒有名稱（D-185）。未修的寫進 NEXT 0.5。
+- 驗證：cscheck 0 個新診斷；前端 lint、全套測試（175 檔 1820 個）、build 全過；`chat.cjs` 重拍與 repo 比對無 >1% 差異（測驗卡已作答的畫面看過：「下一題」有焦點框）；CI 40555167455（1ab31532，後端）綠、**40559188194（6fa95a0a，本輪最後一次含程式碼的 push）綠**。
+- 問題：`git pull` 一次卡住 2 分鐘（改用 `GIT_TERMINAL_PROMPT=0 timeout`）；`pkill -f vitest` 又殺掉了自己的 shell（NEXT 早有警告）。
+
 ## 2026-10-28 00:35 – 第 47 輪（全站錯誤提示收尾、第七次巡檢：TTS、帳號連線）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠。`add_repo` 工具仍不存在，用既有的 clone 切到 `feature/ai-native`。
