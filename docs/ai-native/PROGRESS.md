@@ -1,5 +1,16 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-27 15:42 – 第 43 輪（巡檢未修項目收尾）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，直接 fetch／push。
+- **錄音轉文字的上限**（D-159，後端＋前端）：Whisper 依分鐘計費、一次只收 1 單位 → `ConversationPracticeController.MaxAudioBytes` 4 MB（`[RequestSizeLimit]`＋動作內檢查，呼叫 Whisper 前 400）；`useVoiceRecording` 64 kbps、120 秒自動停並照常送出，麥克風提示「最長 2 分鐘」；錄滿或轉文字失敗時輸入框下方說一句（原本只有 console.error）。測試：controller 3 個、`useVoiceRecording.test`（計時、卸載、失敗提示、讀 C# 檔對數字）。
+- **匿名上傳的個人份額**（D-159）：`SessionUploadBudget.TryReserve(bytes, caller)`，每人（登入者 id 或 Cloudflare 位址）最多 128 MB，到期一起還；超過回 429「你上傳的資料已達上限…」。測試 5 個（含並行）。
+- **審查**（subagent）：無高風險。計時器測試沒真的跨過舊計時器、卸載後的計時器沒驗到 → 已修；個人份額改成不低於 `MaxSessionBytes`（這個修正讓兩個新測試紅了一次，見問題）。
+- **D-157 剩下的三個低風險都修了**：外站連結卡片在標題下寫主機（`cards/linkHost`，仿冒網域是 punycode；D-160，截圖 `studio-jira-comment-done-*` 已更新）、Portfolio 七個圖表 tooltip 跳脫（D-161）、OAuth 回來的提示只寫自己有的名稱（`callbackNotice(params, knownNames)`；D-162）。
+- **截圖巡檢**：`chat.cjs` 43 張與 repo 比對，沒有超過 1% 的差異。
+- 驗證：前端 lint、test（161→163 檔 1765 個）、build 全過；CI 40469256359（83f3745）、40469791879（40b937b）綠；40470260882（6fe3016）**紅**；40471064690（9447a05，修正）、40471550282（686f8be）、40471954615（dd58abd）綠；本輪最後一次含程式碼的 push 見 NEXT §1。
+- 問題：(1) 審查修正把份額下限設成 `MaxSessionBytes`（預設 64 MB），新測試用的小份額被蓋過 → 測試補 `MaxSessionBytes`。後端改動 push 前沒跑 cscheck，靠 CI 抓到。(2) 全套前端測試與 playwright 同時跑時，`ToolCards` 的「畫成圖」第一次 lazy import 超過 50 ms 而失敗一次 → `settle` 最多等 2 秒。
+
 ## 2026-10-27 13:42 – 第 42 輪（合併前安全巡檢：上傳檔案與 chat 附件）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，直接 fetch／push。
