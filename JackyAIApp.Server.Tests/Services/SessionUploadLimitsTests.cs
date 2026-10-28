@@ -536,6 +536,20 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.Equal("127.0.0.1", RateLimitPolicies.ClientAddress(direct));
         }
 
+        [Theory]
+        [InlineData("2001:db8:1:2:aaaa:bbbb:cccc:dddd", "2001:db8:1:2::/64")]
+        [InlineData("2001:db8:1:2::1", "2001:db8:1:2::/64")]
+        [InlineData("::ffff:203.0.113.7", "203.0.113.7")]
+        [InlineData("203.0.113.7", "203.0.113.7")]
+        [InlineData("not-an-address", "not-an-address")]
+        public void ClientAddress_CountsAnIPv6VisitorByIts64(string seen, string partition)
+        {
+            // D-196: one household's /64 is one visitor, however many of its addresses it steps through.
+            var http = new DefaultHttpContext();
+            http.Request.Headers["CF-Connecting-IP"] = seen;
+            Assert.Equal(partition, RateLimitPolicies.ClientAddress(http));
+        }
+
         [Fact]
         public void SiteOAuth_WindowAllowsItsPermitsThenRefuses()
         {

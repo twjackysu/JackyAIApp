@@ -90,6 +90,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 - Who may see or change something is written once, in a policy next to its service (e.g.
   `DashboardAccessPolicy`): EF expressions for the queries, a plain method for an entity already
   loaded. Something you may not see answers NotFound, not Forbidden, so its existence isn't leaked
+- A limit counted per visitor without a sign-in goes by `RateLimitPolicies.ClientAddress`: the address Cloudflare saw
+  (`CF-Connecting-IP`), an IPv6 one by its /64 (`Subscriber`, D-196), so one household cannot step through its
+  addresses to multiply its share
 
 ## Service results
 

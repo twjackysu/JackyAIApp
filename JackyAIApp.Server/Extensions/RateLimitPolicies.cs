@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Net;
+using System.Net.Sockets;
 using JackyAIApp.Server.Common;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
@@ -202,7 +204,24 @@ namespace JackyAIApp.Server.Extensions
         internal static string ClientAddress(HttpContext http)
         {
             var forwarded = http.Request.Headers[CloudflareClientIpHeader].ToString().Trim();
-            return forwarded.Length > 0 ? forwarded : http.Connection.RemoteIpAddress?.ToString() ?? AnonymousPartition;
+            if (forwarded.Length > 0)
+                return IPAddress.TryParse(forwarded, out var parsed) ? Subscriber(parsed) : forwarded;
+            return http.Connection.RemoteIpAddress is { } remote ? Subscriber(remote) : AnonymousPartition;
+        }
+
+        /// <summary>
+        /// The address one subscriber's limits count against (D-196): an IPv4 address as it is, an IPv6 one by its /64,
+        /// which an ISP hands one household or phone whole, so it cannot step through 2^64 addresses to multiply its share.
+        /// </summary>
+        internal static string Subscriber(IPAddress address)
+        {
+            if (address.IsIPv4MappedToIPv6)
+                return address.MapToIPv4().ToString();
+            if (address.AddressFamily != AddressFamily.InterNetworkV6)
+                return address.ToString();
+            var bytes = address.GetAddressBytes();
+            Array.Clear(bytes, 8, 8);
+            return new IPAddress(bytes) + "/64";
         }
 
         private static FixedWindowRateLimiterOptions Window(int permits) => new()
