@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-28 07:42 – 第 51 輪（D-193 審查收尾、第十一次巡檢：dashboard 分享與 /admin/listening、IPv6 /64）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠。`add_repo` 工具仍不存在，用既有的 clone 切到 `feature/ai-native`。
+- **D-193 審查**（subagent 唯讀）：六個情境都沒有真的錯；修了同一個結果亮著時再按會提早熄、換到訊息數一樣多的對話停在原位（D-194，`MessageArea` 的 `lit`／`unlight` 與 `conversationId`；兩個新測試在舊程式上會失敗）。
+- **手機寬與 Studio 抽屜的內容搜尋截圖**：`search.cjs` 加兩個情境，抽屜關掉後仍捲到那則並亮（`history-content-search-*-mobile/studio.png`）。`chat.cjs` 重拍 41 張與 repo 比對無退化。
+- **第十一次巡檢**（subagent 唯讀，dashboard 分享、/admin/listening）：無高／中風險；修了匿名看 Anyone dashboard 拿到 widget 整份 plan（只給 `viewBy` 的輸出名稱與種類）、widget 大小與數量上限、題庫分頁夾值（D-195）；匿名限制以 IPv6 /64 計（D-196）。
+- 試過把捲動 effect 改成 `useLayoutEffect`（免得閃一格），截圖比對有兩張停在離最後 25px，退回（記在 D-194 與 NEXT 00）。
+- 驗證：前端 lint、全套測試（177 檔 1844 個）、build 全過；cscheck 0 個新診斷；CI 40605009822（67c8154f）、40606343504（D-195）、40607812443（D-196，本輪最後一次含程式碼的 push）都第一次就綠（中間一次被後一次 push 取消）。
+
 ## 2026-10-28 05:43 – 第 50 輪（對話紀錄搜尋內容、打開後捲到那則訊息）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，用既有的 clone 切到 `feature/ai-native`（`--unshallow`）。
