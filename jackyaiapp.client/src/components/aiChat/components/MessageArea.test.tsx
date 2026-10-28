@@ -252,6 +252,102 @@ describe('MessageArea', () => {
     }
   });
 
+  describe('content drawn after the scroll was set (D-197)', () => {
+    /** jsdom has no ResizeObserver: this one lets the test say when the column changed size. */
+    let resized: (() => void) | null = null;
+    const original = globalThis.ResizeObserver;
+    beforeEach(() => {
+      resized = null;
+      globalThis.ResizeObserver = class {
+        constructor(callback: ResizeObserverCallback) {
+          resized = () => act(() => callback([], this as unknown as ResizeObserver));
+        }
+        observe() {}
+        unobserve() {}
+        disconnect() {
+          resized = null;
+        }
+      } as unknown as typeof ResizeObserver;
+    });
+    afterEach(() => {
+      globalThis.ResizeObserver = original;
+    });
+
+    /** Where the found message now sits, as the box measures it. */
+    const foundAt = (top: number) => {
+      // The second message, as the column (the box's one child) holds one element per message.
+      const found = container.firstElementChild!.firstElementChild!.children[1] as HTMLElement;
+      found.getBoundingClientRect = () => ({ top }) as DOMRect;
+    };
+
+    it('keeps following the end while something above it grows', () => {
+      render([message('1', 'hi', true), message('2', 'answer')]);
+      geometry.scrollHeight = 1500;
+      resized!();
+      expect(geometry.scrollTop).toBe(1500);
+    });
+
+    it('leaves what grows once the reader pressed something in the conversation where it is', () => {
+      render([message('1', 'hi', true), message('2', 'answer')]);
+      act(() => {
+        container.firstElementChild!.dispatchEvent(new Event('pointerdown'));
+      });
+      const at = geometry.scrollTop;
+      geometry.scrollHeight = 1500;
+      resized!();
+      expect(geometry.scrollTop).toBe(at);
+
+      // A new message follows again, and so does what grows in it.
+      render([message('1', 'hi', true), message('2', 'answer'), message('3', 'more', true)]);
+      geometry.scrollHeight = 1800;
+      resized!();
+      expect(geometry.scrollTop).toBe(1800);
+    });
+
+    it('leaves a reader who scrolled up where they are', () => {
+      render([message('1', 'hi', true), message('2', 'answer')]);
+      readerScrollsTo(100);
+      geometry.scrollHeight = 1500;
+      resized!();
+      expect(geometry.scrollTop).toBe(100);
+    });
+
+    it('keeps a found message in place when what is above it grows', () => {
+      renderOpen([stored(1, 'q', true), stored(2, '找到的那句'), stored(3, 'later')], 'c1', {
+        messageId: 2,
+      });
+      const after = geometry.scrollTop;
+      foundAt(316);
+      resized!();
+      expect(geometry.scrollTop).toBe(after + 300);
+    });
+
+    it('lets go of the found message once the reader scrolls, or the time is up', () => {
+      vi.useFakeTimers();
+      try {
+        const messages = [stored(1, 'q', true), stored(2, '找到的那句'), stored(3, 'later')];
+        renderOpen(messages, 'c1', { messageId: 2 });
+        const box = container.firstElementChild!;
+        act(() => {
+          box.dispatchEvent(new Event('wheel'));
+        });
+        const after = geometry.scrollTop;
+        foundAt(316);
+        resized!();
+        expect(geometry.scrollTop).toBe(after);
+
+        renderOpen(messages, 'c1', { messageId: 2 });
+        act(() => vi.advanceTimersByTime(REVEAL_MS + 1));
+        const later = geometry.scrollTop;
+        foundAt(500);
+        resized!();
+        expect(geometry.scrollTop).toBe(later);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
   it('never scrolls the page itself', () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;

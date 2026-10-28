@@ -23,6 +23,12 @@ const COLUMN_MAX_WIDTH = 780;
 const REVEAL_MARGIN_PX = 16;
 export const REVEAL_MS = 2400;
 
+/** Scrolls `box` so that `target` sits just below its top. */
+const scrollToTarget = (box: HTMLElement, target: HTMLElement) => {
+  box.scrollTop +=
+    target.getBoundingClientRect().top - box.getBoundingClientRect().top - REVEAL_MARGIN_PX;
+};
+
 /** A stored message to scroll to and light up once, as its conversation opens from a search's find (D-193). */
 export interface MessageReveal {
   messageId: number;
@@ -175,6 +181,10 @@ function MessageArea({
   const followingRef = useRef(true);
   const messageCountRef = useRef(messages.length);
   const conversationRef = useRef(conversationId);
+  /** A found message the box keeps in place while what is drawn above it settles (D-197). */
+  const anchorRef = useRef<{ target: HTMLElement; until: number } | null>(null);
+  /** Whether a column grown with no new message is followed too: not once the reader has pressed something in it (D-197). */
+  const settlingRef = useRef(true);
 
   // Scrolls this box itself, never the page: the chat now sits inside the page, and
   // scrollIntoView on a sentinel would drag the whole page along with every streamed token.
@@ -188,6 +198,8 @@ function MessageArea({
       messageCountRef.current = messages.length;
       conversationRef.current = conversationId;
       followingRef.current = true;
+      anchorRef.current = null;
+      settlingRef.current = true;
     }
     if (followingRef.current) el.scrollTop = el.scrollHeight;
   }, [messages, active, conversationId]);
@@ -210,9 +222,9 @@ function MessageArea({
     const target = index < 0 ? null : columnRef.current?.children[index];
     if (!(target instanceof HTMLElement)) return;
     revealedRef.current = reveal;
-    box.scrollTop +=
-      target.getBoundingClientRect().top - box.getBoundingClientRect().top - REVEAL_MARGIN_PX;
+    scrollToTarget(box, target);
     followingRef.current = false;
+    anchorRef.current = { target, until: Date.now() + REVEAL_MS };
     // The same find opened again while still lit lights it again for the whole time: the old timer must not put
     // it out early, and an attribute that stays set would not restart the animation, so it is taken off and the
     // element laid out once before it goes back on.
@@ -223,6 +235,39 @@ function MessageArea({
     lit.current = { target, timer: setTimeout(unlight, REVEAL_MS) };
   }, [reveal, messages, active, unlight]);
   useEffect(() => unlight, [unlight]);
+
+  // Content drawn after the scroll was set — a card loaded lazily, a reply's late parts — makes the column taller with no
+  // new message, so neither effect above runs again (D-197). While the reader follows the end it keeps them there; for a
+  // while after a find was opened it keeps that message where it was put. Either only until the reader scrolls, presses
+  // or types in the conversation: what grows then (a table they drew as a chart, a quiz they answered) is theirs to look
+  // at where it is, not to be scrolled away from.
+  useEffect(() => {
+    const box = scrollRef.current;
+    const column = columnRef.current;
+    if (!active || !box || !column || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      const anchor = anchorRef.current;
+      if (anchor) {
+        if (Date.now() < anchor.until && anchor.target.isConnected) {
+          scrollToTarget(box, anchor.target);
+          return;
+        }
+        anchorRef.current = null;
+      }
+      if (followingRef.current && settlingRef.current) box.scrollTop = box.scrollHeight;
+    });
+    observer.observe(column);
+    const letGo = () => {
+      anchorRef.current = null;
+      settlingRef.current = false;
+    };
+    const events = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const;
+    for (const name of events) box.addEventListener(name, letGo, { passive: true });
+    return () => {
+      observer.disconnect();
+      for (const name of events) box.removeEventListener(name, letGo);
+    };
+  }, [active]);
 
   const handleScroll = () => {
     const el = scrollRef.current;
