@@ -183,7 +183,10 @@ function MessageArea({
   const conversationRef = useRef(conversationId);
   /** A found message the box keeps in place while what is drawn above it settles (D-197). */
   const anchorRef = useRef<{ target: HTMLElement; until: number } | null>(null);
-  /** Whether a column grown with no new message is followed too: not once the reader has pressed something in it (D-197). */
+  /**
+   * Whether a column grown with no new message is followed too: not once the reader has pressed something in it, until
+   * the next message or the end of the answer being written (D-197).
+   */
   const settlingRef = useRef(true);
 
   // Scrolls this box itself, never the page: the chat now sits inside the page, and
@@ -235,6 +238,14 @@ function MessageArea({
     lit.current = { target, timer: setTimeout(unlight, REVEAL_MS) };
   }, [reveal, messages, active, unlight]);
   useEffect(() => unlight, [unlight]);
+
+  // An answer that ends draws its last parts (the questions to carry on with, a late card) after the reader may have
+  // pressed something while it was written (its confirmation card's 允許): those still follow the end if the reader does.
+  const wasBusyRef = useRef(busy);
+  useEffect(() => {
+    if (wasBusyRef.current && !busy) settlingRef.current = true;
+    wasBusyRef.current = busy;
+  }, [busy]);
 
   // Content drawn after the scroll was set — a card loaded lazily, a reply's late parts — makes the column taller with no
   // new message, so neither effect above runs again (D-197). While the reader follows the end it keeps them there; for a

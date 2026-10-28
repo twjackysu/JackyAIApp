@@ -304,6 +304,30 @@ describe('MessageArea', () => {
       expect(geometry.scrollTop).toBe(1800);
     });
 
+    it('follows again what an answer draws as it ends, after a press while it was written', () => {
+      const messages = [message('1', 'hi', true), message('2', 'answer')];
+      act(() =>
+        root.render(
+          <AiChatConfigContext value={FINANCE_AI_CHAT}>
+            <MessageArea messages={messages} onPreview={vi.fn()} active busy />
+          </AiChatConfigContext>,
+        ),
+      );
+      act(() => {
+        container.firstElementChild!.dispatchEvent(new Event('pointerdown'));
+      });
+      act(() =>
+        root.render(
+          <AiChatConfigContext value={FINANCE_AI_CHAT}>
+            <MessageArea messages={messages} onPreview={vi.fn()} active busy={false} />
+          </AiChatConfigContext>,
+        ),
+      );
+      geometry.scrollHeight = 1500;
+      resized!();
+      expect(geometry.scrollTop).toBe(1500);
+    });
+
     it('leaves a reader who scrolled up where they are', () => {
       render([message('1', 'hi', true), message('2', 'answer')]);
       readerScrollsTo(100);
