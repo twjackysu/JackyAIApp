@@ -104,6 +104,35 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
         }
 
         [Fact]
+        public async Task AServerTheReaderAlreadyAdded_IsToldAsSuch_NotToAddAgain()
+        {
+            _registry.Setup(r => r.SearchAsync("wiki", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ServiceResult.Ok(new McpRegistrySearchDto(
+                [
+                    Server("io.example/deepwiki", "https://MCP.DeepWiki.com/mcp/", catalogKey: "deepwiki"),
+                    Server("io.example/other", "https://other.example.com/mcp"),
+                ], More: false)));
+            IReadOnlySet<string> added = new HashSet<string> { McpServerUrl.Key("https://mcp.deepwiki.com/mcp")! };
+
+            var result = await new FindMcpServerTool(_registry.Object, addedUrls: _ => Task.FromResult(added))
+                .RunAsync(JsonSerializer.SerializeToElement(new { search = "wiki" }), new AiToolContext("u1", "c1"), default);
+
+            var lines = result.Content.Split('\n');
+            var deepwiki = Assert.Single(lines, l => l.Contains("mcp.deepwiki.com"));
+            Assert.Contains("已經加入過", deepwiki);
+            Assert.DoesNotContain("目錄已有", deepwiki);
+            Assert.DoesNotContain("已經加入過", Assert.Single(lines, l => l.Contains("other.example.com")));
+        }
+
+        [Fact]
+        public void NothingKnownAboutWhatWasAdded_MarksNothingAdded()
+        {
+            var text = FindMcpServerTool.ContentFor("wiki", [Server("io.example/a", "https://a.example.com/mcp")], more: false);
+
+            Assert.DoesNotContain("已經加入過", text);
+        }
+
+        [Fact]
         public async Task AnUnreadableRegistry_IsAnError()
         {
             _registry.Setup(r => r.SearchAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()))

@@ -53,5 +53,14 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Null(url);
             Assert.Contains("太長", error);
         }
+
+        [Fact]
+        public void TwoWaysOfWritingOneServer_ShareAKey_AndAnUnusableOneHasNone()
+        {
+            Assert.Equal(McpServerUrl.Key("https://mcp.example.com/mcp"), McpServerUrl.Key(" HTTPS://MCP.Example.com:443/mcp/ "));
+            Assert.NotEqual(McpServerUrl.Key("https://mcp.example.com/mcp"), McpServerUrl.Key("https://mcp.example.com/other"));
+            Assert.Null(McpServerUrl.Key("http://mcp.example.com/mcp"));
+            Assert.Null(McpServerUrl.Key(null));
+        }
     }
 }

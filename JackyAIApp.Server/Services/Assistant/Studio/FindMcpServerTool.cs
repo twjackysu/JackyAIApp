@@ -13,8 +13,11 @@ namespace JackyAIApp.Server.Services.Assistant.Studio
     /// the reader's own press on /connectors, which probes it and asks for its credentials, so nothing a publisher wrote
     /// can install itself. The registry's text is anyone's, so a call taints the turn (<see cref="AiToolDescriptor.OutsideText"/>).
     /// Studio AI's own tool, not an <see cref="ISiteTool"/>: another AI using the site's MCP server adds servers its own way.
+    /// A server the reader has already added (<c>addedUrls</c>, their addresses as <see cref="McpServerUrl.Key"/>
+    /// writes them) is told to the model as such, so it does not send them to add it again (D-198); the card marks it on the client.
     /// </summary>
-    public sealed class FindMcpServerTool(IMcpRegistry registry, TimeSpan? wait = null) : IAiTool
+    public sealed class FindMcpServerTool(
+        IMcpRegistry registry, TimeSpan? wait = null, Func<CancellationToken, Task<IReadOnlySet<string>>>? addedUrls = null) : IAiTool
     {
         public const string Name = "find_mcp_server";
 
@@ -97,7 +100,8 @@ namespace JackyAIApp.Server.Services.Assistant.Studio
                         actionLabel = "前往",
                     });
 
-            return new AiToolResult(ContentFor(search, servers, more), Card: CardFor(search, servers, more));
+            var added = addedUrls == null ? null : await addedUrls(ct);
+            return new AiToolResult(ContentFor(search, servers, more, added), Card: CardFor(search, servers, more));
         }
 
         /// <summary>The host a server lives at, so neither the model nor the reader is given a whole URL to follow.</summary>
@@ -111,7 +115,12 @@ namespace JackyAIApp.Server.Services.Assistant.Studio
                     ? $"需要 API key（{server.RequiredHeaders[0]}）"
                     : "";
 
-        internal static string ContentFor(string search, IReadOnlyList<McpRegistryServerDto> servers, bool more)
+        /// <summary>Whether the reader has already added this server (its address among <paramref name="added"/>).</summary>
+        internal static bool IsAdded(McpRegistryServerDto server, IReadOnlySet<string>? added) =>
+            added != null && McpServerUrl.Key(server.Url) is { } key && added.Contains(key);
+
+        internal static string ContentFor(
+            string search, IReadOnlyList<McpRegistryServerDto> servers, bool more, IReadOnlySet<string>? added = null)
         {
             var text = new StringBuilder();
             // The site's own words come first: a description is one line a publisher wrote, which may imitate them.
@@ -124,7 +133,9 @@ namespace JackyAIApp.Server.Services.Assistant.Studio
                 var notes = new List<string> { HostOf(server.Url) };
                 var needs = NeedsOf(server);
                 if (needs.Length > 0) notes.Add(needs);
-                if (server.CatalogKey != null) notes.Add("Connectors 的目錄已有，從那裡連線");
+                if (IsAdded(server, added))
+                    notes.Add("使用者已經加入過，不要再請他加入；它的工具若不在你手上，是被關掉或還沒連線好，請他到 Connectors 看它的狀態");
+                else if (server.CatalogKey != null) notes.Add("Connectors 的目錄已有，從那裡連線");
                 text.AppendLine($"- {server.Title}（{string.Join("；", notes)}）：{server.Description}");
             }
             if (more) text.AppendLine("還有更多符合的（卡片上可以看全部結果），換更精確的關鍵字可以縮小範圍。");

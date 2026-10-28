@@ -12,6 +12,12 @@ namespace JackyAIApp.Server.Services.Connectors
         /// <summary>Longest URL kept (the column's size).</summary>
         public const int MaxLength = 500;
 
+        /// <summary>
+        /// The text two addresses of the same server share (the canonical URL), or null for one that cannot be used:
+        /// to tell whether a server the registry lists is one the reader added (D-198).
+        /// </summary>
+        public static string? Key(string? input) => Normalize(input).Url?.AbsoluteUri;
+
         /// <summary>The canonical URL, or null with the reason (in Chinese, shown to the user) when it cannot be used.</summary>
         public static (Uri? Url, string? Error) Normalize(string? input)
         {

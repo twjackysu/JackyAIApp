@@ -14,6 +14,12 @@ namespace JackyAIApp.Server.Services.Connectors
         /// is its installation's id, so its permission is the reader's choice there.
         /// </summary>
         Task<IReadOnlyList<IAiTool>> ForUserAsync(string userId, CancellationToken ct);
+
+        /// <summary>
+        /// The address of every MCP server the reader has added, turned on or not, as <see cref="McpServerUrl.Key"/>
+        /// writes it: so Studio AI's search of the registry can tell one they already have (D-198).
+        /// </summary>
+        Task<IReadOnlySet<string>> ServerUrlsAsync(string userId, CancellationToken ct);
     }
 
     public sealed class ConnectorToolSource(
@@ -21,6 +27,15 @@ namespace JackyAIApp.Server.Services.Connectors
     {
         /// <summary>The most connectors' tools one turn is offered.</summary>
         public const int MaxConnectors = 10;
+
+        public async Task<IReadOnlySet<string>> ServerUrlsAsync(string userId, CancellationToken ct)
+        {
+            var urls = await db.ConnectorInstallations.AsNoTracking()
+                .Where(c => c.UserId == userId && c.ServerUrl != null)
+                .Select(c => c.ServerUrl!)
+                .ToListAsync(ct);
+            return urls.Select(McpServerUrl.Key).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        }
 
         public async Task<IReadOnlyList<IAiTool>> ForUserAsync(string userId, CancellationToken ct)
         {

@@ -328,7 +328,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   rows send the reader to `/connectors?registry=<name>` to add it themselves; the AI never installs one. The registry's text is
   anyone's, so it is `OutsideText` (the conversation is tainted: no more navigation or handoff, writes ask first; the prompt has
   it hand off first), the model gets hosts, never URLs, and the site's own instructions before the publishers' words. It waits
-  20s for the registry (a first walk can take longer) and then tells the model the directory is still loading (D-125)
+  20s for the registry (a first walk can take longer) and then tells the model the directory is still loading (D-125).
+  A server the reader has already added, turned on or not (`IConnectorToolSource.ServerUrlsAsync`, compared by
+  `McpServerUrl.Key`), is told to the model as added, so it does not send them to add it again (D-198)
 - Studio AI remembers what the reader asked it to (docs/ai-native/design/08, `Services/Assistant/Memory`): short notes in
   their words, `AssistantMemories` (module Assistant), one line each, at most 200 characters and 30 a reader, the same words
   kept once (`AssistantMemoryService`). Every note is in each Studio prompt (`StudioChatProfile.MemoryPrompt`), inside

@@ -30,7 +30,7 @@ namespace JackyAIApp.Server.Services.Assistant.Studio
             var notes = (await memories.ListAsync(context.UserId, ct)).Select(m => m.Text).ToList();
             return new ChatProfileSetup(
                 SystemPromptFor(context.TaipeiToday, PageOf(context), connectors.Count > 0, DashboardOf(context), notes), null, AttachTwStock: false,
-                Tools: [new OpenPageTool(), new FindMcpServerTool(registry), .. siteTools, .. connectors]);
+                Tools: [new OpenPageTool(), new FindMcpServerTool(registry, addedUrls: c => connectorTools.ServerUrlsAsync(context.UserId, c)), .. siteTools, .. connectors]);
         }
 
         /// <summary>The site page the reader is on, from the path the client sent; null for another or none.</summary>
