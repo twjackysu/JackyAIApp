@@ -171,6 +171,60 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
         }
 
         [Fact]
+        public async Task Get_GivesAViewerWhoIsNotTheOwner_OnlyTheNamesAndKindsOfAPlansGroups()
+        {
+            var id = await CreateAsync(DashboardVisibility.Anyone);
+            const string plan = """
+                {"context":{"sourceId":"src-1","tableName":"dbo.SecretOrders"},
+                 "viewBy":[{"fieldName":"OrderDate","alias":"月份","type":"DateTrunc","unit":"Month"},{"fieldName":"Region","type":"Field"}],
+                 "measures":[{"fieldName":"Amount","aggregation":"Sum"}],
+                 "filters":[{"fieldName":"Customer","operator":"Equals","value":"ACME"}]}
+                """;
+            await As(Owner).AddWidgetAsync(id, new AddWidgetRequest { VizType = "line", Plan = JsonDocument.Parse(plan).RootElement }, default);
+
+            var stranger = Assert.Single((await As(null).GetAsync(id, default)).Data!.Widgets);
+            var owner = Assert.Single((await As(Owner).GetAsync(id, default)).Data!.Widgets);
+
+            // D-195: the chart needs only what its rows are grouped by (alias, else column) and which is a date.
+            var groups = stranger.Plan.GetProperty("viewBy").EnumerateArray()
+                .Select(g => string.Join(",", g.EnumerateObject().Select(p => $"{p.Name}={p.Value.GetString()}")))
+                .ToList();
+            Assert.Equal(["alias=月份,type=DateTrunc", "fieldName=Region,type=Field"], groups);
+            Assert.Equal(["viewBy"], stranger.Plan.EnumerateObject().Select(p => p.Name));
+            Assert.Contains("dbo.SecretOrders", owner.Plan.GetRawText());
+            Assert.Contains("ACME", owner.Plan.GetRawText());
+        }
+
+        [Fact]
+        public void ViewerPlan_OfAPlanThatIsNotAnObject_HasNoGroups()
+        {
+            Assert.Equal("""{"viewBy":[]}""", DashboardService.ViewerPlan("null").GetRawText());
+        }
+
+        [Fact]
+        public async Task AddWidget_RefusesWhatItCouldNotStore_AndADashboardPastItsLimit()
+        {
+            var id = await CreateAsync();
+            var owner = As(Owner);
+
+            var longTitle = await owner.AddWidgetAsync(id, Widget() with { Title = new string('字', DashboardService.MaxWidgetTitleLength + 1) }, default);
+            var longViz = await owner.AddWidgetAsync(id, Widget() with { VizType = new string('x', DashboardService.MaxVizTypeLength + 1) }, default);
+            var bigPlan = await owner.AddWidgetAsync(id, Widget() with
+            {
+                Plan = JsonDocument.Parse($$"""{"viewBy":[],"note":"{{new string('x', DashboardService.MaxPlanLength)}}"}""").RootElement,
+            }, default);
+
+            Assert.Equal(ErrorCodes.BadRequest, longTitle.Error);
+            Assert.Equal(ErrorCodes.BadRequest, longViz.Error);
+            Assert.Equal(ErrorCodes.BadRequest, bigPlan.Error);
+            Assert.Empty(_db.DashboardWidgets.ToList());
+
+            for (var i = 0; i < DashboardService.MaxWidgetsPerDashboard; i++)
+                Assert.True((await owner.AddWidgetAsync(id, Widget(), default)).IsSuccess);
+            Assert.Equal(ErrorCodes.BadRequest, (await owner.AddWidgetAsync(id, Widget(), default)).Error);
+        }
+
+        [Fact]
         public async Task RemoveWidget_OfSomeoneElsesDashboard_IsNotFound()
         {
             var id = await CreateAsync(DashboardVisibility.Public);

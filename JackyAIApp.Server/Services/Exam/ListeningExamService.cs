@@ -31,6 +31,9 @@ namespace JackyAIApp.Server.Services.Exam
         private readonly AzureSQLDBContext _dbContext = dbContext;
         private readonly IExamBankPicker _bankPicker = bankPicker;
 
+        /// <summary>The most questions one page of the admin's bank view holds.</summary>
+        public const int MaxBankPageSize = 100;
+
         public async Task<ServiceResult<ListeningTestResponse>> GenerateAsync()
         {
             var pool = await _bankPicker.OpenAsync(
@@ -69,6 +72,9 @@ namespace JackyAIApp.Server.Services.Exam
 
         public async Task<ServiceResult<ListeningBankPageResponse>> GetBankAsync(int pageNumber, int pageSize)
         {
+            // A page before the first would be a negative Skip (EF throws: a 500), and an unbounded size the whole bank.
+            pageNumber = Math.Max(pageNumber, 1);
+            pageSize = Math.Clamp(pageSize, 1, MaxBankPageSize);
             var totalCount = await _dbContext.ListeningTests.CountAsync();
             var items = await _dbContext.ListeningTests
                 .Include(lt => lt.Options)

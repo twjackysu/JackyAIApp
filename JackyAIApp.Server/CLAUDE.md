@@ -592,6 +592,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 - A dashboard widget's rows (`GET api/dashboard/{id}/widgets/{widgetId}/data`, anonymous for an "Anyone" dashboard) run the
   owner's saved query again on the owner's source, uncharged, so they are held to 600 a minute per reader and 120 per address
   without a sign-in (`RateLimitPolicies.DashboardWidgetData`, D-163); a page asks once per widget when it opens
+- A dashboard read by anyone but its owner (`DashboardService.GetAsync`) carries of each widget's plan only its group-bys'
+  output names and kinds (`ViewerPlan`, D-195: alias, else column, and `type`, which the chart needs for a time axis), never
+  the source, table, measures or filter values: an "Anyone" link reaches strangers. A widget is refused past what it can
+  store (`MaxWidgetTitleLength`, `MaxVizTypeLength`, `MaxPlanLength` 16 KB) and a dashboard past `MaxWidgetsPerDashboard` (50)
 - Tests build the controller with `TestHelpers/DataAnalysisControllerBuilder`, never its constructor;
   `DataAnalysisControllerResponseTests` pins what each endpoint answers
 - The page's AI assistant is the chat profile `data-analysis` (`Services/DataAnalysis/Assistant`,

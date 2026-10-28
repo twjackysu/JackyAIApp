@@ -122,6 +122,18 @@ namespace JackyAIApp.Server.Tests.Services.Exam
             Assert.Equal(4, first.Items[0].Options.Count);
         }
 
+        [Fact]
+        public async Task GetListeningBank_TakesAPageBeforeTheFirstAsTheFirst_AndCapsItsSize()
+        {
+            await SeedListeningTestAsync();
+
+            var result = await _service.GetBankAsync(0, int.MaxValue);
+
+            Assert.True(result.IsSuccess);
+            Assert.Single(result.Data!.Items);
+            Assert.True((await _service.GetBankAsync(-3, 0)).IsSuccess);
+        }
+
         private async Task<ListeningTest> SeedListeningTestAsync()
         {
             var listeningTestId = Guid.NewGuid().ToString();

@@ -41,6 +41,13 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             Converters = { new JsonStringEnumConverter() },
         };
 
+        /// <summary>Limits on what a widget stores (D-195): its title and viz type are the columns' lengths, its plan a
+        /// summarize request's size many times over; past them a request is refused rather than failing in the database.</summary>
+        public const int MaxWidgetTitleLength = 200;
+        public const int MaxVizTypeLength = 40;
+        public const int MaxPlanLength = 16 * 1024;
+        public const int MaxWidgetsPerDashboard = 50;
+
         // Not Forbidden: a dashboard you may not see answers as if it didn't exist, so a private
         // one's existence isn't leaked.
         private static ServiceFailure DashboardNotFound => ServiceResult.Fail(ErrorCodes.NotFound, "Dashboard not found.");
@@ -108,15 +115,16 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             if (dash is null || !DashboardAccessPolicy.CanView(dash, userId))
                 return DashboardNotFound;
 
+            var isOwner = userId != null && dash.UserId == userId;
             return ServiceResult.Ok(new DashboardDetailDto
             {
                 Id = dash.Id,
                 Name = dash.Name,
                 Visibility = dash.Visibility,
-                IsOwner = userId != null && dash.UserId == userId,
+                IsOwner = isOwner,
                 Widgets = dash.Widgets
                     .OrderBy(w => w.Y).ThenBy(w => w.X)
-                    .Select(ToWidgetDto)
+                    .Select(w => isOwner ? ToWidgetDto(w) : ToWidgetDto(w) with { Plan = ViewerPlan(w.PlanJson) })
                     .ToList(),
             });
         }
@@ -259,6 +267,14 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             var userId = currentUser.RequireId();
             if (string.IsNullOrWhiteSpace(request.VizType))
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "VizType is required.");
+            if (request.VizType.Length > MaxVizTypeLength)
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "VizType is too long.");
+            var title = string.IsNullOrWhiteSpace(request.Title) ? null : request.Title.Trim();
+            if (title?.Length > MaxWidgetTitleLength)
+                return ServiceResult.Fail(ErrorCodes.BadRequest, $"Title is longer than {MaxWidgetTitleLength} characters.");
+            var planJson = request.Plan.GetRawText();
+            if (planJson.Length > MaxPlanLength)
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "Plan is too large.");
 
             var dash = await dbContext.Dashboards
                 .Include(d => d.Widgets)
@@ -266,6 +282,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                 .FirstOrDefaultAsync(d => d.Id == id, ct);
             if (dash is null)
                 return DashboardNotFound;
+            if (dash.Widgets.Count >= MaxWidgetsPerDashboard)
+                return ServiceResult.Fail(ErrorCodes.BadRequest, $"A dashboard holds at most {MaxWidgetsPerDashboard} widgets.");
 
             var w = Math.Clamp(request.W <= 0 ? 6 : request.W, 1, 12);
             var h = request.H <= 0 ? 8 : request.H;
@@ -275,9 +293,9 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             {
                 Id = Guid.NewGuid(),
                 DashboardId = dash.Id,
-                Title = string.IsNullOrWhiteSpace(request.Title) ? null : request.Title!.Trim(),
+                Title = title,
                 VizType = request.VizType,
-                PlanJson = request.Plan.GetRawText(),
+                PlanJson = planJson,
                 X = 0,
                 Y = nextY,
                 W = w,
@@ -363,6 +381,48 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             dbContext.DashboardWidgets.Remove(widget);
             await dbContext.SaveChangesAsync(ct);
             return ServiceResult.Ok();
+        }
+
+        /// <summary>
+        /// What a viewer who is not the owner gets of a widget's plan (D-195): only the output name and kind of each
+        /// group-by, which the chart needs to tell a time axis and its rows show anyway. Not the source, the table,
+        /// the columns behind an alias, the measures or the filters' values: an Anyone link reaches strangers.
+        /// </summary>
+        internal static JsonElement ViewerPlan(string planJson)
+        {
+            using var plan = JsonDocument.Parse(planJson);
+            var groups = new List<Dictionary<string, string>>();
+            if (plan.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var property in plan.RootElement.EnumerateObject())
+                {
+                    if (!string.Equals(property.Name, "viewBy", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (property.Value.ValueKind != JsonValueKind.Array)
+                        continue;
+                    foreach (var group in property.Value.EnumerateArray())
+                    {
+                        if (group.ValueKind != JsonValueKind.Object)
+                            continue;
+                        string? alias = null, fieldName = null, type = null;
+                        foreach (var field in group.EnumerateObject())
+                        {
+                            if (field.Value.ValueKind != JsonValueKind.String)
+                                continue;
+                            if (string.Equals(field.Name, "alias", StringComparison.OrdinalIgnoreCase)) alias = field.Value.GetString();
+                            else if (string.Equals(field.Name, "fieldName", StringComparison.OrdinalIgnoreCase)) fieldName = field.Value.GetString();
+                            else if (string.Equals(field.Name, "type", StringComparison.OrdinalIgnoreCase)) type = field.Value.GetString();
+                        }
+                        // The page names a group by its alias, else its column (`alias || fieldName`), as its rows do.
+                        var kept = new Dictionary<string, string>();
+                        if (!string.IsNullOrEmpty(alias)) kept["alias"] = alias;
+                        else if (fieldName is not null) kept["fieldName"] = fieldName;
+                        if (type is not null) kept["type"] = type;
+                        groups.Add(kept);
+                    }
+                }
+            }
+            return JsonSerializer.SerializeToElement(new Dictionary<string, object> { ["viewBy"] = groups });
         }
 
         private static DashboardWidgetDto ToWidgetDto(DashboardWidget w) => new()
