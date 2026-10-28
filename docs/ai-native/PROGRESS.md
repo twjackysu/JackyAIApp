@@ -1,5 +1,13 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-28 09:42 – 第 52 輪（之後才畫好的內容不再把對話推走、Studio 找 MCP server 知道哪些已加過）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，用既有的 clone 切到 `feature/ai-native`。
+- **NEXT 00(a)**（D-197）：`MessageArea` 對訊息欄掛 `ResizeObserver`：內容長高但訊息數沒變時，跟著最後的讀者留在最後、從搜尋打開的那則在 `REVEAL_MS` 內留在原位；讀者在對話裡捲動／按下／打字就停（新訊息再開始）。第一版沒有「按下就停」，截圖比對發現測驗卡作答後被捲到最後，補上後截圖回到原樣。
+- **NEXT 1 的「模型不知道哪些 server 已加過」**（D-198）：`find_mcp_server` 的文字標出使用者已加入的 server（`IConnectorToolSource.ServerUrlsAsync`、`McpServerUrl.Key`），不再叫他重加。
+- **審查**（subagent 唯讀，D-199）：無高／中風險；修了按過確認卡後、回答結束才畫好的部分不跟著到最後（`busy` 結束時重新開始跟）。
+- 驗證：前端 lint、全套測試（177 檔 1850 個）、build 全過；`chat.cjs`＋`search.cjs` 重拍 45 張與 repo 比對無 >1% 差異；cscheck 只有已知雜訊（CS1674）。CI 40618636944（D-197）、40618957348（D-198）第一次就綠；40620169850（D-199，4a32c593，本輪最後一次含程式碼的 push）第一次就綠。
+
 ## 2026-10-28 07:42 – 第 51 輪（D-193 審查收尾、第十一次巡檢：dashboard 分享與 /admin/listening、IPv6 /64）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠。`add_repo` 工具仍不存在，用既有的 clone 切到 `feature/ai-native`。
