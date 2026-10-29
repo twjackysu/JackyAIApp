@@ -61,6 +61,15 @@ namespace JackyAIApp.Server.Tests.TestHelpers
         /// <summary>The <c>tools/call</c> result as JSON, in place of the notes tools' own.</summary>
         public string? CallResultJson { get; init; }
 
+        /// <summary>
+        /// Lists a tool's <c>_meta.ui</c> only to a client whose <c>initialize</c> said it draws MCP Apps
+        /// (<c>capabilities.extensions["io.modelcontextprotocol/ui"]</c>), as the extension's server SDK has a server do.
+        /// </summary>
+        public bool AppsOnlyForUiClients { get; init; }
+
+        /// <summary>The <c>params</c> of the last <c>initialize</c> it took.</summary>
+        public JsonObject? InitializeParams { get; private set; }
+
         public HttpMessageHandler Create() => new KeptAlive(this);
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) => AnswerAsync(request, ct);
@@ -91,6 +100,7 @@ namespace JackyAIApp.Server.Tests.TestHelpers
             }
             if (message["id"] is not { } id) return new HttpResponseMessage(HttpStatusCode.Accepted);
 
+            if (method == "initialize") InitializeParams = (JsonObject?)message["params"]?.DeepClone();
             JsonNode result = method switch
             {
                 "initialize" => new JsonObject
@@ -99,7 +109,7 @@ namespace JackyAIApp.Server.Tests.TestHelpers
                     ["capabilities"] = new JsonObject { ["tools"] = new JsonObject(), ["resources"] = new JsonObject() },
                     ["serverInfo"] = new JsonObject { ["name"] = "fake", ["title"] = Title, ["version"] = "1.0" },
                 },
-                "tools/list" => JsonNode.Parse(ToolsJson)!,
+                "tools/list" => ListedTools(),
                 "tools/call" => CallResult(message["params"]!.AsObject()),
                 "resources/read" => Resources.TryGetValue(message["params"]!["uri"]!.GetValue<string>(), out var read)
                     ? JsonNode.Parse(read)!
@@ -111,6 +121,17 @@ namespace JackyAIApp.Server.Tests.TestHelpers
             {
                 Content = new StringContent(reply.ToJsonString(), Encoding.UTF8, "application/json"),
             };
+        }
+
+        private JsonNode ListedTools()
+        {
+            var listed = JsonNode.Parse(ToolsJson)!;
+            var drawsApps = InitializeParams?["capabilities"]?["extensions"]?[McpAppsCapability.ExtensionId]?["mimeTypes"] is JsonArray types &&
+                types.Any(t => t?.GetValue<string>() == McpToolClient.AppMimeType);
+            if (!AppsOnlyForUiClients || drawsApps) return listed;
+            foreach (var tool in listed["tools"]!.AsArray())
+                tool!["_meta"]?.AsObject().Remove("ui");
+            return listed;
         }
 
         private JsonNode CallResult(JsonObject call)

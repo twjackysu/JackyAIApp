@@ -448,9 +448,11 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   512 KB; its CSP's hosts kept only as plain https names on the internet, `HttpsOrigins`; not cached on the server, since one app may be
   half a megabyte), and an app may ask its server for a call, `POST …/app-call` (`CallAsync`: only a tool of that connector that
   reads, that its apps may call and that the reader lets run on its own; no model, no card, no charge; the result goes to the
-  app alone). Both are held to 60 a minute per reader (`RateLimitPolicies.McpApp`). The client declares no
-  `io.modelcontextprotocol/ui` capability (SDK 1.3.0's `ClientCapabilities` has no `extensions`): servers that add `_meta.ui`
-  anyway are drawn
+  app alone). Both are held to 60 a minute per reader (`RateLimitPolicies.McpApp`). Every `initialize` says the chat draws
+  apps (`capabilities.extensions["io.modelcontextprotocol/ui"].mimeTypes`, SEP-1724), which SDK 1.3.0's `ClientCapabilities`
+  cannot say (it has no `extensions`), so `McpAppsCapability`, a handler in `McpToolClient`'s chain, adds it to that one
+  message's JSON and leaves every other body alone: servers built on the extension's SDK offer app tools only to a client that
+  said so (`getUiCapability`), D-203. `FakeMcpServer.AppsOnlyForUiClients` plays such a server
 - A reader who does not know a server's URL finds it in the official MCP Registry (`IMcpRegistry`, `McpRegistry`;
   `GET api/connectors/registry?search=`, D-122): the registry's `GET /v0.1/servers?version=latest` read whole, page by page
   by `nextCursor` (at most 40 pages in 60s; a walk cut short keeps what it read), into one list cached an hour for every

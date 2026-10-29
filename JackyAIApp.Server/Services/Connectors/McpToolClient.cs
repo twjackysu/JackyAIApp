@@ -273,7 +273,7 @@ namespace JackyAIApp.Server.Services.Connectors
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(RequestTimeout);
-            var refusals = new RefusalRecorder(new ResponseSizeLimit(handlers.Create(), MaxResponseBytes));
+            var refusals = new RefusalRecorder(new McpAppsCapability(new ResponseSizeLimit(handlers.Create(), MaxResponseBytes)));
             var http = new HttpClient(refusals, disposeHandler: true) { Timeout = Timeout.InfiniteTimeSpan };
             try
             {
