@@ -8,7 +8,7 @@
 
 | 你看到的 | 背後 | 為什麼跟上 2026 的趨勢 |
 |---|---|---|
-| **用別人的 MCP server 自己的介面**：接上的 MCP server 若提供 MCP App，回答裡直接畫出它的互動介面（圖表、預報卡），app 還能向自己的 server 要新資料 | 本站當 MCP Apps host：`mcp-app` 卡片只存呼叫，HTML 畫的時候才向該 server `resources/read`；單層 `sandbox="allow-scripts"` iframe＋開頭寫死的 CSP、JSON-RPC 橋（`appBridge`）、app 只能呼叫唯讀工具、開連結要讀者按 | MCP Apps（SEP-1865）是 2026 MCP 最大的擴充，Claude、ChatGPT、VS Code 都是 host；本站**同時是 server 與 host** |
+| **用別人的 MCP server 自己的介面**：接上的 MCP server 若提供 MCP App，回答裡直接畫出它的互動介面（圖表、預報卡），app 還能向自己的 server 要新資料 | 本站當 MCP Apps host：`mcp-app` 卡片只存呼叫，HTML 畫的時候才向該 server `resources/read`；單層 `sandbox="allow-scripts"` iframe＋開頭寫死的 CSP、JSON-RPC 橋（`appBridge`）、app 自己呼叫唯讀工具、只給 app 的寫入要讀者在卡片上允許、開連結要讀者按 | MCP Apps（SEP-1865）是 2026 MCP 最大的擴充，Claude、ChatGPT、VS Code 都是 host；本站**同時是 server 與 host** |
 | **Studio AI**：任何頁面右下角按鈕或 ⌘K／Ctrl+K 叫出，知道你在哪一頁 | 共用 chat 引擎的 `studio` profile；本站功能都是工具（`ISiteTool`） | 「網站本身就是工具」：同一個 AI 到處都在 |
 | **⌘K 也是指令列**：在 Studio 打「複習」「portfolio」、自己 dashboard 的名稱或一個英文單字，輸入框上方立刻出現「前往『複習』」「查字典：review」，按下直接到（不問 AI、不花用量）；打完整的問題就交給 AI | 前端的 `quickActionsFor`（頁面清單由測試對齊伺服器的 `SitePages`），只認頁面名稱與單一英文單字 | Raycast／Linear 式的指令列與 AI 助理合而為一：簡單的事零延遲，複雜的事交給 agent |
 | **打「/」就有現成指令**：Studio 輸入框打 `/` → 今日簡報、考我單字、用我的單字寫短文、投資組合健檢…一排按鈕，打 `/簡報`、`/quiz` 就篩出來，按下直接送出；/finance（`/外資`、`/景氣`）與 /data-analysis（`/欄位`、`/dashboard`）自己的助理也有各自的一組 | 共用的 `matchSlashCommands`＋`QuickChips`，每個助理的清單在它的 `AiChatConfig.slashCommands`；Studio 的名稱跟本站 MCP server 的 prompts 一樣，名稱跟本站 MCP server 的 prompts 一樣，所以 Claude Code 裡的 `/mcp__jacky-studio__quiz_me` 與本站的 `/quiz` 是同一件事 | 斜線指令是 2026 AI 產品的共通語言（Claude、ChatGPT、Cursor） |
@@ -142,6 +142,9 @@
    ![Studio AI 示範剛接上的 connector](screenshots/studio-try-connector-desktop.png)
    **別人的 server 自己的介面（MCP Apps）**：加一個工具帶 `_meta.ui` 的 MCP server（例如天氣）→ Studio 問「台北這幾天天氣如何？」→ 回答裡直接出現**那個 server 自己畫的互動介面**（五天預報卡），上方一行「「天氣」的介面 · 來自 weather.example.dev」是本站寫的、app 蓋不掉；按 app 裡的「重新整理」，它向自己的 server 要新資料（只允許唯讀、你設成自動的工具）；按「看完整預報」，卡片下方出現「介面想開啟 weather.example.dev　開啟／不用」，要你按才會開。app 在 opaque origin 的 sandbox iframe 裡，CSP 只放行它宣告的主機（截圖腳本裡它偷連 `evil.example.com` 被擋下）。**本站同時是 MCP App 的 server（第 8 步）與 host**（D-201、D-202，design/09）。
    **用 MCP 官方的範例 app 試**（D-203～D-205）：官方 ext-apps 的範例 server 在 npm 上，`npx -y @modelcontextprotocol/server-basic-vanillajs`（另開一個 `cloudflared tunnel --url http://localhost:3001` 拿公開 https 網址，本站不連 localhost）→ /connectors「新增 MCP server」貼 `https://<tunnel>/mcp`（免認證）→ Studio 問「現在 server 那邊幾點？」→ 回答裡出現**官方 app 自己的介面**；按「Get Server Time」它向自己的 server 拿新時間，按「Send Message」卡片下方出現「介面想把這段話放進輸入框」，按「放進輸入框」才進到輸入框（不會自己送出，送出時算外部文字），按「Open Link」要你按「開啟」。本站在 `initialize` 宣告會畫 app（`io.modelcontextprotocol/ui`），照規格「先看 client 能力」的 server 也會給。免裝東西的公開選項：`https://mcpplaygroundonline.com/mcp-app-server`（開發環境連不到，未驗證）。
+   **會自己更新的即時圖表**（D-207、D-208）：同樣方式跑 `npx -y @modelcontextprotocol/server-system-monitor`，問「這台機器的 CPU 與記憶體狀況？」→ app 畫出系統資訊後每 2 秒呼叫只給它用的 `poll-system-stats`（沒標唯讀）→ 卡片**上方**問「介面想執行「poll-system-stats」……允許／不用」→ 按「允許」後 CPU 圖表開始即時跳動，下方「已允許介面執行… 停止允許」隨時收回；不存，重開對話會再問。開發環境不能執行下載的套件，這段只用原始碼與自製的假 app 驗證過（`.loop/shots/mcp-app-allow.cjs`）。
+
+   ![MCP App 想執行只給它用的工具：卡片上方先問](screenshots/studio-mcp-app-allow-ask-desktop.png)
 
    ![官方範例 app 在 Studio AI 裡（Get Server Time 之後）](screenshots/official-app-desktop.png)
    ![app 的 Send Message：先問你，按了才放進輸入框](screenshots/official-app-message-desktop.png)
@@ -316,6 +319,7 @@ flowchart LR
 | 10/28 | 51 | **審查收尾與第十一次巡檢：dashboard 分享、/admin/listening**：同一個搜尋結果再按會重新亮滿、換對話一定回到最後（D-194）；匿名看 Anyone dashboard 不再拿到 widget 的資料源、表名與篩選值，widget 有大小與數量上限、題庫分頁夾值（D-195）；沒登入的訪客以 IPv6 /64 計算頻率限制（D-196） |
 | 10/28 | 52 | 之後才畫好的內容（延遲載入的卡片、回答最後的「接著問」）不再把對話推走：跟著最後的留在最後、搜尋打開的那則留在原位，讀者自己按出來的不被捲走（D-197、D-199）；**Studio 找 MCP server 時知道你已經加過哪些**，不再叫你重加（D-198） |
 | 10/30 | 53 | **本站也當 MCP Apps 的 host**：使用者接上的 MCP server 若提供 `ui://` app，回答裡直接畫出它的互動介面（sandbox iframe、CSP 寫在最前面、JSON-RPC 橋、app 只能呼叫唯讀工具、開連結要讀者按；D-201），審查後不在伺服器快取 app、每個 connector 最多 5 個、app 換頁就停止顯示、說明列不能被格式字元偽造（D-202）；首頁說明句改講 Studio AI 與 ⌘K（D-200）。另：上一輪留下格式錯的鎖，約 34 小時沒有一輪做事，改用 `.loop/lock.py` |
+| 10/30 | 55 | **MCP App 的寫入要讀者允許**：官方 system-monitor 範例每 2 秒呼叫的只給 app、未標唯讀的工具原本一定被拒 → 卡片上方問「允許／不用」、允許後帶 `readerAllowed`、可停止允許（D-207）；app 的呼叫有自己的頻率限制；審查修正：問題放 app 上方、600 ms 防誤按、一次一個工具（D-208） |
 | 10/30 | 54 | **MCP Apps 收尾**：`initialize` 宣告本站會畫 app（照規格先看 client 能力的 server 也會給，D-203）、app 的 `ui/message` 先問讀者再放進輸入框（D-204）；用 **MCP 官方範例 app** 的真 HTML 跑過整個 host 流程（D-205），審查修正（D-206） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

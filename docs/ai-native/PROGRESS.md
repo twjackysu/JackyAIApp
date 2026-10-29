@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-30 03:42 – 第 55 輪（MCP App 的寫入要讀者在卡片上允許：讓官方 system-monitor 範例能用）
+
+- 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，用既有的 clone 切到 `feature/ai-native`（`--unshallow`）。鎖這輪是手寫的（格式正確，`lock.py check` 讀得懂）；下一輪照 NEXT 用 `lock.py write`。
+- **NEXT 000(c) 官方其他範例**：裝了 `server-budget-allocator`、`server-system-monitor@2.0.4`，但**執行下載的套件被權限分類器擋下（Code from External）**，改成只讀原始碼。發現 system-monitor 的 app 每 2 秒呼叫只給 app、**沒標 `readOnlyHint`** 的 `poll-system-stats`，本站一定拒絕（D-201 只准唯讀）。budget-allocator 只有一個工具，沒問題。
+- **D-207**：`McpAppService.AppCallOf`（唯讀＋自動 → 跑；`AppOnly`、非破壞、沒停用 → 要 `readerAllowed`，否則 `AppCallNeedsReader` 403；其他永遠不跑）、前端 `appToolGate`（問、最多 3 個等待、允許後不再問、不用之後不再問伺服器、停止允許；不存）；app 的呼叫改用自己的 `RateLimitPolicies.McpAppCall`（120／分）。
+- **審查**（subagent 唯讀，D-208）：修了 app 用 `size-changed` 把「允許」移到游標下（問題改放 iframe 上方＋600 ms 防誤按）、連按兩下允許排在後面的另一個工具（一次一個工具、`decide` 帶名字）、重畫後舊 id 回給新 app（丟掉等待中的呼叫）。
+- 驗證：前端 lint、全套測試（182 檔 1893 個）、build 全過；cscheck 0 個新診斷；新截圖腳本 `.loop/shots/mcp-app-allow.cjs`（假 app：問 → 允許 → `readerAllowed=true` → 之後直接跑 → 停止允許後 app 收到拒絕；桌機＋手機，截圖 4 張進 repo）。CI 40944862751（d8bc6314，D-207）第一次就綠；40947180302（4408c6a8，D-208，本輪最後一次含程式碼的 push）第一次就綠。
+- 踩到：背景跑 lint→test→build 時，等待條件看到**上一次留下的** `BUILD_EXIT`，第一次截圖用了舊的 dist（NEXT 第 35 輪就寫過）——等待時要確認 log 比 test.log 新。
+
 ## 2026-10-30 02:05 – 第 54 輪（MCP Apps 收尾：宣告能力、`ui/message`、用官方範例 app 驗證）
 
 - 開工：鎖不存在（上一輪正常釋放）；master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。clone 是 shallow，`--unshallow` 後切到 `feature/ai-native`。
