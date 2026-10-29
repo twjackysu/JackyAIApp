@@ -57,6 +57,16 @@ describe('Portal', () => {
     expect(asked).not.toHaveBeenCalled();
   });
 
+  it('logged in: the hero names Studio AI and its shortcut; a guest reads the apps line', () => {
+    const html = render();
+    expect(html).toContain('⌘K（Ctrl+K）');
+    expect(html).not.toContain('想切換時再回到這個目錄即可');
+    mocks.user.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+    const guest = render();
+    expect(guest).toContain('想切換時再回到這個目錄即可');
+    expect(guest).not.toContain('Studio AI');
+  });
+
   it('logged in, nothing due: hides the review item and shows completed challenge', () => {
     mocks.due.mockReturnValue(ok({ dueCount: 0 }));
     mocks.stats.mockReturnValue(stats({ todayCompleted: true, todayScore: 4 }));

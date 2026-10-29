@@ -20,6 +20,17 @@ import { ENGLISH_LEARNING, FINANCE, PORTFOLIO, portalDestinations } from '@/cons
 const primaryApps: AppDef[] = [ENGLISH_LEARNING, PORTFOLIO, FINANCE];
 const otherApps: AppDef[] = portalDestinations.filter((a) => !primaryApps.includes(a));
 
+/** The hero's line for a guest: Studio AI is for signed-in readers only, so the apps are the way in. */
+export const APPS_LINE =
+  '每個應用都是獨立的工具。選好之後就會進入專屬的介面 — 想切換時再回到這個目錄即可。';
+
+/**
+ * The hero's line for a signed-in reader, who has Studio AI on every page (D-200): the directory is no longer the only
+ * way between the apps, and the shortcut is otherwise only named in the button's hover hint.
+ */
+export const STUDIO_LINE =
+  '在任何頁面按 ⌘K（Ctrl+K）或右下角的按鈕叫出 Studio AI：一句話查單字、記一筆交易、做一個 dashboard，它會直接帶你過去。';
+
 function AppCard({ app }: { app: AppDef }) {
   return (
     <Card
@@ -130,7 +141,7 @@ function Portal() {
           {displayName ? `歡迎回來，${displayName}` : '選擇一個應用程式'}
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 560, mx: 'auto' }}>
-          每個應用都是獨立的工具。選好之後就會進入專屬的介面 — 想切換時再回到這個目錄即可。
+          {isLoggedIn ? STUDIO_LINE : APPS_LINE}
         </Typography>
       </Box>
 
