@@ -16,7 +16,7 @@
 |---|---|
 | 使用者連線的 remote MCP server 的工具宣告 `_meta.ui.resourceUri` 時，回答裡畫出它的 app | 原生 connector、本站工具（它們已有宣告式卡片，D-019） |
 | `ui/initialize`、`tool-input`、`tool-result`、`size-changed`、`ui/open-link`（先問）、`ping` | `fullscreen`／`pip` 顯示模式、`tool-input-partial` |
-| 主題：app 的文件帶跟聊天一樣的 `color-scheme`，換亮暗時重畫（不送 `host-context-changed`） | `ui/message`（第 53 輪未做，回 -32601；要做就放進輸入框、當外部文字）、`ui/update-model-context`（回 `{}`，不送給模型） |
+| 主題：app 的文件帶跟聊天一樣的 `color-scheme`，換亮暗時重畫（不送 `host-context-changed`） | `ui/message`（第 54 輪做了：卡片下方顯示 app 想放的字，讀者按「放進輸入框」才進輸入框、當外部文字，不會自己送出；D-204）、`ui/update-model-context`（回 `{}`，不送給模型） |
 | app 呼叫同一個 server 的**唯讀**工具（`tools/call`，依權限、visibility 有 `app`）| app 呼叫寫入工具（回錯誤，請使用者在對話裡要求） |
 | `_meta.ui.visibility` 沒有 `model` 的工具不給模型 | `permissions`（相機、麥克風）一律不給 |
 
@@ -86,7 +86,7 @@
 | 輪 | 內容 |
 |---|---|
 | 53 | **全部完成**：後端 §3、前端 §4、`app-call`、截圖（`.loop/shots/mcp-host.cjs`）、審查（D-202） |
-| 54 | CLAUDE.md、SHOWCASE、CONTRIBUTING-CONNECTORS；找一個真的有 app 的公開 MCP server 試（若有）；`ui/message` 評估 |
+| 54 | `initialize` 宣告 `io.modelcontextprotocol/ui`（`McpAppsCapability`，D-203）、`ui/message`（D-204）；用 MCP 官方範例 app（`@modelcontextprotocol/server-basic-vanillajs`）跑過 host 全部流程（`.loop/shots/mcp-host-official.cjs`）；公開免認證的 app server：`https://mcpplaygroundonline.com/mcp-app-server`（未在開發環境連過） |
 
 ## 8. 不做、之後
 

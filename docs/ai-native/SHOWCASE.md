@@ -141,6 +141,11 @@
    ![connector 詳情的在 Studio AI 試試看](screenshots/connector-try-drawer-desktop.png)
    ![Studio AI 示範剛接上的 connector](screenshots/studio-try-connector-desktop.png)
    **別人的 server 自己的介面（MCP Apps）**：加一個工具帶 `_meta.ui` 的 MCP server（例如天氣）→ Studio 問「台北這幾天天氣如何？」→ 回答裡直接出現**那個 server 自己畫的互動介面**（五天預報卡），上方一行「「天氣」的介面 · 來自 weather.example.dev」是本站寫的、app 蓋不掉；按 app 裡的「重新整理」，它向自己的 server 要新資料（只允許唯讀、你設成自動的工具）；按「看完整預報」，卡片下方出現「介面想開啟 weather.example.dev　開啟／不用」，要你按才會開。app 在 opaque origin 的 sandbox iframe 裡，CSP 只放行它宣告的主機（截圖腳本裡它偷連 `evil.example.com` 被擋下）。**本站同時是 MCP App 的 server（第 8 步）與 host**（D-201、D-202，design/09）。
+   **用 MCP 官方的範例 app 試**（D-203～D-205）：官方 ext-apps 的範例 server 在 npm 上，`npx -y @modelcontextprotocol/server-basic-vanillajs`（另開一個 `cloudflared tunnel --url http://localhost:3001` 拿公開 https 網址，本站不連 localhost）→ /connectors「新增 MCP server」貼 `https://<tunnel>/mcp`（免認證）→ Studio 問「現在 server 那邊幾點？」→ 回答裡出現**官方 app 自己的介面**；按「Get Server Time」它向自己的 server 拿新時間，按「Send Message」卡片下方出現「介面想把這段話放進輸入框」，按「放進輸入框」才進到輸入框（不會自己送出，送出時算外部文字），按「Open Link」要你按「開啟」。本站在 `initialize` 宣告會畫 app（`io.modelcontextprotocol/ui`），照規格「先看 client 能力」的 server 也會給。免裝東西的公開選項：`https://mcpplaygroundonline.com/mcp-app-server`（開發環境連不到，未驗證）。
+
+   ![官方範例 app 在 Studio AI 裡（Get Server Time 之後）](screenshots/official-app-desktop.png)
+   ![app 的 Send Message：先問你，按了才放進輸入框](screenshots/official-app-message-desktop.png)
+   ![手機：放進輸入框之後](screenshots/official-app-draft-phone.png)
    ![Studio 裡畫出 MCP server 自己的介面](screenshots/studio-mcp-app-desktop.png)
    ![app 要開連結時要讀者按（手機）](screenshots/studio-mcp-app-link-phone.png)
    ![app 向自己的 server 要新資料](screenshots/studio-mcp-app-refreshed-desktop.png)
