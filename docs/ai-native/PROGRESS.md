@@ -1,5 +1,12 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-30 05:42 – 第 56 輪（MCP App 卡片：畫面外暫停、拒絕後改為允許；截圖巡檢）
+
+- 開工：鎖不存在（`lock.py check` FREE）；master 沒有新 commit；上一輪最後的 CI（40947180302）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`。
+- **D-209**（NEXT 0000 剩下的兩項）：`useOnScreen`（IntersectionObserver＋`visibilitychange`，ref 不重畫）——卡片捲出畫面或分頁藏起來時，已允許的只給 app 工具的呼叫在前端回 `PAUSED_MESSAGE`、不送伺服器，看得到後照常；被「不用」／「停止允許」拒絕的工具列在 iframe 上方，附「改為允許」（`allowAgain`；按下保護 `PRESS_GUARD_MS`，拒絕清單一變就重新起算，連按兩下「不用」不會落到它）。
+- **截圖巡檢**（NEXT 2）：`chat.cjs` 43 張、`connectors`／`selection`／`search`／`memory`／`slash`／`mcp-app` 重拍，與 repo 比對：>1% 的只有 (1) `home-briefing-card-phone`（首頁副標題第 4x 輪改成 ⌘K 的說明，已更新 repo 的圖）、(2) `studio-slash-phone`（現成指令從 6 個變 9 個，預期）、(3) `studio-handoff-*`、`studio-holdings-handoff-*`（送出後 700 ms 拍的，手機上抽屜正在收起，是拍攝時機；之後的 `*-data-*` 無差異）、`select-data-*` 1.5%（字型抗鋸齒）。**沒有退化**。
+- 驗證：前端 lint、全套測試（182 檔 1897 個）、build 全過；`mcp-app-allow.cjs` 多拍「停止允許 → 改為允許」（`studio-mcp-app-allow-stopped-*` 進 repo），印出改為允許後 1 行「已允許」。CI 40961309416（af66cbd3）第一次就綠。只動前端，沒跑 cscheck。
+
 ## 2026-10-30 03:42 – 第 55 輪（MCP App 的寫入要讀者在卡片上允許：讓官方 system-monitor 範例能用）
 
 - 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。`add_repo` 工具仍不存在，用既有的 clone 切到 `feature/ai-native`（`--unshallow`）。鎖這輪是手寫的（格式正確，`lock.py check` 讀得懂）；下一輪照 NEXT 用 `lock.py write`。
