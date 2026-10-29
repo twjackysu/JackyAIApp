@@ -10,8 +10,10 @@ import { APP_SANDBOX, APP_START_HEIGHT, appCsp, appSrcDoc, frameHeight } from '.
 import {
   BUSY_MESSAGE,
   OPEN_GATE,
+  PAUSED_MESSAGE,
   PRESS_GUARD_MS,
   REFUSED_MESSAGE,
+  allowAgain,
   askingAbout,
   decide,
   forNewDocument,
@@ -23,6 +25,7 @@ import {
   stopAllowing,
 } from './appToolGate';
 import { line, parseMcpAppCard, resultText } from './mcpAppCard';
+import { useOnScreen } from './useOnScreen';
 
 import type { ToolGate, WaitingCall } from './appToolGate';
 import type { McpAppCardData } from './mcpAppCard';
@@ -125,6 +128,8 @@ function AppFrame({
   const theme = useTheme();
   const mode = theme.palette.mode;
   const frameRef = useRef<HTMLIFrameElement>(null);
+  // An allowance is for the app the reader sees: out of sight, its calls of allowed tools pause (D-209).
+  const seenRef = useOnScreen(frameRef);
   const readyRef = useRef(false);
   const loadsRef = useRef(0);
   const [height, setHeight] = useState(APP_START_HEIGHT);
@@ -154,6 +159,7 @@ function AppFrame({
   // allowed here); the app gets its answer. One the server says waits on the reader is held, for the card to ask.
   const runCall = useCallback(
     (call: WaitingCall, readerAllowed: boolean) => {
+      if (readerAllowed && !seenRef.current) return fail(call.id, PAUSED_MESSAGE);
       callTool({
         installationId: data.installationId,
         tool: call.name,
@@ -175,12 +181,13 @@ function AppFrame({
           fail(call.id, getCaughtErrorMessage(e));
         });
     },
-    [callTool, data.installationId, post, fail, setGate],
+    [callTool, data.installationId, post, fail, setGate, seenRef],
   );
   // When the question last appeared or the app last changed its size: a press sooner than PRESS_GUARD_MS after is not taken.
   const shiftedAtRef = useRef(0);
+  const pressCounts = () => performance.now() - shiftedAtRef.current >= PRESS_GUARD_MS;
   const decideTool = (name: string, allow: boolean) => {
-    if (performance.now() - shiftedAtRef.current < PRESS_GUARD_MS) return;
+    if (!pressCounts()) return;
     const { gate: next, released } = decide(gateRef.current, name, allow);
     setGate(next);
     for (const call of released) {
@@ -192,6 +199,11 @@ function AppFrame({
   useEffect(() => {
     if (asking !== null) shiftedAtRef.current = performance.now();
   }, [asking]);
+  // 改為允許 appears where 不用 was: a second press of 不用 must not land on it.
+  const refusedKey = gate.refused.join('\n');
+  useEffect(() => {
+    if (refusedKey) shiftedAtRef.current = performance.now();
+  }, [refusedKey]);
   // A change of light or dark draws the app again (the scheme is the document's); it is told the theme as it starts.
   const srcDoc = useMemo(() => appSrcDoc(html, csp, mode), [html, csp, mode]);
   // A new document (light or dark) is a new app: the old one's calls are not answered into it; the reader's decisions stay.
@@ -258,6 +270,26 @@ function AppFrame({
           </Box>
         </Box>
       )}
+      {/* Also above the app, and guarded like the question: a press here lets the app run the tool (D-209). */}
+      {gate.refused.map((name) => (
+        <Box
+          key={name}
+          sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            沒有允許介面執行「<bdi>{shownToolName(name)}</bdi>」
+          </Typography>
+          <Button
+            size="small"
+            color="inherit"
+            onClick={() => {
+              if (pressCounts()) setGate(allowAgain(gateRef.current, name));
+            }}
+          >
+            改為允許
+          </Button>
+        </Box>
+      ))}
       <Box
         component="iframe"
         ref={frameRef}

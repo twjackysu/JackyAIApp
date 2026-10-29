@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { PAUSED_MESSAGE } from './appToolGate';
 import McpAppCardView from './McpAppCardView';
 
 // An app's call of a tool for it alone that may change something (D-207): the server says it waits on the reader, the card
@@ -49,7 +50,26 @@ afterEach(() => {
   container?.remove();
   container = null;
   mocks.call.mockReset();
+  vi.unstubAllGlobals();
 });
+
+/** jsdom has no IntersectionObserver: one whose `show(false)` says the card scrolled out of sight. */
+function stubIntersectionObserver() {
+  let report: ((seen: boolean) => void) | null = null;
+  class FakeIntersectionObserver {
+    constructor(callback: IntersectionObserverCallback) {
+      report = (seen) =>
+        callback(
+          [{ isIntersecting: seen } as IntersectionObserverEntry],
+          this as unknown as IntersectionObserver,
+        );
+    }
+    observe() {}
+    disconnect() {}
+  }
+  vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+  return { show: (seen: boolean) => act(() => report?.(seen)) };
+}
 
 function mount() {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -172,5 +192,60 @@ describe('an MCP App’s tool for it alone that may change something', () => {
 
     expect(mocks.call.mock.calls.length).toBe(calls);
     expect(replies).toContainEqual(expect.objectContaining({ id: 2, error: expect.anything() }));
+  });
+
+  it('can be allowed after all once refused, from then on without asking', async () => {
+    mocks.call.mockImplementation(answer);
+    const { poll, replies, html } = mount();
+
+    await poll(1);
+    await press('不用');
+    expect(html()).toContain('沒有允許介面執行');
+    await press('改為允許');
+    expect(html()).not.toContain('沒有允許介面執行');
+    expect(html()).toContain('已允許介面執行');
+
+    await poll(2);
+    expect(mocks.call).toHaveBeenLastCalledWith(expect.objectContaining({ readerAllowed: true }));
+    expect(replies).toContainEqual(expect.objectContaining({ id: 2, result: expect.anything() }));
+  });
+
+  it('does not take 改為允許 pressed right after 不用 (a double press)', async () => {
+    mocks.call.mockImplementation(answer);
+    const { poll } = mount();
+
+    await poll(1);
+    await press('不用');
+    await act(async () => {
+      button('改為允許').click();
+      await Promise.resolve();
+    });
+
+    expect(container!.innerHTML).toContain('沒有允許介面執行');
+  });
+
+  it('pauses an allowed tool while the card is out of sight, and goes on once it is seen', async () => {
+    const io = stubIntersectionObserver();
+    mocks.call.mockImplementation(answer);
+    const { poll, replies } = mount();
+
+    await poll(1);
+    await press('允許');
+    const calls = mocks.call.mock.calls.length;
+
+    io.show(false);
+    await poll(2);
+    expect(mocks.call.mock.calls.length).toBe(calls);
+    expect(replies).toContainEqual(
+      expect.objectContaining({
+        id: 2,
+        error: expect.objectContaining({ message: PAUSED_MESSAGE }),
+      }),
+    );
+
+    io.show(true);
+    await poll(3);
+    expect(mocks.call.mock.calls.length).toBe(calls + 1);
+    expect(replies).toContainEqual(expect.objectContaining({ id: 3, result: expect.anything() }));
   });
 });

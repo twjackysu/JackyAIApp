@@ -1,4 +1,4 @@
-// 第 55 輪（D-207、D-208）：只給 app、可能會改資料的工具——伺服器回 AppCallNeedsReader → 卡片上方問「允許／不用」→ 允許後帶 readerAllowed 再送、之後不再問、「停止允許」。
+// 第 55 輪（D-207、D-208；第 56 輪 D-209 加上停止後的「改為允許」）：只給 app、可能會改資料的工具——伺服器回 AppCallNeedsReader → 卡片上方問「允許／不用」→ 允許後帶 readerAllowed 再送、之後不再問、「停止允許」。
 // 假的 app：ui/initialize → 等 tool-result → 畫出 structuredContent、送 size-changed；按鈕要求 ui/open-link；也試著抓外部網址（應被 CSP 擋下）。
 // 用法：cd jackyaiapp.client && npm run build && NODE_PATH=$(npm root -g) node ../.loop/shots/mcp-app-allow.cjs <輸出目錄>
 const { chromium } = require('playwright');
@@ -141,7 +141,13 @@ const events = [
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: '停止允許' }).click();
     await frame.getByText('重新整理').click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(800);
+    // 第 56 輪（D-209）：拒絕後在 app 上方列出「改為允許」。
+    await page.getByText('沒有允許介面執行').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(out, `studio-mcp-app-allow-stopped-${name}.png`) });
+    await page.getByRole('button', { name: '改為允許' }).click();
+    await page.waitForTimeout(300);
+    console.log(name, '改為允許之後：', await page.getByText('已允許介面執行').count(), '行「已允許」');
     await page.close();
   }
   await browser.close();

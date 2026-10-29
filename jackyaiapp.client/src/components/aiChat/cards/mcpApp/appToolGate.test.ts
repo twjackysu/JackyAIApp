@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_WAITING_CALLS,
   OPEN_GATE,
+  allowAgain,
   askingAbout,
   decide,
   forNewDocument,
@@ -58,6 +59,14 @@ describe('appToolGate', () => {
     const stopped = stopAllowing(gate, 'poll-system-stats');
     expect(isAllowed(stopped, 'poll-system-stats')).toBe(false);
     expect(isRefused(stopped, 'poll-system-stats')).toBe(true);
+  });
+
+  it('allows a refused tool again, and leaves one never refused as it was', () => {
+    const refused = decide(hold(OPEN_GATE, call(1))!, 'poll-system-stats', false).gate;
+    const again = allowAgain(refused, 'poll-system-stats');
+    expect(isAllowed(again, 'poll-system-stats')).toBe(true);
+    expect(isRefused(again, 'poll-system-stats')).toBe(false);
+    expect(allowAgain(OPEN_GATE, 'x')).toBe(OPEN_GATE);
   });
 
   it('a decision with nothing asked changes nothing', () => {

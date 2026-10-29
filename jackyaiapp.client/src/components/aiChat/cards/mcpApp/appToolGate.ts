@@ -3,7 +3,8 @@
  * nothing; a tool for the app alone that may change something (the official system-monitor app polls one with no
  * `readOnlyHint`) runs only once the reader allows it here — the server answers `AppCallNeedsReader` until then and is
  * the one that decides which tools may ask at all. What the reader decides lasts as long as the card is on the page:
- * nothing is stored, so an old answer's app asks again.
+ * nothing is stored, so an old answer's app asks again. A refused tool can be allowed after all (改為允許), and an
+ * allowed one pauses while its card is out of sight (D-209).
  */
 
 import { ErrorCodes } from '@/apis/types';
@@ -34,6 +35,10 @@ export const MAX_WAITING_CALLS = 3;
 /** What the app is told when the reader said no, or while too many of its calls wait. */
 export const REFUSED_MESSAGE = 'The user did not allow this tool.';
 export const BUSY_MESSAGE = 'Waiting for the user to allow this tool.';
+/** What the app is told when it calls a tool the reader allowed while its card is out of sight (scrolled away, or the
+ * tab hidden): what was allowed was the app the reader is looking at, so a polling app costs nothing unseen. */
+export const PAUSED_MESSAGE =
+  'Paused while the app is not on screen; calls go on when the user sees it again.';
 
 export const isAllowed = (gate: ToolGate, name: string) => gate.allowed.includes(name);
 export const isRefused = (gate: ToolGate, name: string) => gate.refused.includes(name);
@@ -98,6 +103,16 @@ export function stopAllowing(gate: ToolGate, name: string): ToolGate {
     ...gate,
     allowed: gate.allowed.filter((n) => n !== name),
     refused: isRefused(gate, name) ? gate.refused : [...gate.refused, name],
+  };
+}
+
+/** The reader changes their mind about a tool they said no to, or stopped allowing: allowed from now on. */
+export function allowAgain(gate: ToolGate, name: string): ToolGate {
+  if (!isRefused(gate, name)) return gate;
+  return {
+    ...gate,
+    allowed: isAllowed(gate, name) ? gate.allowed : [...gate.allowed, name],
+    refused: gate.refused.filter((n) => n !== name),
   };
 }
 
