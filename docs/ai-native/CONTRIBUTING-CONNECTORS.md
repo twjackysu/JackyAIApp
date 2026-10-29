@@ -29,6 +29,17 @@ new("my-server", "顯示名稱",
 - `BuiltInMcpConnectorsTests` 會自動檢查 key 唯一、格式、網址、欄位齊全——不用另寫測試。
 - 工具清單是加入時向伺服器 `tools/list` 讀的；每個工具的效果照 MCP annotations：`readOnlyHint: true` → 讀取（預設自動執行），`destructiveHint: true` → 無法復原（一定先問、不能設自動），其他 → 寫入（預設先問）。
 
+### 你的 MCP server 帶介面（MCP Apps）
+
+本站的 chat 是 MCP Apps 的 host（design/09）：工具的 `_meta.ui.resourceUri` 指向一個 `ui://` 資源時，呼叫結果會在回答裡畫成那個 app。
+
+- 資源用 `resources/read` 讀，必須是 `text`（不收 `blob`）、mimeType `text/html;profile=mcp-app`、512 KB 以內；一個 connector 只畫**前 5 個不同的 app**，其他工具的結果顯示成文字。
+- 要連外的主機寫在資源的 `_meta.ui.csp`（`connectDomains`、`resourceDomains`），只收 **https 的網路主機名稱**（不收 `*`、IP、`localhost`、路徑）；沒寫就什麼都連不出去，圖片只能用 `data:`。
+- app 在 **opaque origin** 的 iframe 裡（`sandbox="allow-scripts"`）：沒有 cookie、localStorage、彈出視窗、表單送出；不要換掉自己的頁面（`location = …`），本站會當成離開、改顯示文字結果。
+- 支援的訊息：`ui/initialize`（`hostContext.theme` 是 `light`／`dark`，換主題會重畫 app）、`ui/notifications/initialized` 之後收到 `tool-input`、`tool-result`（`content` 只有 text block，加上 `structuredContent`）、`ui/notifications/size-changed`（高度 80–640）、`ui/open-link`（只收 https，讀者按了才開）、`tools/call`（只限同一個 server、**唯讀**、visibility 含 `app`、使用者設成自動的工具）。`ui/message` 尚未支援（-32601），`ui/update-model-context` 不會送給模型。
+- `_meta.ui.visibility: ["app"]` 的工具只給 app 用，模型看不到；`["model"]` 的工具 app 不能呼叫。
+- 本地驗證：照 `.loop/shots/mcp-host.cjs` 裡的假 app 寫法（迴圈的截圖腳本，合併前會刪，看它的訊息順序即可）。
+
 ## 2. 加一個本站工具（Studio AI 會用）
 
 在功能自己的模組裡（例如 English 的 `Services/Dictionary/Assistant/`）：

@@ -6,7 +6,7 @@
 - **首頁 hero 那句**改講 Studio AI 與 ⌘K（登入者；訪客維持原句，D-200）。
 - **MCP Apps host**（D-201，design/09 新增）：使用者 MCP server 的工具帶 `_meta.ui.resourceUri` 時，回答裡畫出該 server 的 app——後端保留 `ui://`／visibility、結果交給 app（`AppResultJson`）、`mcp-app` 卡片（不含 HTML）、`GET installations/{id}/app`（`resources/read`）、`POST …/app-call`（只限唯讀且自動的工具）；前端 `cards/mcpApp`（單層 `sandbox="allow-scripts"` srcdoc iframe、開頭寫死 CSP 與 color-scheme、JSON-RPC 橋、open-link 要讀者按）。
 - **審查**（subagent 唯讀，D-202）：無逃逸／注入／越權；修了伺服器快取 HTML 的記憶體風險（改成不快取、每個 connector 前 5 個 app、專屬頻率限制 60／分、body 64 KB）、app 換頁脫離 CSP（第二次 `load` 就移除）、標題用格式字元偽造說明列（去掉 `\p{Cc}\p{Cf}`、`<bdi>`）、停用的 connector、CSP 收 IP／內網名稱。
-- 驗證：前端 lint、全套測試（1871 個）、build 全過；`mcp-host.cjs` 桌機＋手機：app 收到結果並畫出、`evil.example.com` 被 CSP 擋下、open-link 經讀者按下才開、`tools/call` 拿到新資料（截圖 6 張進 repo）。第一版截圖在深色主題下 app 背景是白的（iframe 與文件的 color-scheme 不同）→ srcdoc 帶同樣的 color-scheme 修好。cscheck 0 個新診斷。CI 40908396536（5ac216d）、40911186070（cb29805）第一次就綠；4ac017d（審查修正）見下一則或 NEXT。
+- 驗證：前端 lint、全套測試（1871 個）、build 全過；`mcp-host.cjs` 桌機＋手機：app 收到結果並畫出、`evil.example.com` 被 CSP 擋下、open-link 經讀者按下才開、`tools/call` 拿到新資料（截圖 6 張進 repo）。第一版截圖在深色主題下 app 背景是白的（iframe 與文件的 color-scheme 不同）→ srcdoc 帶同樣的 color-scheme 修好。cscheck 0 個新診斷。CI 40908396536（5ac216d）、40911186070（cb29805）、**40912954064（4ac017d，審查修正，本輪最後一次含程式碼的 push）**都第一次就綠。`mcp-host.cjs` 最後一段驗證 app 換頁後 iframe 被移除、顯示文字結果。CONTRIBUTING-CONNECTORS 加了 MCP Apps 一節。
 
 ## 2026-10-28 09:42 – 第 52 輪（之後才畫好的內容不再把對話推走、Studio 找 MCP server 知道哪些已加過）
 
