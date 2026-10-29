@@ -245,6 +245,17 @@ sent or stored, so a reopened conversation shows a plain message. A site tool's 
   order): only the view; editing, and wider screens, keep the layout as saved
 - An answer's HTML preview (`HtmlViewer`) is a `sandbox=""` iframe, never markup in the page: the answer can
   echo what a tool read (someone else's words)
+- A connector's MCP App (`cards/mcpApp`, docs/ai-native/design/09, D-201, D-202) is drawn by the chat itself, for every assistant
+  (any of them may use a connector's tools): an `mcp-app` card (`parseMcpAppCard`) asks the server for the app's HTML
+  (`useGetMcpAppQuery`, kept 10 minutes) and shows it in one `sandbox="allow-scripts"` iframe — no `allow-same-origin`, so its
+  origin is opaque and it reaches neither the site's cookies nor its API — whose `srcdoc` starts with our doctype, CSP and
+  `color-scheme` (`appSrcDoc`, `appCsp`: the spec's default, nothing outside, plus the https names its server declared), so nothing
+  of the app's comes first. `appBridge.stepsFor` answers its JSON-RPC (only from that frame's window): `ui/initialize` with the
+  host's context; once it says `initialized`, the call's `tool-input` and `tool-result`; `size-changed` within 80–640px;
+  `ui/open-link` only offered to the reader (https, a press opens it); `tools/call` sent to `app-call`, which decides;
+  anything else -32601. A caption it cannot draw over names whose app it is and its host, the server's title last in a `<bdi>`,
+  format characters dropped. A second `load` of the frame (the app navigated away from what we wrote, and from its CSP) removes
+  it for the result's text; so does an app that cannot be read. A change of light and dark draws it again
 - `/connectors` (`Connectors/index.tsx`) keeps the account connections (Google/Microsoft/Atlassian,
   `ConnectorCard`, unchanged) and puts above them what the AI may use, `AiConnectorsSection`: the
   reader's connectors (`InstalledSection`, each opening `ConnectorDetailDrawer` with the tools'

@@ -8,6 +8,7 @@
 
 | 你看到的 | 背後 | 為什麼跟上 2026 的趨勢 |
 |---|---|---|
+| **用別人的 MCP server 自己的介面**：接上的 MCP server 若提供 MCP App，回答裡直接畫出它的互動介面（圖表、預報卡），app 還能向自己的 server 要新資料 | 本站當 MCP Apps host：`mcp-app` 卡片只存呼叫，HTML 畫的時候才向該 server `resources/read`；單層 `sandbox="allow-scripts"` iframe＋開頭寫死的 CSP、JSON-RPC 橋（`appBridge`）、app 只能呼叫唯讀工具、開連結要讀者按 | MCP Apps（SEP-1865）是 2026 MCP 最大的擴充，Claude、ChatGPT、VS Code 都是 host；本站**同時是 server 與 host** |
 | **Studio AI**：任何頁面右下角按鈕或 ⌘K／Ctrl+K 叫出，知道你在哪一頁 | 共用 chat 引擎的 `studio` profile；本站功能都是工具（`ISiteTool`） | 「網站本身就是工具」：同一個 AI 到處都在 |
 | **⌘K 也是指令列**：在 Studio 打「複習」「portfolio」、自己 dashboard 的名稱或一個英文單字，輸入框上方立刻出現「前往『複習』」「查字典：review」，按下直接到（不問 AI、不花用量）；打完整的問題就交給 AI | 前端的 `quickActionsFor`（頁面清單由測試對齊伺服器的 `SitePages`），只認頁面名稱與單一英文單字 | Raycast／Linear 式的指令列與 AI 助理合而為一：簡單的事零延遲，複雜的事交給 agent |
 | **打「/」就有現成指令**：Studio 輸入框打 `/` → 今日簡報、考我單字、用我的單字寫短文、投資組合健檢…一排按鈕，打 `/簡報`、`/quiz` 就篩出來，按下直接送出；/finance（`/外資`、`/景氣`）與 /data-analysis（`/欄位`、`/dashboard`）自己的助理也有各自的一組 | 共用的 `matchSlashCommands`＋`QuickChips`，每個助理的清單在它的 `AiChatConfig.slashCommands`；Studio 的名稱跟本站 MCP server 的 prompts 一樣，名稱跟本站 MCP server 的 prompts 一樣，所以 Claude Code 裡的 `/mcp__jacky-studio__quiz_me` 與本站的 `/quiz` 是同一件事 | 斜線指令是 2026 AI 產品的共通語言（Claude、ChatGPT、Cursor） |
@@ -139,6 +140,10 @@
    **接上就試**：連線成功的最後一步（或之後在 DeepWiki 的詳情裡）按 **「在 Studio AI 試試看」** → 對話框收起、Studio AI 開新對話：「示範一下你能用『DeepWiki』做什麼…」→ 工具 chip「DeepWiki・讀 wiki 目錄」→ 一份 repo 文件目錄，加上三個可以接著問的例子（D-126）。
    ![connector 詳情的在 Studio AI 試試看](screenshots/connector-try-drawer-desktop.png)
    ![Studio AI 示範剛接上的 connector](screenshots/studio-try-connector-desktop.png)
+   **別人的 server 自己的介面（MCP Apps）**：加一個工具帶 `_meta.ui` 的 MCP server（例如天氣）→ Studio 問「台北這幾天天氣如何？」→ 回答裡直接出現**那個 server 自己畫的互動介面**（五天預報卡），上方一行「「天氣」的介面 · 來自 weather.example.dev」是本站寫的、app 蓋不掉；按 app 裡的「重新整理」，它向自己的 server 要新資料（只允許唯讀、你設成自動的工具）；按「看完整預報」，卡片下方出現「介面想開啟 weather.example.dev　開啟／不用」，要你按才會開。app 在 opaque origin 的 sandbox iframe 裡，CSP 只放行它宣告的主機（截圖腳本裡它偷連 `evil.example.com` 被擋下）。**本站同時是 MCP App 的 server（第 8 步）與 host**（D-201、D-202，design/09）。
+   ![Studio 裡畫出 MCP server 自己的介面](screenshots/studio-mcp-app-desktop.png)
+   ![app 要開連結時要讀者按（手機）](screenshots/studio-mcp-app-link-phone.png)
+   ![app 向自己的 server 要新資料](screenshots/studio-mcp-app-refreshed-desktop.png)
 7. **安全（1 分鐘）**：在 connector 詳情把某個工具設成「停用」→ AI 說它沒有這個能力；「需確認」的工具一律出確認卡；按「停止」整輪什麼都不執行。
 8. **反過來：網站本身就是 MCP server（1 分鐘）**：/connectors 往下捲到「讓其他 AI 使用本站」→「產生 token」（名稱 Claude Code、唯讀）→ 複製「Claude Code」那一行指令貼到終端機 → 在 Claude Code 問「用 jacky-studio 查一下 serendipity，再看我今天要複習幾個字」→ 它呼叫本站的 `look_up_word`、`learning_progress`。再打 `/mcp__jacky-studio__daily_briefing`（產生 token 的對話框會寫出這行）→ Claude Code 一次呼叫行程、學習進度、投資組合三個工具，整理成三段簡報；`/mcp__jacky-studio__quiz_me` 則一次問一題。回到 /connectors 看到 token「最後使用」更新；按「撤銷」後 Claude Code 立刻連不上。
    **或在 Claude.ai**：設定 → Connectors → 新增自訂 connector，只貼 `https://apps.jacky-studio.com/api/mcp` → 跳到本站的同意頁「Claude 想用你的身分使用 Jacky Studio 的工具，完成後會回到 claude.ai」→ 允許 → 回到 Claude.ai，工具出現。
@@ -305,5 +310,6 @@ flowchart LR
 | 10/28 | 50 | **對話紀錄搜尋內容**：停止打字後伺服器搜訊息內容，標題沒有的對話帶片段出現、搜尋的字標色（D-191）；審查後標題已找到的不佔名額、只搜最近 300 個對話、emoji 不比對、片段當按鈕的描述（D-192）；打開後捲到找到的那則訊息並亮一下（D-193） |
 | 10/28 | 51 | **審查收尾與第十一次巡檢：dashboard 分享、/admin/listening**：同一個搜尋結果再按會重新亮滿、換對話一定回到最後（D-194）；匿名看 Anyone dashboard 不再拿到 widget 的資料源、表名與篩選值，widget 有大小與數量上限、題庫分頁夾值（D-195）；沒登入的訪客以 IPv6 /64 計算頻率限制（D-196） |
 | 10/28 | 52 | 之後才畫好的內容（延遲載入的卡片、回答最後的「接著問」）不再把對話推走：跟著最後的留在最後、搜尋打開的那則留在原位，讀者自己按出來的不被捲走（D-197、D-199）；**Studio 找 MCP server 時知道你已經加過哪些**，不再叫你重加（D-198） |
+| 10/30 | 53 | **本站也當 MCP Apps 的 host**：使用者接上的 MCP server 若提供 `ui://` app，回答裡直接畫出它的互動介面（sandbox iframe、CSP 寫在最前面、JSON-RPC 橋、app 只能呼叫唯讀工具、開連結要讀者按；D-201），審查後不在伺服器快取 app、每個 connector 最多 5 個、app 換頁就停止顯示、說明列不能被格式字元偽造（D-202）；首頁說明句改講 Studio AI 與 ⌘K（D-200）。另：上一輪留下格式錯的鎖，約 34 小時沒有一輪做事，改用 `.loop/lock.py` |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

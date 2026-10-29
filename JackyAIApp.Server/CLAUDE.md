@@ -437,6 +437,20 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   kept and looked up under the server's own name, `AiToolDescriptor.PermissionName`; two that come to one name are offered once). A call the server
   refuses for its credentials marks the connector NeedsAuth. Probing, adding and testing one (what makes the server reach a
   host a reader named) are held to 20 a minute per reader (`RateLimitPolicies.ConnectorProbe`)
+- The chat is also an MCP Apps host for the reader's own servers (docs/ai-native/design/09, D-201, D-202): a tool whose
+  `_meta.ui.resourceUri` names a `ui://` app keeps it (`CachedTool.UiResourceUri`; `AppOnly` when its visibility leaves out
+  `model`, so the model is never offered it; `NotForApp` when it leaves out `app`), and a call of it shows an `mcp-app` card
+  (`McpConnectorTool.AppCardOf`: the installation, tool, app URI, arguments and the result as the app reads it,
+  `McpToolOutcome.AppResultJson`, text blocks and `structuredContent`, at most 64 KB each) — never the HTML, so a stored answer
+  stays small. The client asks for the HTML when it draws the card, `GET api/connectors/installations/{id}/app?uri=`
+  (`McpAppService.GetAsync`: the reader's own connector, turned on, a URI among the first `MaxAppsPerConnector` (5) different
+  apps its tools named; `resources/read` on that same server through `SafeHttp`, text of type `text/html;profile=mcp-app` at most
+  512 KB; its CSP's hosts kept only as plain https names on the internet, `HttpsOrigins`; not cached on the server, since one app may be
+  half a megabyte), and an app may ask its server for a call, `POST …/app-call` (`CallAsync`: only a tool of that connector that
+  reads, that its apps may call and that the reader lets run on its own; no model, no card, no charge; the result goes to the
+  app alone). Both are held to 60 a minute per reader (`RateLimitPolicies.McpApp`). The client declares no
+  `io.modelcontextprotocol/ui` capability (SDK 1.3.0's `ClientCapabilities` has no `extensions`): servers that add `_meta.ui`
+  anyway are drawn
 - A reader who does not know a server's URL finds it in the official MCP Registry (`IMcpRegistry`, `McpRegistry`;
   `GET api/connectors/registry?search=`, D-122): the registry's `GET /v0.1/servers?version=latest` read whole, page by page
   by `nextCursor` (at most 40 pages in 60s; a walk cut short keeps what it read), into one list cached an hour for every

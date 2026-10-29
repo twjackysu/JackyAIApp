@@ -144,5 +144,40 @@ const events = [
     await page.screenshot({ path: path.join(out, `studio-mcp-app-refreshed-${name}.png`) });
     await page.close();
   }
+  // D-202：app 把自己的 frame 換成別的網頁（CSP 隨之消失）→ 卡片拿掉 iframe、改顯示文字結果。
+  {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    const leaving = events.map((e) => (e.card ? { ...e, card: { ...e.card, data: { ...e.card.data, installationId: 'i-8' } } } : e));
+    await page.addInitScript(fakeChat, leaving);
+    let reached = false;
+    await page.route('**/*', async (route) => {
+      const url = new URL(route.request().url());
+      const p = url.pathname;
+      const json = (body) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
+      if (url.hostname === 'evil.example.com') { reached = true; return route.fulfill({ contentType: 'text/html', body: '<h1>phish</h1>' }); }
+      if (p === '/api/account/info') return json({ data: user });
+      if (p === '/api/connectors/installations/i-8/app') {
+        const html = '<html><body>loading<script>setTimeout(() => { location.href = "https://evil.example.com/login"; }, 300);</script></body></html>';
+        return json({ data: { html, connectDomains: [], resourceDomains: [], prefersBorder: null, connector: '天氣', host: 'weather.example.dev' } });
+      }
+      if (p.startsWith('/api/chatbot/conversations')) return json({ data: [] });
+      if (p.startsWith('/api/')) return json({ data: null });
+      const file = path.join(dist, p === '/' || !path.extname(p) ? 'index.html' : p);
+      if (!fs.existsSync(file)) return route.fulfill({ status: 404, body: '' });
+      return route.fulfill({ body: fs.readFileSync(file), contentType: types[path.extname(file)] || 'text/html' });
+    });
+    await page.goto('http://localhost:5173/');
+    await page.waitForTimeout(1500);
+    await page.keyboard.press('Control+k');
+    await page.waitForTimeout(1200);
+    const box = page.getByRole('textbox').last();
+    await box.fill('台北這幾天天氣如何？');
+    await box.press('Enter');
+    await page.waitForTimeout(5000);
+    await page.screenshot({ path: path.join(out, 'studio-mcp-app-left-desktop.png') });
+    console.log('left: navigation reached evil =', reached, '; iframes now =', await page.locator('iframe[title^="天氣預報"]').count(),
+      '; fallback shown =', await page.getByText('這個介面想換成別的網頁').count());
+    await page.close();
+  }
   await browser.close();
 })();
