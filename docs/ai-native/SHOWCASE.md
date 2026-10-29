@@ -316,5 +316,6 @@ flowchart LR
 | 10/28 | 51 | **審查收尾與第十一次巡檢：dashboard 分享、/admin/listening**：同一個搜尋結果再按會重新亮滿、換對話一定回到最後（D-194）；匿名看 Anyone dashboard 不再拿到 widget 的資料源、表名與篩選值，widget 有大小與數量上限、題庫分頁夾值（D-195）；沒登入的訪客以 IPv6 /64 計算頻率限制（D-196） |
 | 10/28 | 52 | 之後才畫好的內容（延遲載入的卡片、回答最後的「接著問」）不再把對話推走：跟著最後的留在最後、搜尋打開的那則留在原位，讀者自己按出來的不被捲走（D-197、D-199）；**Studio 找 MCP server 時知道你已經加過哪些**，不再叫你重加（D-198） |
 | 10/30 | 53 | **本站也當 MCP Apps 的 host**：使用者接上的 MCP server 若提供 `ui://` app，回答裡直接畫出它的互動介面（sandbox iframe、CSP 寫在最前面、JSON-RPC 橋、app 只能呼叫唯讀工具、開連結要讀者按；D-201），審查後不在伺服器快取 app、每個 connector 最多 5 個、app 換頁就停止顯示、說明列不能被格式字元偽造（D-202）；首頁說明句改講 Studio AI 與 ⌘K（D-200）。另：上一輪留下格式錯的鎖，約 34 小時沒有一輪做事，改用 `.loop/lock.py` |
+| 10/30 | 54 | **MCP Apps 收尾**：`initialize` 宣告本站會畫 app（照規格先看 client 能力的 server 也會給，D-203）、app 的 `ui/message` 先問讀者再放進輸入框（D-204）；用 **MCP 官方範例 app** 的真 HTML 跑過整個 host 流程（D-205），審查修正（D-206） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

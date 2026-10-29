@@ -36,7 +36,7 @@ new("my-server", "顯示名稱",
 - 資源用 `resources/read` 讀，必須是 `text`（不收 `blob`）、mimeType `text/html;profile=mcp-app`、512 KB 以內；一個 connector 只畫**前 5 個不同的 app**，其他工具的結果顯示成文字。
 - 要連外的主機寫在資源的 `_meta.ui.csp`（`connectDomains`、`resourceDomains`），只收 **https 的網路主機名稱**（不收 `*`、IP、`localhost`、路徑）；沒寫就什麼都連不出去，圖片只能用 `data:`。
 - app 在 **opaque origin** 的 iframe 裡（`sandbox="allow-scripts"`）：沒有 cookie、localStorage、彈出視窗、表單送出；不要換掉自己的頁面（`location = …`），本站會當成離開、改顯示文字結果。
-- 支援的訊息：`ui/initialize`（`hostContext.theme` 是 `light`／`dark`，換主題會重畫 app）、`ui/notifications/initialized` 之後收到 `tool-input`、`tool-result`（`content` 只有 text block，加上 `structuredContent`）、`ui/notifications/size-changed`（高度 80–640）、`ui/open-link`（只收 https，讀者按了才開）、`tools/call`（只限同一個 server、**唯讀**、visibility 含 `app`、使用者設成自動的工具）。`ui/message` 尚未支援（-32601），`ui/update-model-context` 不會送給模型。
+- 支援的訊息：`ui/initialize`（`hostContext.theme` 是 `light`／`dark`，換主題會重畫 app）、`ui/notifications/initialized` 之後收到 `tool-input`、`tool-result`（`content` 只有 text block，加上 `structuredContent`）、`ui/notifications/size-changed`（高度 80–640）、`ui/open-link`（只收 https，讀者按了才開）、`tools/call`（只限同一個 server、**唯讀**、visibility 含 `app`、使用者設成自動的工具）。`ui/message`（`role: "user"` 的文字、最多 2000 字）會在卡片下方問讀者，按「放進輸入框」才進輸入框、不會自己送出，一次一則（D-204）；`ui/update-model-context` 不會送給模型。本站在 `initialize` 宣告 `capabilities.extensions["io.modelcontextprotocol/ui"]`（D-203），用官方 SDK 的 `getUiCapability` 判斷的 server 會照常給 app。想先在本機試：`.loop/shots/mcp-host-official.cjs` 用官方範例 app 跑過整個流程，照它開頭的步驟換成你的 server。
 - `_meta.ui.visibility: ["app"]` 的工具只給 app 用，模型看不到；`["model"]` 的工具 app 不能呼叫。
 - 本地驗證：照 `.loop/shots/mcp-host.cjs` 裡的假 app 寫法（迴圈的截圖腳本，合併前會刪，看它的訊息順序即可）。
 

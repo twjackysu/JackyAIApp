@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-30 02:05 – 第 54 輪（MCP Apps 收尾：宣告能力、`ui/message`、用官方範例 app 驗證）
+
+- 開工：鎖不存在（上一輪正常釋放）；master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。clone 是 shallow，`--unshallow` 後切到 `feature/ai-native`。
+- **NEXT 000(b) 找能 demo 的 app server**（D-205）：公開免認證的 `https://mcpplaygroundonline.com/mcp-app-server`（這個環境連不到，未驗證）；**MCP 官方 ext-apps 的範例 server 都在 npm**，在 sandbox 裡跑了 `@modelcontextprotocol/server-basic-vanillajs@2.0.4`，看到它的 `tools/list` 帶 `_meta.ui`、`resources/read` 回 249 KB 的 `text/html;profile=mcp-app`。
+- **NEXT 000(e) 宣告 `io.modelcontextprotocol/ui`**（D-203）：規格要 server 先看 client 能力再給 app，本站原本沒宣告。`McpAppsCapability`（handler）只改 `initialize` 的 JSON；`FakeMcpServer.AppsOnlyForUiClients` 扮照規格的 server。
+- **NEXT 000(d) `ui/message`**（D-204）：官方範例 app 的「Send Message」原本 -32601 → 卡片下方先問，按「放進輸入框」才進輸入框、當外部文字、不會自己送出（`AppDraftContext`、面板的 `onAppText`）。
+- **審查**（subagent 唯讀，D-206）：無高風險；修了 app 在讀者按下前換字（一次一則）、`/` 開頭的字變成現成指令（用「」包起來）、註解與序列化。
+- 驗證：前端 lint、全套測試（1878 個）、build 全過，審查修正後 mcpApp 的 28 個測試與 tsc、eslint 再跑一次；**`.loop/shots/mcp-host-official.cjs` 用官方 app 的真 HTML**：官方 SDK 的 `App` 接受本站 `ui/initialize` 的回答、畫出時間、Get Server Time 經 app-call、Send Message → 放進輸入框、Open Link 要讀者按（桌機＋手機，截圖 3 張進 repo）；舊的 `mcp-host.cjs` 結果不變。cscheck 0 個新診斷。CI 40926326281（3b5c0546，D-203）、**40927424179（6c0e659f，D-204＋D-206，本輪最後一次含程式碼的 push）**都第一次就綠。
+
 ## 2026-10-29 23:50 – 第 53 輪（本站也當 MCP Apps 的 host；首頁說明句改講 Studio AI；鎖的修正）
 
 - 開工：上一輪（10/28 11:42 開始的那輪）留下格式錯的鎖（`expires_at` 空字串、欄位錯位）且沒有任何 commit，之後約 34 小時沒有一輪做事；判定過期後接手。新增 `.loop/lock.py`（Python 標準庫，看不懂的鎖以 commit 時間判斷）。master 沒有新 commit；上一輪最後的 CI 綠；`add_repo` 工具仍不存在，用既有的 clone 切到 `feature/ai-native`。
