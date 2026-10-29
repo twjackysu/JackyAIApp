@@ -9,7 +9,12 @@ export const APP_PROTOCOL_VERSION = '2026-01-26';
 
 export interface HostState {
   theme: 'light' | 'dark';
+  /** An assistant takes the app's `ui/message` into its box (`AppDraftContext`, D-204). */
+  takesMessages?: boolean;
 }
+
+/** The longest text an app's `ui/message` may put in the box; a longer one is refused, never cut. */
+export const MAX_APP_MESSAGE_LENGTH = 2000;
 
 type JsonRpcId = string | number;
 
@@ -34,6 +39,8 @@ export type AppStep =
   | { type: 'resize'; height: unknown }
   /** Offer the reader to open this https address; the app cannot open it itself. */
   | { type: 'offerLink'; url: string }
+  /** Offer the reader to put this text in the box (`ui/message`); the app cannot send it itself. */
+  | { type: 'offerMessage'; text: string }
   /** Ask the server to run one of the connector's tools for the app (only one that reads, the server decides), then reply. */
   | { type: 'callTool'; id: JsonRpcId; name: string; arguments: Record<string, unknown> };
 
@@ -60,12 +67,30 @@ export function linkOf(raw: unknown): string | null {
   }
 }
 
+/**
+ * The text of a `ui/message` (`role: "user"`, its content one block or a list of them): the text blocks, a line each,
+ * trimmed; null for any other role, no text, or more than `MAX_APP_MESSAGE_LENGTH`.
+ */
+export function appMessageTextOf(params: Record<string, unknown>): string | null {
+  if (params.role !== 'user') return null;
+  const blocks = Array.isArray(params.content) ? params.content : [params.content];
+  const texts = blocks.flatMap((b) =>
+    isRecord(b) && b.type === 'text' && typeof b.text === 'string' ? [b.text] : [],
+  );
+  const text = texts.join('\n').trim();
+  return text && text.length <= MAX_APP_MESSAGE_LENGTH ? text : null;
+}
+
 /** What `ui/initialize` is answered with: who the host is and what it offers the app. */
 export function initializeResult(state: HostState) {
   return {
     protocolVersion: APP_PROTOCOL_VERSION,
     hostInfo: { name: 'Jacky Studio', version: '1.0' },
-    hostCapabilities: { openLinks: {}, serverTools: {} },
+    hostCapabilities: {
+      openLinks: {},
+      serverTools: {},
+      ...(state.takesMessages && { message: { text: {} } }),
+    },
     hostContext: {
       theme: state.theme,
       displayMode: 'inline',
@@ -102,6 +127,20 @@ export function stepsFor(data: unknown, state: HostState): AppStep[] {
       return url
         ? [{ type: 'offerLink', url }, reply(id, {})]
         : [refuse(id, -32602, 'Only https links can be opened.')];
+    }
+    case 'ui/message': {
+      if (!state.takesMessages)
+        return [refuse(id, -32601, 'Method not supported by this host: ui/message')];
+      const text = appMessageTextOf(params);
+      return text
+        ? [{ type: 'offerMessage', text }, reply(id, {})]
+        : [
+            refuse(
+              id,
+              -32602,
+              `ui/message needs a user's text of at most ${MAX_APP_MESSAGE_LENGTH} characters.`,
+            ),
+          ];
     }
     case 'tools/call': {
       const name =

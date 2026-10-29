@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { initializeResult, linkOf, stepsFor, toolNotifications } from './appBridge';
+import {
+  appMessageTextOf,
+  initializeResult,
+  linkOf,
+  MAX_APP_MESSAGE_LENGTH,
+  stepsFor,
+  toolNotifications,
+} from './appBridge';
+import { draftWithAppText } from './appDraft';
 import {
   APP_MAX_HEIGHT,
   APP_MIN_HEIGHT,
@@ -216,6 +224,72 @@ describe('the bridge', () => {
       state,
     );
     expect(bad).toMatchObject({ type: 'reply', message: { id: 8, error: { code: -32602 } } });
+  });
+
+  it('offers a ui/message to the reader for the box, never sends it, and says so only where an assistant takes it', () => {
+    const takes = { theme: 'dark' as const, takesMessages: true };
+    const message = (id: number, params: unknown) => ({
+      jsonrpc: '2.0',
+      id,
+      method: 'ui/message',
+      params,
+    });
+    // The extension's SDK sends a list of blocks; the spec writes one.
+    expect(
+      stepsFor(
+        message(9, { role: 'user', content: [{ type: 'text', text: ' 幫我比較這兩天 ' }] }),
+        takes,
+      ),
+    ).toEqual([
+      { type: 'offerMessage', text: '幫我比較這兩天' },
+      { type: 'reply', message: { jsonrpc: '2.0', id: 9, result: {} } },
+    ]);
+    expect(appMessageTextOf({ role: 'user', content: { type: 'text', text: '一則' } })).toBe(
+      '一則',
+    );
+    expect(
+      appMessageTextOf({
+        role: 'user',
+        content: [
+          { type: 'text', text: 'a' },
+          { type: 'image', data: 'x' },
+          { type: 'text', text: 'b' },
+        ],
+      }),
+    ).toBe('a\nb');
+
+    for (const params of [
+      { role: 'assistant', content: [{ type: 'text', text: '我是 AI' }] },
+      { role: 'user', content: [{ type: 'text', text: '   ' }] },
+      { role: 'user', content: [{ type: 'text', text: 'x'.repeat(MAX_APP_MESSAGE_LENGTH + 1) }] },
+      { role: 'user' },
+    ]) {
+      const [refused] = stepsFor(message(10, params), takes);
+      expect(refused).toMatchObject({
+        type: 'reply',
+        message: { id: 10, error: { code: -32602 } },
+      });
+    }
+
+    const [unsupported] = stepsFor(
+      message(11, { role: 'user', content: [{ type: 'text', text: 'hi' }] }),
+      state,
+    );
+    expect(unsupported).toMatchObject({
+      type: 'reply',
+      message: { id: 11, error: { code: -32601 } },
+    });
+    expect(initializeResult(takes).hostCapabilities).toHaveProperty('message', { text: {} });
+    expect(initializeResult(state).hostCapabilities).not.toHaveProperty('message');
+  });
+
+  it('puts an app’s text in the box on a line after what was typed', () => {
+    expect(draftWithAppText('', '比較兩天')).toBe('比較兩天');
+    expect(draftWithAppText('  ', '比較兩天')).toBe('比較兩天');
+    expect(draftWithAppText('先看台北 \n', '比較兩天')).toBe('先看台北\n比較兩天');
+    // Not a `/` draft, whose Enter would run a ready-made request.
+    expect(draftWithAppText('', '/jira')).toBe('「/jira」');
+    expect(draftWithAppText('看一下', '/jira')).toBe('看一下\n/jira');
   });
 
   it('ignores anything that is not JSON-RPC 2.0', () => {

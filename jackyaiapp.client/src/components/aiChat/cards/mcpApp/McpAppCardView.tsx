@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { hairline } from '../../style';
 
 import { stepsFor, toolNotifications } from './appBridge';
+import { useAppDraft } from './appDraft';
 import { APP_SANDBOX, APP_START_HEIGHT, appCsp, appSrcDoc, frameHeight } from './appFrame';
 import { line, parseMcpAppCard, resultText } from './mcpAppCard';
 
@@ -112,6 +113,10 @@ function AppFrame({
   const loadsRef = useRef(0);
   const [height, setHeight] = useState(APP_START_HEIGHT);
   const [offeredLink, setOfferedLink] = useState<string | null>(null);
+  // The app asked to put words in the box (ui/message): shown here, in the box only once the reader presses (D-204).
+  const [offeredMessage, setOfferedMessage] = useState<string | null>(null);
+  const putInDraft = useAppDraft();
+  const takesMessages = putInDraft !== null;
   const [callTool] = useCallFromMcpAppMutation();
   // A change of light or dark draws the app again (the scheme is the document's); it is told the theme as it starts.
   const srcDoc = useMemo(() => appSrcDoc(html, csp, mode), [html, csp, mode]);
@@ -122,7 +127,7 @@ function AppFrame({
     const onMessage = (event: MessageEvent) => {
       // Only this frame's app: its origin is opaque ("null"), so the window is what tells it from any other.
       if (!frameRef.current || event.source !== frameRef.current.contentWindow) return;
-      for (const step of stepsFor(event.data, { theme: mode })) {
+      for (const step of stepsFor(event.data, { theme: mode, takesMessages })) {
         if (step.type === 'reply') post(step.message);
         else if (step.type === 'ready') {
           if (readyRef.current) continue;
@@ -132,6 +137,9 @@ function AppFrame({
           const h = frameHeight(step.height);
           if (h !== null) setHeight(h);
         } else if (step.type === 'offerLink') setOfferedLink(step.url);
+        else if (step.type === 'offerMessage')
+          // One at a time: a new one never replaces the text the reader is reading (they could press on what they did not read).
+          setOfferedMessage((shown) => shown ?? step.text);
         else if (step.type === 'callTool') {
           // The server decides whether the app may (a tool that only reads and runs on its own); the app gets its answer.
           const { id, name } = step;
@@ -150,7 +158,7 @@ function AppFrame({
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [data, srcDoc, mode, callTool]);
+  }, [data, srcDoc, mode, callTool, takesMessages]);
 
   return (
     <Box>
@@ -195,6 +203,42 @@ function AppFrame({
               開啟
             </Button>
             <Button size="small" color="inherit" onClick={() => setOfferedLink(null)}>
+              不用
+            </Button>
+          </Box>
+        </Box>
+      )}
+      {offeredMessage && putInDraft && (
+        <Box sx={{ mt: 0.75 }} role="status">
+          <Typography variant="caption" color="text.secondary" component="div">
+            介面想把這段話放進輸入框（由你決定要不要送出）：
+          </Typography>
+          <Typography
+            variant="body2"
+            component="div"
+            sx={{
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+              maxHeight: 120,
+              overflowY: 'auto',
+              borderLeft: `3px solid ${hairline(theme)}`,
+              pl: 1,
+              my: 0.5,
+            }}
+          >
+            {offeredMessage}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <Button
+              size="small"
+              onClick={() => {
+                putInDraft(offeredMessage);
+                setOfferedMessage(null);
+              }}
+            >
+              放進輸入框
+            </Button>
+            <Button size="small" color="inherit" onClick={() => setOfferedMessage(null)}>
               不用
             </Button>
           </Box>

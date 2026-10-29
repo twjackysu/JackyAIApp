@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -17,13 +18,17 @@ namespace JackyAIApp.Server.Services.Connectors
         /// <summary>The extension's identifier.</summary>
         public const string ExtensionId = "io.modelcontextprotocol/ui";
 
-        /// <summary>The most of a body read to look for <c>initialize</c>; one longer is not an initialize the SDK wrote.</summary>
+        /// <summary>
+        /// The longest body looked into for <c>initialize</c>; a longer one is not one the SDK wrote and is sent as it is. Every
+        /// POST is still read (buffered) first: the SDK's <c>JsonContent</c> has no length until written. A body is a JSON-RPC
+        /// message the app made, held to what the chat sends (a tool's arguments), so reading it costs little.
+        /// </summary>
         public const int MaxInitializeBytes = 64 * 1024;
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             // The SDK's body is JsonContent, whose length is not known before it is written (ContentLength null);
-            // reading it buffers it, so it is sent the same when it is left as it is.
+            // reading it buffers it, so it is sent the same when it is left as it is (now with a Content-Length).
             if (request.Method == HttpMethod.Post && request.Content is { } content &&
                 content.Headers.ContentLength is null or <= MaxInitializeBytes)
             {
@@ -65,7 +70,7 @@ namespace JackyAIApp.Server.Services.Connectors
             if (capabilities["extensions"] is not JsonObject extensions || extensions.ContainsKey(ExtensionId)) return null;
 
             extensions[ExtensionId] = new JsonObject { ["mimeTypes"] = new JsonArray(McpToolClient.AppMimeType) };
-            return JsonSerializer.SerializeToUtf8Bytes(request);
+            return Encoding.UTF8.GetBytes(request.ToJsonString());
         }
     }
 }

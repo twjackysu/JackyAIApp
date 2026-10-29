@@ -17,6 +17,7 @@ import type { AssistantActivity } from '@/components/aiChat';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { useLazyGetDashboardsQuery } from '@/apis/dashboardApis';
+import { draftWithAppText } from '@/components/aiChat/cards/mcpApp/appDraft';
 import QuickChips from '@/components/aiChat/components/QuickChips';
 import { AiChatConfigContext } from '@/components/aiChat/config';
 import { useAskQueue } from '@/components/aiChat/hooks/useAskQueue';
@@ -61,6 +62,11 @@ export default function StudioAssistant() {
   const changeDraft = useCallback((value: string) => {
     setDraft(value);
     if (!value.trim()) setDraftQuotesPage(false);
+  }, []);
+  // An MCP App's words the reader let into the box (ui/message, D-204): not the reader's, so they go as quoted text.
+  const putAppText = useCallback((text: string) => {
+    setDraft((typed) => draftWithAppText(typed, text));
+    setDraftQuotesPage(true);
   }, []);
   // The messages pages asked Studio AI (askStudio, a selection), in order, each kept until the panel has sent it:
   // two asked before the panel has loaded both go.
@@ -293,6 +299,7 @@ export default function StudioAssistant() {
                   <QuickChips actions={quickActions} onPick={pickQuick} enterPicksFirst />
                 }
                 onSendDraft={sendDraft}
+                onAppText={putAppText}
               />
             </Suspense>
           </Box>

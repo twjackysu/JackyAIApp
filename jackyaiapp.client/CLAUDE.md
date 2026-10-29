@@ -253,7 +253,11 @@ sent or stored, so a reopened conversation shows a plain message. A site tool's 
   of the app's comes first. `appBridge.stepsFor` answers its JSON-RPC (only from that frame's window): `ui/initialize` with the
   host's context; once it says `initialized`, the call's `tool-input` and `tool-result`; `size-changed` within 80–640px;
   `ui/open-link` only offered to the reader (https, a press opens it); `tools/call` sent to `app-call`, which decides;
-  anything else -32601. A caption it cannot draw over names whose app it is and its host, the server's title last in a `<bdi>`,
+  `ui/message` (a user's text, at most `MAX_APP_MESSAGE_LENGTH`) shown under the app with 放進輸入框 / 不用, and only that press puts it
+  in the box, after what was typed, as text that is not the reader's (`quotesPageText`), never sent by itself: the panel's
+  `onAppText` through `AppDraftContext` (`cards/mcpApp/appDraft`, a value kept the same so the memo'd messages are not drawn
+  again), which Studio AI and `AiAssistantLauncher` give; where none is given the host offers no `message` and answers -32601 (D-204);
+  anything else -32601. `.loop/shots/mcp-host-official.cjs` runs the MCP project's own example app (its SDK's `App`) through all of it (ui/initialize passes its SDK's schema). A caption it cannot draw over names whose app it is and its host, the server's title last in a `<bdi>`,
   format characters dropped. A second `load` of the frame (the app navigated away from what we wrote, and from its CSP) removes
   it for the result's text; so does an app that cannot be read. A change of light and dark draws it again
 - `/connectors` (`Connectors/index.tsx`) keeps the account connections (Google/Microsoft/Atlassian,

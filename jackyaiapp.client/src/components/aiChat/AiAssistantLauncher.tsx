@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { draftWithAppText } from './cards/mcpApp/appDraft';
 import { CompactChatBar } from './components/CompactChatBar';
 import QuickChips from './components/QuickChips';
 import { AiChatConfig, AiChatConfigContext } from './config';
@@ -61,6 +62,11 @@ export function AiAssistantLauncher({
   const changeDraft = useCallback((value: string) => {
     setDraft(value);
     if (!value.trim()) setDraftQuotesPage(false);
+  }, []);
+  // An MCP App's words the reader let into the box (ui/message, D-204): not the reader's, so they go as quoted text.
+  const putAppText = useCallback((text: string) => {
+    setDraft((typed) => draftWithAppText(typed, text));
+    setDraftQuotesPage(true);
   }, []);
   // A selection's messages to send (explain, translate), each kept until the panel has sent it.
   const { ask, enqueue: enqueueAsk, sent: askSent } = useAskQueue();
@@ -232,6 +238,7 @@ export function AiAssistantLauncher({
                   )
                 }
                 onSendDraft={sendDraft}
+                onAppText={putAppText}
               />
             </Suspense>
           </Box>

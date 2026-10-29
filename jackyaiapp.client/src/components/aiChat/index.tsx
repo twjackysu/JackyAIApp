@@ -1,7 +1,16 @@
 import Box from '@mui/material/Box';
 import { alpha, useTheme } from '@mui/material/styles';
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
+import { AppDraftContext } from './cards/mcpApp/appDraft';
 import ChatHeader from './components/ChatHeader';
 import ChatInput from './components/ChatInput';
 import ConversationDrawer from './components/ConversationDrawer';
@@ -72,6 +81,10 @@ interface AiAssistantPanelProps {
    *  owner took it (a `/` draft sends the first ready-made request listed, D-115), and then the box is only emptied.
    *  Not offered while files are picked: the message, files and all, goes as typed. */
   onSendDraft?: (text: string) => boolean;
+  /** An MCP App in an answer asked to put this text in the box (`ui/message`) and the reader agreed (D-204): the owner adds
+   *  it to the draft as text that is not the reader's (`inputQuotesPageText`). Without it, apps are told the host does not
+   *  take messages. */
+  onAppText?: (text: string) => void;
 }
 
 /**
@@ -94,6 +107,7 @@ function AiAssistantPanel({
   onToolDone,
   inputAccessory,
   onSendDraft,
+  onAppText,
 }: AiAssistantPanelProps) {
   const sheet = variant === 'sheet';
   const config = useAiChatConfig();
@@ -117,6 +131,17 @@ function AiAssistantPanel({
   const { statusText } = useAgentStatus(conversation.streamingStatus);
   // Said to a screen reader: an answer started, ended, or a write waits for the reader (D-181).
   const announcement = useChatAnnouncer(messages, busy);
+  // An app's ui/message, once the reader agreed under it (D-204). Kept the same function for the panel's life, so the
+  // messages (memo'd, D-138) are not drawn again: the context's value changes only if an owner starts or stops taking them.
+  const appTextRef = useRef(onAppText);
+  useLayoutEffect(() => {
+    appTextRef.current = onAppText;
+  });
+  const takesAppText = onAppText !== undefined;
+  const appDraft = useMemo(
+    () => (takesAppText ? (text: string) => appTextRef.current?.(text) : null),
+    [takesAppText],
+  );
 
   // Folded away (or the drawer closed): an answer being read stops with it, as one leaving the screen does.
   const wasActive = useRef(active);
@@ -244,7 +269,7 @@ function AiAssistantPanel({
   };
 
   return (
-    <>
+    <AppDraftContext.Provider value={appDraft}>
       <Box
         ref={setPanelEl}
         component="section"
@@ -358,7 +383,7 @@ function AiAssistantPanel({
       </Box>
 
       <PreviewDialog open={preview.open} onClose={preview.close} block={preview.block} />
-    </>
+    </AppDraftContext.Provider>
   );
 }
 
