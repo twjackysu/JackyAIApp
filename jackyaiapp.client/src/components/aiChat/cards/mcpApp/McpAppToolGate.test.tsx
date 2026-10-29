@@ -62,23 +62,32 @@ function mount() {
   vi.spyOn(frame.contentWindow!, 'postMessage').mockImplementation((m: unknown) => {
     replies.push(m);
   });
-  const poll = async (id: number) => {
+  const callOf = (name: string) => async (id: number) => {
     await act(async () => {
       window.dispatchEvent(
         new MessageEvent('message', {
-          data: { jsonrpc: '2.0', id, method: 'tools/call', params: { name: 'poll-system-stats' } },
+          data: { jsonrpc: '2.0', id, method: 'tools/call', params: { name } },
           source: frame.contentWindow,
         }),
       );
       await Promise.resolve();
     });
   };
-  return { poll, replies, html: () => container!.innerHTML };
+  return {
+    poll: callOf('poll-system-stats'),
+    other: callOf('reset-stats'),
+    replies,
+    html: () => container!.innerHTML,
+  };
 }
 
 const button = (name: string) =>
   [...container!.querySelectorAll('button')].find((b) => b.textContent === name)!;
+// A press counts only PRESS_GUARD_MS after the question appeared: the clock is moved on past it.
+let clock = 0;
+vi.spyOn(performance, 'now').mockImplementation(() => clock);
 const press = async (name: string) => {
+  clock += 1000;
   await act(async () => {
     button(name).click();
     await Promise.resolve();
@@ -121,6 +130,34 @@ describe('an MCP App’s tool for it alone that may change something', () => {
     await poll(2);
     expect(mocks.call).toHaveBeenCalledTimes(1);
     expect(replies).toContainEqual(expect.objectContaining({ id: 2, error: expect.anything() }));
+  });
+
+  it('does not take a press that comes right after the question appeared', async () => {
+    mocks.call.mockImplementation(answer);
+    const { poll } = mount();
+
+    await poll(1);
+    await act(async () => {
+      button('允許').click();
+      await Promise.resolve();
+    });
+
+    expect(mocks.call).toHaveBeenCalledTimes(1);
+    expect(mocks.call).not.toHaveBeenCalledWith(expect.objectContaining({ readerAllowed: true }));
+  });
+
+  it('asks about one tool at a time: another tool waits with an error, never behind the question', async () => {
+    mocks.call.mockImplementation(answer);
+    const { poll, replies, other } = mount();
+
+    await poll(1);
+    await other(2);
+    await press('允許');
+
+    expect(replies).toContainEqual(expect.objectContaining({ id: 2, error: expect.anything() }));
+    expect(mocks.call).not.toHaveBeenCalledWith(
+      expect.objectContaining({ tool: 'reset-stats', readerAllowed: true }),
+    );
   });
 
   it('stops running once the reader takes the allowance back', async () => {

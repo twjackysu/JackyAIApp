@@ -52,22 +52,26 @@ export function needsReader(error: unknown): boolean {
   );
 }
 
-/** The gate with `call` held for the reader, or null when as many calls as are held already wait. */
+/**
+ * The gate with `call` held for the reader, or null when as many calls as are held already wait, or the reader is being
+ * asked about another tool: one tool at a time, so a second press can never allow a tool queued behind the one read.
+ */
 export function hold(gate: ToolGate, call: WaitingCall): ToolGate | null {
   if (gate.waiting.length >= MAX_WAITING_CALLS) return null;
+  if (gate.waiting.length > 0 && gate.waiting[0].name !== call.name) return null;
   return { ...gate, waiting: [...gate.waiting, call] };
 }
 
 /**
- * The reader's answer about the tool being asked about: that tool allowed or refused from now on, and its waiting calls
- * released — to run (`allow`) or to be refused. Calls of other tools keep waiting.
+ * The reader's answer about `name`, the tool the card showed: that tool allowed or refused from now on, and its waiting
+ * calls released — to run (`allow`) or to be refused. Nothing when the card is no longer asking about that tool.
  */
 export function decide(
   gate: ToolGate,
+  name: string,
   allow: boolean,
 ): { gate: ToolGate; released: WaitingCall[] } {
-  const name = askingAbout(gate);
-  if (name === null) return { gate, released: [] };
+  if (askingAbout(gate) !== name) return { gate, released: [] };
   const released = gate.waiting.filter((c) => c.name === name);
   const without = (list: readonly string[]) => list.filter((n) => n !== name);
   return {
@@ -79,6 +83,14 @@ export function decide(
     released,
   };
 }
+
+/** The gate once the app's document is drawn anew (light or dark): what the reader decided stays, the old calls go. */
+export const forNewDocument = (gate: ToolGate): ToolGate =>
+  gate.waiting.length ? { ...gate, waiting: [] } : gate;
+
+/** How long after the question appears, or the app last changed its size, a press on it counts: the app cannot move
+ * 允許 under a pointer already on its way to press something of the app's. */
+export const PRESS_GUARD_MS = 600;
 
 /** The reader takes back what they allowed: the tool's calls are refused from now on. */
 export function stopAllowing(gate: ToolGate, name: string): ToolGate {

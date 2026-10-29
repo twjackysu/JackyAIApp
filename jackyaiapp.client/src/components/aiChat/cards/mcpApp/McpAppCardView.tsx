@@ -10,9 +10,11 @@ import { APP_SANDBOX, APP_START_HEIGHT, appCsp, appSrcDoc, frameHeight } from '.
 import {
   BUSY_MESSAGE,
   OPEN_GATE,
+  PRESS_GUARD_MS,
   REFUSED_MESSAGE,
   askingAbout,
   decide,
+  forNewDocument,
   hold,
   isAllowed,
   isRefused,
@@ -175,8 +177,11 @@ function AppFrame({
     },
     [callTool, data.installationId, post, fail, setGate],
   );
-  const decideTool = (allow: boolean) => {
-    const { gate: next, released } = decide(gateRef.current, allow);
+  // When the question last appeared or the app last changed its size: a press sooner than PRESS_GUARD_MS after is not taken.
+  const shiftedAtRef = useRef(0);
+  const decideTool = (name: string, allow: boolean) => {
+    if (performance.now() - shiftedAtRef.current < PRESS_GUARD_MS) return;
+    const { gate: next, released } = decide(gateRef.current, name, allow);
     setGate(next);
     for (const call of released) {
       if (allow) runCall(call, true);
@@ -184,8 +189,15 @@ function AppFrame({
     }
   };
   const asking = askingAbout(gate);
+  useEffect(() => {
+    if (asking !== null) shiftedAtRef.current = performance.now();
+  }, [asking]);
   // A change of light or dark draws the app again (the scheme is the document's); it is told the theme as it starts.
   const srcDoc = useMemo(() => appSrcDoc(html, csp, mode), [html, csp, mode]);
+  // A new document (light or dark) is a new app: the old one's calls are not answered into it; the reader's decisions stay.
+  useEffect(() => {
+    setGate(forNewDocument(gateRef.current));
+  }, [srcDoc, setGate]);
 
   useEffect(() => {
     readyRef.current = false;
@@ -200,7 +212,10 @@ function AppFrame({
           toolNotifications(data.input, data.result).forEach(post);
         } else if (step.type === 'resize') {
           const h = frameHeight(step.height);
-          if (h !== null) setHeight(h);
+          if (h !== null) {
+            shiftedAtRef.current = performance.now();
+            setHeight(h);
+          }
         } else if (step.type === 'offerLink') setOfferedLink(step.url);
         else if (step.type === 'offerMessage')
           // One at a time: a new one never replaces the text the reader is reading (they could press on what they did not read).
@@ -225,6 +240,24 @@ function AppFrame({
 
   return (
     <Box>
+      {/* Above the app, which sets its own height: nothing the app does moves this question (D-207). */}
+      {asking !== null && (
+        <Box sx={{ mb: 0.75 }} role="status">
+          <Typography variant="caption" color="text.secondary" component="div">
+            介面想執行「<bdi>{shownToolName(asking)}</bdi>
+            」。這個工具沒有標示為只讀取，可能會變更你在「
+            {data.connector}」的資料；允許後，這張卡片上的介面再執行它就不再問。
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+            <Button size="small" onClick={() => decideTool(asking, true)}>
+              允許
+            </Button>
+            <Button size="small" color="inherit" onClick={() => decideTool(asking, false)}>
+              不用
+            </Button>
+          </Box>
+        </Box>
+      )}
       <Box
         component="iframe"
         ref={frameRef}
@@ -247,23 +280,6 @@ function AppFrame({
           colorScheme: mode,
         }}
       />
-      {asking !== null && (
-        <Box sx={{ mt: 0.75 }} role="status">
-          <Typography variant="caption" color="text.secondary" component="div">
-            介面想執行「<bdi>{shownToolName(asking)}</bdi>
-            」。這個工具沒有標示為只讀取，可能會變更你在「
-            {data.connector}」的資料；允許後，這張卡片上的介面再執行它就不再問。
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-            <Button size="small" onClick={() => decideTool(true)}>
-              允許
-            </Button>
-            <Button size="small" color="inherit" onClick={() => decideTool(false)}>
-              不用
-            </Button>
-          </Box>
-        </Box>
-      )}
       {gate.allowed.map((name) => (
         <Box
           key={name}
