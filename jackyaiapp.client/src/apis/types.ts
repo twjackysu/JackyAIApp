@@ -15,6 +15,8 @@ export enum ErrorCodes {
   AttachmentImageTooLarge = 'AttachmentImageTooLarge',
   Unauthorized = 'Unauthorized',
   Forbidden = 'Forbidden',
+  /** An MCP App's tool for it alone that runs once the reader allows it on the card (D-207). */
+  AppCallNeedsReader = 'AppCallNeedsReader',
   PayloadTooLarge = 'PayloadTooLarge',
   AttachmentUnsupportedType = 'AttachmentUnsupportedType',
   UsageLimitExceeded = 'UsageLimitExceeded',

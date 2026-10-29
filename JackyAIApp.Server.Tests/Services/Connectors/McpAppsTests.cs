@@ -322,7 +322,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             using var db = new AzureSQLDBContext(_options);
 
             Assert.Equal(ErrorCodes.NotFound, (await Apps("u1", mcp.Object, db).GetAsync(id, AppUri, default)).Error);
-            Assert.Equal(ErrorCodes.Forbidden, (await Apps("u1", mcp.Object, db).CallAsync(id, "forecast", NoArguments, default)).Error);
+            Assert.Equal(ErrorCodes.Forbidden, (await Apps("u1", mcp.Object, db).CallAsync(id, "forecast", NoArguments, false, default)).Error);
         }
 
         [Fact]
@@ -360,7 +360,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             var mcp = Calling("forecast");
             using var db = new AzureSQLDBContext(_options);
 
-            Assert.Equal(ErrorCodes.Forbidden, (await Apps("u1", mcp.Object, db).CallAsync(id, "forecast", NoArguments, default)).Error);
+            Assert.Equal(ErrorCodes.Forbidden, (await Apps("u1", mcp.Object, db).CallAsync(id, "forecast", NoArguments, false, default)).Error);
         }
 
         [Fact]
@@ -400,7 +400,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             var mcp = Calling("refresh_forecast");
             using var db = new AzureSQLDBContext(_options);
 
-            var result = await Apps("u1", mcp.Object, db).CallAsync(id, "refresh_forecast", NoArguments, default);
+            var result = await Apps("u1", mcp.Object, db).CallAsync(id, "refresh_forecast", NoArguments, false, default);
 
             Assert.True(result.IsSuccess);
             Assert.Equal("ok", result.Data!.Result.GetProperty("content")[0].GetProperty("text").GetString());
@@ -424,15 +424,75 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             using var db = new AzureSQLDBContext(_options);
             var apps = Apps("u1", mcp.Object, db);
 
-            Assert.Equal(ErrorCodes.Forbidden, (await apps.CallAsync(id, "set_alert", NoArguments, default)).Error);
-            Assert.Equal(ErrorCodes.Forbidden, (await apps.CallAsync(id, "model_only", NoArguments, default)).Error);
-            Assert.Equal(ErrorCodes.Forbidden, (await apps.CallAsync(id, "not_listed", NoArguments, default)).Error);
-            Assert.Equal(ErrorCodes.Forbidden, (await apps.CallAsync(noApps, "forecast", NoArguments, default)).Error);
-            Assert.Equal(ErrorCodes.Forbidden, (await apps.CallAsync(off, "forecast", NoArguments, default)).Error);
-            Assert.Equal(ErrorCodes.NotFound, (await Apps("u2", mcp.Object, db).CallAsync(id, "forecast", NoArguments, default)).Error);
+            Assert.Equal(ErrorCodes.Forbidden, (await apps.CallAsync(id, "set_alert", NoArguments, false, default)).Error);
+            Assert.Equal(ErrorCodes.Forbidden, (await apps.CallAsync(id, "model_only", NoArguments, false, default)).Error);
+            Assert.Equal(ErrorCodes.Forbidden, (await apps.CallAsync(id, "not_listed", NoArguments, false, default)).Error);
+            Assert.Equal(ErrorCodes.Forbidden, (await apps.CallAsync(noApps, "forecast", NoArguments, false, default)).Error);
+            Assert.Equal(ErrorCodes.Forbidden, (await apps.CallAsync(off, "forecast", NoArguments, false, default)).Error);
+            Assert.Equal(ErrorCodes.NotFound, (await Apps("u2", mcp.Object, db).CallAsync(id, "forecast", NoArguments, false, default)).Error);
             mcp.Verify(m => m.CallToolAsync(It.IsAny<Uri>(), It.IsAny<McpAuth>(), It.IsAny<string>(), It.IsAny<JsonElement>(),
                 It.IsAny<CancellationToken>()), Times.Never);
         }
+
+        [Fact]
+        public async Task AToolForTheAppAlone_ThatMayChangeSomething_AsksTheReader_AndRunsOnceAllowed()
+        {
+            // The official system-monitor app polls an app-only tool with no readOnlyHint (a write, by the spec's default).
+            var id = AddInstallation("u1", Cached(
+                new CachedTool("get-system-info", null, "", ToolEffect.Read, Schema, AppUri),
+                new CachedTool("poll-system-stats", "Poll System Stats", "", ToolEffect.Write, Schema, AppOnly: true)));
+            var mcp = Calling("poll-system-stats");
+            using var db = new AzureSQLDBContext(_options);
+            var apps = Apps("u1", mcp.Object, db);
+
+            var asked = await apps.CallAsync(id, "poll-system-stats", NoArguments, false, default);
+            Assert.Equal(ErrorCodes.AppCallNeedsReader, asked.Error);
+            Assert.Equal(403, (int)ErrorCodes.AppCallNeedsReader / 100 % 1000);
+            Assert.Contains("Poll System Stats", asked.ErrorMessage!);
+            mcp.Verify(m => m.CallToolAsync(It.IsAny<Uri>(), It.IsAny<McpAuth>(), It.IsAny<string>(), It.IsAny<JsonElement>(),
+                It.IsAny<CancellationToken>()), Times.Never);
+
+            var allowed = await apps.CallAsync(id, "poll-system-stats", NoArguments, true, default);
+            Assert.True(allowed.IsSuccess);
+            Assert.Equal(ErrorCodes.NotFound, (await Apps("u2", mcp.Object, db).CallAsync(id, "poll-system-stats", NoArguments, true, default)).Error);
+        }
+
+        [Fact]
+        public async Task TheReadersAllowance_NeverRuns_AWriteTheModelAlsoHas_OneThatDestroys_OrOneTurnedOff()
+        {
+            var id = AddInstallation("u1", Cached(
+                new CachedTool("forecast", null, "", ToolEffect.Read, Schema, AppUri),
+                new CachedTool("set_alert", null, "", ToolEffect.Write, Schema),
+                new CachedTool("wipe", null, "", ToolEffect.Destructive, Schema, AppOnly: true),
+                new CachedTool("poll", null, "", ToolEffect.Write, Schema, AppOnly: true),
+                new CachedTool("hidden", null, "", ToolEffect.Write, Schema, AppOnly: true, NotForApp: true)));
+            using (var setup = new AzureSQLDBContext(_options))
+            {
+                setup.ConnectorInstallations.Find(id)!.ToolSettingsJson = """{"poll":"Disabled"}""";
+                setup.SaveChanges();
+            }
+            var mcp = Calling("forecast");
+            using var db = new AzureSQLDBContext(_options);
+            var apps = Apps("u1", mcp.Object, db);
+
+            foreach (var tool in new[] { "set_alert", "wipe", "poll", "hidden" })
+                Assert.Equal(ErrorCodes.Forbidden, (await apps.CallAsync(id, tool, NoArguments, true, default)).Error);
+            mcp.Verify(m => m.CallToolAsync(It.IsAny<Uri>(), It.IsAny<McpAuth>(), It.IsAny<string>(), It.IsAny<JsonElement>(),
+                It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Theory]
+        [InlineData(ToolEffect.Read, false, ToolPermission.Auto, McpAppService.AppCall.Runs)]
+        [InlineData(ToolEffect.Read, true, ToolPermission.Auto, McpAppService.AppCall.Runs)]
+        [InlineData(ToolEffect.Read, false, ToolPermission.Confirm, McpAppService.AppCall.Refused)]
+        [InlineData(ToolEffect.Read, true, ToolPermission.Confirm, McpAppService.AppCall.AsksTheReader)]
+        [InlineData(ToolEffect.Write, true, ToolPermission.Confirm, McpAppService.AppCall.AsksTheReader)]
+        [InlineData(ToolEffect.Write, true, ToolPermission.Auto, McpAppService.AppCall.AsksTheReader)]
+        [InlineData(ToolEffect.Write, false, ToolPermission.Auto, McpAppService.AppCall.Refused)]
+        [InlineData(ToolEffect.Destructive, true, ToolPermission.Confirm, McpAppService.AppCall.Refused)]
+        [InlineData(ToolEffect.Read, true, ToolPermission.Disabled, McpAppService.AppCall.Refused)]
+        public void HowAnAppsCallGoes(ToolEffect effect, bool appOnly, ToolPermission permission, McpAppService.AppCall expected) =>
+            Assert.Equal(expected, McpAppService.AppCallOf(new CachedTool("t", null, "", effect, Schema, AppOnly: appOnly), permission));
 
         [Fact]
         public async Task AToolsVisibilityWithoutApp_IsKeptAsNotForApps()

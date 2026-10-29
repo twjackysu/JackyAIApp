@@ -1,14 +1,28 @@
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { hairline } from '../../style';
 
 import { stepsFor, toolNotifications } from './appBridge';
 import { useAppDraft } from './appDraft';
 import { APP_SANDBOX, APP_START_HEIGHT, appCsp, appSrcDoc, frameHeight } from './appFrame';
+import {
+  BUSY_MESSAGE,
+  OPEN_GATE,
+  REFUSED_MESSAGE,
+  askingAbout,
+  decide,
+  hold,
+  isAllowed,
+  isRefused,
+  needsReader,
+  shownToolName,
+  stopAllowing,
+} from './appToolGate';
 import { line, parseMcpAppCard, resultText } from './mcpAppCard';
 
+import type { ToolGate, WaitingCall } from './appToolGate';
 import type { McpAppCardData } from './mcpAppCard';
 import type { CustomCard } from '../toolCard';
 
@@ -118,12 +132,63 @@ function AppFrame({
   const putInDraft = useAppDraft();
   const takesMessages = putInDraft !== null;
   const [callTool] = useCallFromMcpAppMutation();
+  // The tools for the app alone the reader allowed or refused on this card, and the calls waiting on them (D-207).
+  const [gate, setGateState] = useState<ToolGate>(OPEN_GATE);
+  const gateRef = useRef<ToolGate>(OPEN_GATE);
+  const setGate = useCallback((next: ToolGate) => {
+    gateRef.current = next;
+    setGateState(next);
+  }, []);
+  const post = useCallback(
+    (message: unknown) => frameRef.current?.contentWindow?.postMessage(message, '*'),
+    [],
+  );
+  const fail = useCallback(
+    (id: string | number, message: string) =>
+      post({ jsonrpc: '2.0', id, error: { code: -32000, message } }),
+    [post],
+  );
+  // The server decides whether the app may (a tool that only reads and runs on its own, or one for the app alone the reader
+  // allowed here); the app gets its answer. One the server says waits on the reader is held, for the card to ask.
+  const runCall = useCallback(
+    (call: WaitingCall, readerAllowed: boolean) => {
+      callTool({
+        installationId: data.installationId,
+        tool: call.name,
+        arguments: call.arguments,
+        readerAllowed,
+      })
+        .unwrap()
+        .then((r) => post({ jsonrpc: '2.0', id: call.id, result: r.result }))
+        .catch((e: unknown) => {
+          if (!readerAllowed && needsReader(e)) {
+            const current = gateRef.current;
+            if (isAllowed(current, call.name)) return runCall(call, true);
+            if (isRefused(current, call.name)) return fail(call.id, REFUSED_MESSAGE);
+            const held = hold(current, call);
+            if (held) setGate(held);
+            else fail(call.id, BUSY_MESSAGE);
+            return;
+          }
+          fail(call.id, getCaughtErrorMessage(e));
+        });
+    },
+    [callTool, data.installationId, post, fail, setGate],
+  );
+  const decideTool = (allow: boolean) => {
+    const { gate: next, released } = decide(gateRef.current, allow);
+    setGate(next);
+    for (const call of released) {
+      if (allow) runCall(call, true);
+      else fail(call.id, REFUSED_MESSAGE);
+    }
+  };
+  const asking = askingAbout(gate);
   // A change of light or dark draws the app again (the scheme is the document's); it is told the theme as it starts.
   const srcDoc = useMemo(() => appSrcDoc(html, csp, mode), [html, csp, mode]);
 
   useEffect(() => {
     readyRef.current = false;
-    const post = (message: unknown) => frameRef.current?.contentWindow?.postMessage(message, '*');
     const onMessage = (event: MessageEvent) => {
       // Only this frame's app: its origin is opaque ("null"), so the window is what tells it from any other.
       if (!frameRef.current || event.source !== frameRef.current.contentWindow) return;
@@ -141,24 +206,22 @@ function AppFrame({
           // One at a time: a new one never replaces the text the reader is reading (they could press on what they did not read).
           setOfferedMessage((shown) => shown ?? step.text);
         else if (step.type === 'callTool') {
-          // The server decides whether the app may (a tool that only reads and runs on its own); the app gets its answer.
-          const { id, name } = step;
-          callTool({ installationId: data.installationId, tool: name, arguments: step.arguments })
-            .unwrap()
-            .then((r) => post({ jsonrpc: '2.0', id, result: r.result }))
-            .catch((e: unknown) =>
-              post({
-                jsonrpc: '2.0',
-                id,
-                error: { code: -32000, message: getCaughtErrorMessage(e) },
-              }),
-            );
+          const call = { id: step.id, name: step.name, arguments: step.arguments };
+          const current = gateRef.current;
+          if (isRefused(current, call.name)) fail(call.id, REFUSED_MESSAGE);
+          else if (isAllowed(current, call.name)) runCall(call, true);
+          else if (current.waiting.some((c) => c.name === call.name)) {
+            // Already being asked about: this one waits for the same answer.
+            const held = hold(current, call);
+            if (held) setGate(held);
+            else fail(call.id, BUSY_MESSAGE);
+          } else runCall(call, false);
         }
       }
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [data, srcDoc, mode, callTool, takesMessages]);
+  }, [data, srcDoc, mode, takesMessages, post, fail, runCall, setGate]);
 
   return (
     <Box>
@@ -184,6 +247,40 @@ function AppFrame({
           colorScheme: mode,
         }}
       />
+      {asking !== null && (
+        <Box sx={{ mt: 0.75 }} role="status">
+          <Typography variant="caption" color="text.secondary" component="div">
+            介面想執行「<bdi>{shownToolName(asking)}</bdi>
+            」。這個工具沒有標示為只讀取，可能會變更你在「
+            {data.connector}」的資料；允許後，這張卡片上的介面再執行它就不再問。
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+            <Button size="small" onClick={() => decideTool(true)}>
+              允許
+            </Button>
+            <Button size="small" color="inherit" onClick={() => decideTool(false)}>
+              不用
+            </Button>
+          </Box>
+        </Box>
+      )}
+      {gate.allowed.map((name) => (
+        <Box
+          key={name}
+          sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5, flexWrap: 'wrap' }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            已允許介面執行「<bdi>{shownToolName(name)}</bdi>」
+          </Typography>
+          <Button
+            size="small"
+            color="inherit"
+            onClick={() => setGate(stopAllowing(gateRef.current, name))}
+          >
+            停止允許
+          </Button>
+        </Box>
+      ))}
       {offeredLink && (
         <Box
           sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75, flexWrap: 'wrap' }}

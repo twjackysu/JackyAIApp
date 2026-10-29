@@ -101,12 +101,18 @@ export const connectorsApi = createApi({
     /** A call a connector's app asks of its server (`tools/call` from the app): a tool that only reads, design/09 §3. */
     callFromMcpApp: builder.mutation<
       McpAppCallResult,
-      { installationId: string; tool: string; arguments: Record<string, unknown> }
+      {
+        installationId: string;
+        tool: string;
+        arguments: Record<string, unknown>;
+        /** The reader allowed this tool on the app's card (D-207). */
+        readerAllowed?: boolean;
+      }
     >({
-      query: ({ installationId, tool, arguments: args }) => ({
+      query: ({ installationId, tool, arguments: args, readerAllowed }) => ({
         url: `installations/${encodeURIComponent(installationId)}/app-call`,
         method: 'POST',
-        body: { tool, arguments: args },
+        body: { tool, arguments: args, readerAllowed: readerAllowed === true },
       }),
       transformResponse: unwrapData,
     }),

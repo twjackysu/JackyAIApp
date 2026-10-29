@@ -20,10 +20,14 @@ namespace JackyAIApp.Server.Services.Connectors
 
         /// <summary>
         /// A call one of the connector's apps asks of its server (design/09 §3): only a tool of that connector the apps may call
-        /// (<see cref="CachedTool.NotForApp"/> not set), that only reads, and that the reader lets run on its own — no model and
-        /// no confirmation card are in between, so nothing that changes anything. Its result goes to the app alone.
+        /// (<see cref="CachedTool.NotForApp"/> not set). One that only reads and that the reader lets run on its own runs — no
+        /// model and no confirmation card are in between. A tool for the app alone (<see cref="CachedTool.AppOnly"/>, which no
+        /// chat can ask for) that may change something runs only once the reader allowed it on the app's card
+        /// (<paramref name="readerAllowed"/>, D-207); without that the answer is <see cref="ErrorCodes.AppCallNeedsReader"/>,
+        /// for the card to ask. Never one that destroys, nor one the reader turned off. Its result goes to the app alone.
         /// </summary>
-        Task<ServiceResult<McpAppCallResultDto>> CallAsync(string installationId, string? tool, JsonElement arguments, CancellationToken ct);
+        Task<ServiceResult<McpAppCallResultDto>> CallAsync(
+            string installationId, string? tool, JsonElement arguments, bool readerAllowed, CancellationToken ct);
     }
 
     public sealed class McpAppService(
@@ -32,7 +36,7 @@ namespace JackyAIApp.Server.Services.Connectors
         private const string NotForAppMessage = "這個介面不能自己執行這個工具；請在對話裡請 AI 幫你做。";
 
         public async Task<ServiceResult<McpAppCallResultDto>> CallAsync(
-            string installationId, string? tool, JsonElement arguments, CancellationToken ct)
+            string installationId, string? tool, JsonElement arguments, bool readerAllowed, CancellationToken ct)
         {
             var userId = currentUser.RequireId();
             var row = await db.ConnectorInstallations.AsNoTracking()
@@ -41,13 +45,19 @@ namespace JackyAIApp.Server.Services.Connectors
             var tools = CachedTools.Parse(row.ToolsCacheJson);
             var called = tools.FirstOrDefault(t => string.Equals(t.Name, tool, StringComparison.Ordinal));
             if (called is null) return ServiceResult.Fail(ErrorCodes.Forbidden, NotForAppMessage);
-            // Only a connector with an app has apps to ask, and only a tool they may call that the reader lets read on its own.
-            if (!row.Enabled || called.NotForApp || called.Effect != ToolEffect.Read ||
-                !tools.Any(t => t.UiResourceUri != null) ||
-                ToolPermissions.For(called.Name, called.Effect, ToolPermissions.Parse(row.ToolSettingsJson)) != ToolPermission.Auto)
+            // Only a connector with an app has apps to ask, and only a tool they may call.
+            if (!row.Enabled || called.NotForApp || !tools.Any(t => t.UiResourceUri != null))
                 return ServiceResult.Fail(ErrorCodes.Forbidden, NotForAppMessage);
-
             var connector = row.DisplayName ?? row.DefinitionKey;
+            switch (AppCallOf(called, ToolPermissions.For(called.Name, called.Effect, ToolPermissions.Parse(row.ToolSettingsJson))))
+            {
+                case AppCall.Refused:
+                    return ServiceResult.Fail(ErrorCodes.Forbidden, NotForAppMessage);
+                case AppCall.AsksTheReader when !readerAllowed:
+                    return ServiceResult.Fail(ErrorCodes.AppCallNeedsReader,
+                        $"「{connector}」的介面想執行「{called.Title ?? called.Name}」，要你先在卡片上允許。");
+            }
+
             try
             {
                 var outcome = await mcp.CallToolAsync(new Uri(row.ServerUrl), await tokens.AuthOfAsync(row, ct), called.Name,
@@ -92,6 +102,22 @@ namespace JackyAIApp.Server.Services.Connectors
                 return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"「{connector}」的介面目前無法讀取：{ex.Message}");
             }
         }
+
+        /// <summary>Whether an app's call of a tool runs: on its own, once the reader allowed it on the card, or never.</summary>
+        public enum AppCall { Runs, AsksTheReader, Refused }
+
+        /// <summary>
+        /// How an app's call of <paramref name="tool"/> (one its apps may call) goes, given the reader's permission for it
+        /// (D-207): a tool that only reads and runs on its own runs; a tool for the app alone that does not destroy and is not
+        /// turned off asks the reader first (the app's own controls are how such a tool is used — no chat can ask for it, so the
+        /// card is where it is allowed); anything else — a tool the model also has (the chat's confirmation is its place), one
+        /// that destroys, one turned off — never runs from an app.
+        /// </summary>
+        internal static AppCall AppCallOf(CachedTool tool, ToolPermission permission) =>
+            permission == ToolPermission.Disabled ? AppCall.Refused
+            : tool.Effect == ToolEffect.Read && permission == ToolPermission.Auto ? AppCall.Runs
+            : tool.AppOnly && tool.Effect != ToolEffect.Destructive ? AppCall.AsksTheReader
+            : AppCall.Refused;
 
         /// <summary>The most different apps of one connector drawn; a tool naming another is shown as text.</summary>
         public const int MaxAppsPerConnector = 5;

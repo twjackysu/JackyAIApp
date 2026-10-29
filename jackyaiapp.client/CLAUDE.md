@@ -252,7 +252,7 @@ sent or stored, so a reopened conversation shows a plain message. A site tool's 
   `color-scheme` (`appSrcDoc`, `appCsp`: the spec's default, nothing outside, plus the https names its server declared), so nothing
   of the app's comes first. `appBridge.stepsFor` answers its JSON-RPC (only from that frame's window): `ui/initialize` with the
   host's context; once it says `initialized`, the call's `tool-input` and `tool-result`; `size-changed` within 80–640px;
-  `ui/open-link` only offered to the reader (https, a press opens it); `tools/call` sent to `app-call`, which decides;
+  `ui/open-link` only offered to the reader (https, a press opens it); `tools/call` sent to `app-call`, which decides — when it answers `AppCallNeedsReader` (a tool for the app alone that may change something) the card asks under the app 介面想執行「…」 with 允許 / 不用, holding up to `MAX_WAITING_CALLS` of its calls meanwhile; 允許 sends them, and the tool's later calls, with `readerAllowed`, 不用 refuses them and later ones without asking the server, and 停止允許 takes it back (`appToolGate`, D-207; only while the card is on the page, nothing stored);
   `ui/message` (a user's text, at most `MAX_APP_MESSAGE_LENGTH`) shown under the app with 放進輸入框 / 不用, and only that press puts it
   in the box, after what was typed, as text that is not the reader's (`quotesPageText`), never sent by itself: the panel's
   `onAppText` through `AppDraftContext` (`cards/mcpApp/appDraft`, a value kept the same so the memo'd messages are not drawn

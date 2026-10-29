@@ -69,14 +69,14 @@ namespace JackyAIApp.Server.Controllers
             responseFactory.ToActionResult(await apps.GetAsync(installationId, uri, ct));
 
         /// <summary>
-        /// A call a connector's app asks of its server (design/09 §3): a tool that only reads and runs on its own, for the
-        /// app alone; no AI, no charge.
+        /// A call a connector's app asks of its server (design/09 §3): a tool that only reads and runs on its own, or one for
+        /// the app alone the reader allowed on its card (D-207); its result for the app alone; no AI, no charge.
         /// </summary>
         [HttpPost("installations/{installationId}/app-call")]
-        [EnableRateLimiting(RateLimitPolicies.McpApp)]
+        [EnableRateLimiting(RateLimitPolicies.McpAppCall)]
         [RequestSizeLimit(McpToolClient.MaxAppResultChars)]
         public async Task<IActionResult> CallFromApp(string installationId, [FromBody] McpAppCallRequestDto request, CancellationToken ct = default) =>
-            responseFactory.ToActionResult(await apps.CallAsync(installationId, request.Tool, request.Arguments, ct));
+            responseFactory.ToActionResult(await apps.CallAsync(installationId, request.Tool, request.Arguments, request.ReaderAllowed, ct));
 
         [HttpDelete("installations/{installationId}")]
         public async Task<IActionResult> Delete(string installationId, CancellationToken ct = default) =>

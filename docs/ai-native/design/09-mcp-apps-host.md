@@ -35,9 +35,10 @@
    `{ html, connectDomains, resourceDomains, prefersBorder, connector, host }`。**伺服器不快取**（D-202：一個 app 可達 512 KB，
    快取會被一個帳號塞滿記憶體），前端的 RTK Query 留 10 分鐘。別人的 installation 是 NotFound。
 5. **app 呼叫工具**：`POST api/connectors/installations/{id}/app-call { tool, arguments }`：只限開著的、有 app 的 connector 的工具、
-   visibility 有 `app`（`CachedTool.NotForApp` 沒設）、`ToolEffect.Read`、使用者的權限是「自動」（停用或改成先問都不行）；其他一律
-   Forbidden（app 收到 JSON-RPC error -32000）。結果只給 app。不扣用量（沒有 AI）。body ≤ 64 KB。
-   兩個端點共用 `RateLimitPolicies.McpApp`（每人每分鐘 60 次）。
+   visibility 有 `app`（`CachedTool.NotForApp` 沒設）、`ToolEffect.Read`、使用者的權限是「自動」（停用或改成先問都不行）；
+   **只給 app 的工具（`AppOnly`）**不是破壞性、沒停用的，讀者在卡片上按「允許」後可以跑（請求帶 `readerAllowed: true`；沒帶回
+   `AppCallNeedsReader`，卡片就問；允許只在這張卡片在頁面上時有效，不存；D-207）；其他一律 Forbidden（app 收到 JSON-RPC error -32000）。結果只給 app。不扣用量（沒有 AI）。body ≤ 64 KB。
+   讀 app 用 `RateLimitPolicies.McpApp`（每人每分鐘 60 次），app 的呼叫另用 `McpAppCall`（120 次，D-207：輪詢的 app 不會讓別的卡片載不出來）。
 
 ## 4. 前端：`McpAppCard`
 
@@ -87,6 +88,7 @@
 |---|---|
 | 53 | **全部完成**：後端 §3、前端 §4、`app-call`、截圖（`.loop/shots/mcp-host.cjs`）、審查（D-202） |
 | 54 | `initialize` 宣告 `io.modelcontextprotocol/ui`（`McpAppsCapability`，D-203）、`ui/message`（D-204）；用 MCP 官方範例 app（`@modelcontextprotocol/server-basic-vanillajs`）跑過 host 全部流程（`.loop/shots/mcp-host-official.cjs`）；公開免認證的 app server：`https://mcpplaygroundonline.com/mcp-app-server`（未在開發環境連過） |
+| 55 | 只給 app、可能會改資料的工具（官方 system-monitor 範例每 2 秒呼叫的 `poll-system-stats` 沒標 `readOnlyHint`）：讀者在卡片上按「允許」後才跑，可「停止允許」（`appToolGate`，D-207） |
 
 ## 8. 不做、之後
 

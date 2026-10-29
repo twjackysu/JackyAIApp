@@ -446,9 +446,12 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   (`McpAppService.GetAsync`: the reader's own connector, turned on, a URI among the first `MaxAppsPerConnector` (5) different
   apps its tools named; `resources/read` on that same server through `SafeHttp`, text of type `text/html;profile=mcp-app` at most
   512 KB; its CSP's hosts kept only as plain https names on the internet, `HttpsOrigins`; not cached on the server, since one app may be
-  half a megabyte), and an app may ask its server for a call, `POST …/app-call` (`CallAsync`: only a tool of that connector that
-  reads, that its apps may call and that the reader lets run on its own; no model, no card, no charge; the result goes to the
-  app alone). Both are held to 60 a minute per reader (`RateLimitPolicies.McpApp`). Every `initialize` says the chat draws
+  half a megabyte), and an app may ask its server for a call, `POST …/app-call` (`CallAsync`: only a tool of that connector its apps
+  may call, `AppCallOf`: one that reads and that the reader lets run on its own runs; one for the app alone (`AppOnly`, which no
+  chat can ask for, e.g. the official system-monitor app's poll, which has no `readOnlyHint`) that does not destroy and is not
+  turned off runs only with `readerAllowed`, which the card sends once the reader pressed 允許 on it, else `AppCallNeedsReader`
+  (403) for the card to ask, D-207; a write the model also has, one that destroys or one turned off never; no model, no charge;
+  the result goes to the app alone). Reading apps is held to 60 a minute per reader (`RateLimitPolicies.McpApp`), an app's calls apart to 120 (`McpAppCall`, so a polling app leaves the others loading). Every `initialize` says the chat draws
   apps (`capabilities.extensions["io.modelcontextprotocol/ui"].mimeTypes`, SEP-1724), which SDK 1.3.0's `ClientCapabilities`
   cannot say (it has no `extensions`), so `McpAppsCapability`, a handler in `McpToolClient`'s chain, adds it to that one
   message's JSON and leaves every other body alone: servers built on the extension's SDK offer app tools only to a client that

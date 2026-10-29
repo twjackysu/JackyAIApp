@@ -22,6 +22,9 @@
         Unauthorized = 1040100,
         Forbidden = 1040300,
         DrawdownBrakeNotEnabled = 1040301,
+        /// <summary>An MCP App asked to run a tool for it alone that may change something: it runs once the reader allows it
+        /// on the app's card (D-207).</summary>
+        AppCallNeedsReader = 1040302,
         PayloadTooLarge = 1041300,
         /// <summary>A chat attachment of a file type that is not accepted.</summary>
         AttachmentUnsupportedType = 1041500,

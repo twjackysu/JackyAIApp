@@ -1,0 +1,139 @@
+import { act } from 'react';
+import { createRoot } from 'react-dom/client';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import McpAppCardView from './McpAppCardView';
+
+// An app's call of a tool for it alone that may change something (D-207): the server says it waits on the reader, the card
+// asks, and only 允許 sends it again with readerAllowed.
+const mocks = vi.hoisted(() => ({ call: vi.fn() }));
+vi.mock('@/apis/connectorsApis/connectorsApis', () => ({
+  useGetMcpAppQuery: () => ({
+    data: {
+      html: '<html><body>app</body></html>',
+      connectDomains: [],
+      resourceDomains: [],
+      prefersBorder: null,
+      connector: 'System Monitor',
+      host: 'monitor.example.com',
+    },
+    isLoading: false,
+  }),
+  useCallFromMcpAppMutation: () => [mocks.call],
+}));
+
+const card = {
+  kind: 'mcp-app',
+  title: null,
+  data: {
+    installationId: 'i1',
+    connector: 'System Monitor',
+    tool: 'get-system-info',
+    title: 'Get System Info',
+    resourceUri: 'ui://system-monitor/mcp-app.html',
+    input: {},
+    result: { content: [{ type: 'text', text: '{}' }] },
+  },
+};
+
+const needsReader = { status: 403, data: { error: { code: 'AppCallNeedsReader', message: '…' } } };
+const answer = (args: { readerAllowed?: boolean }) => ({
+  unwrap: () =>
+    args.readerAllowed
+      ? Promise.resolve({ result: { content: [{ type: 'text', text: 'ok' }] } })
+      : Promise.reject(needsReader),
+});
+
+let container: HTMLDivElement | null = null;
+afterEach(() => {
+  container?.remove();
+  container = null;
+  mocks.call.mockReset();
+});
+
+function mount() {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  act(() => root.render(<McpAppCardView card={card} />));
+  const frame = container.querySelector('iframe')!;
+  const replies: unknown[] = [];
+  vi.spyOn(frame.contentWindow!, 'postMessage').mockImplementation((m: unknown) => {
+    replies.push(m);
+  });
+  const poll = async (id: number) => {
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { jsonrpc: '2.0', id, method: 'tools/call', params: { name: 'poll-system-stats' } },
+          source: frame.contentWindow,
+        }),
+      );
+      await Promise.resolve();
+    });
+  };
+  return { poll, replies, html: () => container!.innerHTML };
+}
+
+const button = (name: string) =>
+  [...container!.querySelectorAll('button')].find((b) => b.textContent === name)!;
+const press = async (name: string) => {
+  await act(async () => {
+    button(name).click();
+    await Promise.resolve();
+  });
+};
+
+describe('an MCP App’s tool for it alone that may change something', () => {
+  it('is asked about, and runs with readerAllowed once allowed — later calls without asking', async () => {
+    mocks.call.mockImplementation(answer);
+    const { poll, replies, html } = mount();
+
+    await poll(1);
+    expect(html()).toContain('介面想執行「<bdi>poll-system-stats</bdi>」');
+    expect(replies).toEqual([]);
+
+    await poll(2);
+    expect(mocks.call).toHaveBeenCalledTimes(1);
+
+    await press('允許');
+    expect(mocks.call).toHaveBeenCalledWith(expect.objectContaining({ readerAllowed: true }));
+    expect(replies).toContainEqual(expect.objectContaining({ id: 1, result: expect.anything() }));
+    expect(replies).toContainEqual(expect.objectContaining({ id: 2, result: expect.anything() }));
+    expect(html()).not.toContain('介面想執行');
+    expect(html()).toContain('已允許介面執行');
+
+    await poll(3);
+    expect(mocks.call).toHaveBeenLastCalledWith(expect.objectContaining({ readerAllowed: true }));
+    expect(replies).toContainEqual(expect.objectContaining({ id: 3, result: expect.anything() }));
+  });
+
+  it('is refused on 不用, and from then on without asking the server', async () => {
+    mocks.call.mockImplementation(answer);
+    const { poll, replies, html } = mount();
+
+    await poll(1);
+    await press('不用');
+    expect(replies).toContainEqual(expect.objectContaining({ id: 1, error: expect.anything() }));
+    expect(html()).not.toContain('介面想執行');
+
+    await poll(2);
+    expect(mocks.call).toHaveBeenCalledTimes(1);
+    expect(replies).toContainEqual(expect.objectContaining({ id: 2, error: expect.anything() }));
+  });
+
+  it('stops running once the reader takes the allowance back', async () => {
+    mocks.call.mockImplementation(answer);
+    const { poll, replies } = mount();
+
+    await poll(1);
+    await press('允許');
+    await press('停止允許');
+    const calls = mocks.call.mock.calls.length;
+    await poll(2);
+
+    expect(mocks.call.mock.calls.length).toBe(calls);
+    expect(replies).toContainEqual(expect.objectContaining({ id: 2, error: expect.anything() }));
+  });
+});
