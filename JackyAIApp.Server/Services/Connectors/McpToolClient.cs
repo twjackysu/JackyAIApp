@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
@@ -24,7 +25,19 @@ namespace JackyAIApp.Server.Services.Connectors
     public sealed record McpServerTools(string? ServerName, IReadOnlyList<CachedTool> Tools);
 
     /// <summary>What one call of a server's tool came to, as text for the model.</summary>
-    public sealed record McpToolOutcome(string Text, bool IsError);
+    /// <param name="AppResultJson">
+    /// The call's result as an MCP App is handed it (<c>ui/notifications/tool-result</c>: its text blocks and
+    /// <c>structuredContent</c>, as JSON), or null when it came to more than <see cref="McpToolClient.MaxAppResultChars"/>
+    /// (docs/ai-native/design/09 §3).
+    /// </param>
+    public sealed record McpToolOutcome(string Text, bool IsError, string? AppResultJson = null);
+
+    /// <summary>
+    /// A server's MCP App (a <c>ui://</c> resource, <c>text/html;profile=mcp-app</c>) as the chat draws it:
+    /// its HTML and what it asked of the frame (<c>_meta.ui.csp</c>, <c>prefersBorder</c>), read leniently.
+    /// </summary>
+    public sealed record McpAppResource(string Html, IReadOnlyList<string> ConnectDomains, IReadOnlyList<string> ResourceDomains,
+        bool? PrefersBorder);
 
     /// <summary>Why a request to an MCP server did not get an answer.</summary>
     public enum McpFailure
@@ -70,6 +83,12 @@ namespace JackyAIApp.Server.Services.Connectors
 
         /// <summary>Calls one tool. A tool's own failure is an outcome with IsError; no answer throws <see cref="McpServerException"/>.</summary>
         Task<McpToolOutcome> CallToolAsync(Uri server, McpAuth auth, string tool, JsonElement arguments, CancellationToken ct);
+
+        /// <summary>
+        /// Reads one of the server's MCP Apps (<c>resources/read</c> of a <c>ui://</c> URI): null when what it answers is
+        /// not one (another type, no text, too large). No answer throws <see cref="McpServerException"/>.
+        /// </summary>
+        Task<McpAppResource?> ReadAppAsync(Uri server, McpAuth auth, string uri, CancellationToken ct);
     }
 
     /// <summary>
@@ -104,6 +123,21 @@ namespace JackyAIApp.Server.Services.Connectors
 
         /// <summary>The most schema text of all of one server's tools kept; the tools after it are left out.</summary>
         public const int MaxAllSchemasChars = 400_000;
+
+        /// <summary>The most an app's result (<see cref="McpToolOutcome.AppResultJson"/>) may come to; a larger one is not handed to the app.</summary>
+        public const int MaxAppResultChars = 64 * 1024;
+
+        /// <summary>The most an app's HTML may be; a larger app is not drawn.</summary>
+        public const int MaxAppHtmlChars = 512 * 1024;
+
+        /// <summary>The longest <c>ui://</c> URI of an app kept.</summary>
+        public const int MaxAppUriChars = 512;
+
+        /// <summary>The MIME type of an MCP App's HTML (the <c>io.modelcontextprotocol/ui</c> extension).</summary>
+        public const string AppMimeType = "text/html;profile=mcp-app";
+
+        /// <summary>The most hosts of each kind an app's CSP may name; more are left out.</summary>
+        private const int MaxCspDomains = 20;
 
         private const int MaxDescriptionChars = 1_000;
         private const int MaxTitleChars = 100;
@@ -146,8 +180,88 @@ namespace JackyAIApp.Server.Services.Connectors
             return await WithClientAsync(server, auth, async (client, token) =>
             {
                 var result = await client.CallToolAsync(new CallToolRequestParams { Name = tool, Arguments = args }, token);
-                return new McpToolOutcome(TextOf(result), result.IsError == true);
+                return new McpToolOutcome(TextOf(result), result.IsError == true, AppResultOf(result));
             }, ct);
+        }
+
+        public async Task<McpAppResource?> ReadAppAsync(Uri server, McpAuth auth, string uri, CancellationToken ct)
+        {
+            if (AppUriOf(uri) is not { } appUri) return null;
+            return await WithClientAsync(server, auth, async (client, token) =>
+            {
+                var read = await client.ReadResourceAsync(new ReadResourceRequestParams { Uri = appUri }, token);
+                return AppOf(read, appUri);
+            }, ct);
+        }
+
+        /// <summary>The app among what <c>resources/read</c> answered: the text of that URI with the app's MIME type, within the size kept.</summary>
+        internal static McpAppResource? AppOf(ReadResourceResult read, string uri)
+        {
+            foreach (var contents in read.Contents)
+            {
+                if (contents is not TextResourceContents text || !string.Equals(contents.Uri, uri, StringComparison.Ordinal)) continue;
+                if (!IsAppMimeType(contents.MimeType)) continue;
+                if (string.IsNullOrWhiteSpace(text.Text) || text.Text.Length > MaxAppHtmlChars) return null;
+                var ui = contents.Meta?["ui"] as JsonObject;
+                var csp = ui?["csp"] as JsonObject;
+                return new McpAppResource(
+                    text.Text,
+                    HttpsOrigins(csp?["connectDomains"]),
+                    HttpsOrigins(csp?["resourceDomains"]),
+                    ui?["prefersBorder"] is JsonValue border && border.TryGetValue<bool>(out var b) ? b : null);
+            }
+            return null;
+        }
+
+        // The type with its profile, in any case and spacing ("text/html; profile=mcp-app").
+        private static bool IsAppMimeType(string? mimeType) =>
+            mimeType != null && string.Equals(mimeType.Replace(" ", ""), AppMimeType, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// The hosts an app's CSP may name, each as an https origin (<c>https://host[:port]</c>): no other scheme, no
+        /// wildcard, path or anything a CSP would read as more than one source. The rest are left out (design/09 §4).
+        /// </summary>
+        internal static IReadOnlyList<string> HttpsOrigins(JsonNode? domains)
+        {
+            if (domains is not JsonArray array) return [];
+            var kept = new List<string>();
+            foreach (var item in array)
+            {
+                if (kept.Count >= MaxCspDomains) break;
+                if (item is not JsonValue value || !value.TryGetValue<string>(out var text)) continue;
+                if (text.Length > 200 || text.Any(c => char.IsWhiteSpace(c) || char.IsControl(c) || c is '*' or ';' or ',' or '\'')) continue;
+                if (!Uri.TryCreate(text, UriKind.Absolute, out var origin) || origin.Scheme != Uri.UriSchemeHttps) continue;
+                if (origin.AbsolutePath != "/" || origin.Query.Length > 0 || origin.Fragment.Length > 0 || origin.UserInfo.Length > 0) continue;
+                var written = origin.IsDefaultPort ? $"https://{origin.IdnHost}" : $"https://{origin.IdnHost}:{origin.Port}";
+                if (!kept.Contains(written, StringComparer.Ordinal)) kept.Add(written);
+            }
+            return kept;
+        }
+
+        /// <summary>A <c>ui://</c> URI as kept: the scheme, within <see cref="MaxAppUriChars"/>, nothing a header or log line would break on.</summary>
+        internal static string? AppUriOf(string? uri) =>
+            uri != null && uri.StartsWith("ui://", StringComparison.Ordinal) && uri.Length is > 5 and <= MaxAppUriChars &&
+            !uri.Any(c => char.IsControl(c) || char.IsWhiteSpace(c))
+                ? uri
+                : null;
+
+        /// <summary>
+        /// A call's result as an app is handed it: its text blocks (other blocks are left out) and its structured content,
+        /// as JSON, or null when that comes to more than <see cref="MaxAppResultChars"/>.
+        /// </summary>
+        internal static string? AppResultOf(CallToolResult result)
+        {
+            var content = new JsonArray();
+            foreach (var block in result.Content)
+            {
+                if (block is TextContentBlock t) content.Add(new JsonObject { ["type"] = "text", ["text"] = t.Text });
+            }
+            var app = new JsonObject { ["content"] = content };
+            if (result.StructuredContent is { ValueKind: JsonValueKind.Object } structured)
+                app["structuredContent"] = JsonNode.Parse(structured.GetRawText());
+            if (result.IsError == true) app["isError"] = true;
+            var json = app.ToJsonString();
+            return json.Length > MaxAppResultChars ? null : json;
         }
 
         private async Task<T> WithClientAsync<T>(
@@ -242,14 +356,34 @@ namespace JackyAIApp.Server.Services.Connectors
             : annotations?.DestructiveHint == true ? ToolEffect.Destructive
             : ToolEffect.Write;
 
-        internal static CachedTool ToCached(Tool tool) => new(
-            tool.Name,
-            CutTitle(tool.Title ?? tool.Annotations?.Title),
-            Cut(tool.Description ?? ""),
-            EffectOf(tool.Annotations),
-            tool.InputSchema.ValueKind == JsonValueKind.Object
-                ? tool.InputSchema.Clone()
-                : JsonSerializer.SerializeToElement(new { type = "object" }));
+        internal static CachedTool ToCached(Tool tool)
+        {
+            var ui = tool.Meta?["ui"] as JsonObject;
+            return new(
+                tool.Name,
+                CutTitle(tool.Title ?? tool.Annotations?.Title),
+                Cut(tool.Description ?? ""),
+                EffectOf(tool.Annotations),
+                tool.InputSchema.ValueKind == JsonValueKind.Object
+                    ? tool.InputSchema.Clone()
+                    : JsonSerializer.SerializeToElement(new { type = "object" }),
+                ui?["resourceUri"] is JsonValue uri && uri.TryGetValue<string>(out var text) ? AppUriOf(text) : null,
+                AppOnlyOf(ui?["visibility"]));
+        }
+
+        /// <summary>
+        /// Whether a tool is for its app alone (<c>_meta.ui.visibility</c> names <c>app</c> and not <c>model</c>): such a tool
+        /// is not offered to the model. A list naming neither, or none, is the default, both.
+        /// </summary>
+        internal static bool AppOnlyOf(JsonNode? visibility)
+        {
+            if (visibility is not JsonArray array) return false;
+            var named = array.OfType<JsonValue>()
+                .Select(v => v.TryGetValue<string>(out var s) ? s : null)
+                .OfType<string>()
+                .ToHashSet(StringComparer.Ordinal);
+            return named.Contains("app") && !named.Contains("model");
+        }
 
         /// <summary>A call's result as text: its text blocks, a note for each other block, or its structured content.</summary>
         internal static string TextOf(CallToolResult result)

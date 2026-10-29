@@ -18,7 +18,7 @@ namespace JackyAIApp.Server.Controllers
     [Authorize]
     public class AiConnectorsController(
         IConnectorCatalogService catalog, IConnectorInstallService installs, IMcpOAuthFlow oauth, IMcpRegistry registry,
-        IMyResponseFactory responseFactory)
+        IMcpAppService apps, IMyResponseFactory responseFactory)
         : ControllerBase
     {
         [HttpGet("catalog")]
@@ -58,6 +58,14 @@ namespace JackyAIApp.Server.Controllers
         [HttpPut("installations/{installationId}/enabled")]
         public async Task<IActionResult> SetEnabled(string installationId, [FromBody] SetEnabledRequestDto request, CancellationToken ct = default) =>
             responseFactory.ToActionResult(await catalog.SetEnabledAsync(installationId, request.Enabled, ct));
+
+        /// <summary>
+        /// The MCP App a tool of the reader's connector named (<c>ui://…</c>), for the chat to draw its card
+        /// (docs/ai-native/design/09 §3); read from that server, kept 10 minutes.
+        /// </summary>
+        [HttpGet("installations/{installationId}/app")]
+        public async Task<IActionResult> GetApp(string installationId, [FromQuery] string? uri, CancellationToken ct = default) =>
+            responseFactory.ToActionResult(await apps.GetAsync(installationId, uri, ct));
 
         [HttpDelete("installations/{installationId}")]
         public async Task<IActionResult> Delete(string installationId, CancellationToken ct = default) =>

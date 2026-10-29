@@ -55,6 +55,12 @@ namespace JackyAIApp.Server.Tests.TestHelpers
 
         public JsonObject? LastCallParams { get; private set; }
 
+        /// <summary>The <c>resources/read</c> result for each URI it has (MCP Apps, design/09), as JSON; any other is an empty one.</summary>
+        public Dictionary<string, string> Resources { get; init; } = [];
+
+        /// <summary>The <c>tools/call</c> result as JSON, in place of the notes tools' own.</summary>
+        public string? CallResultJson { get; init; }
+
         public HttpMessageHandler Create() => new KeptAlive(this);
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) => AnswerAsync(request, ct);
@@ -90,11 +96,14 @@ namespace JackyAIApp.Server.Tests.TestHelpers
                 "initialize" => new JsonObject
                 {
                     ["protocolVersion"] = message["params"]!["protocolVersion"]!.GetValue<string>(),
-                    ["capabilities"] = new JsonObject { ["tools"] = new JsonObject() },
+                    ["capabilities"] = new JsonObject { ["tools"] = new JsonObject(), ["resources"] = new JsonObject() },
                     ["serverInfo"] = new JsonObject { ["name"] = "fake", ["title"] = Title, ["version"] = "1.0" },
                 },
                 "tools/list" => JsonNode.Parse(ToolsJson)!,
                 "tools/call" => CallResult(message["params"]!.AsObject()),
+                "resources/read" => Resources.TryGetValue(message["params"]!["uri"]!.GetValue<string>(), out var read)
+                    ? JsonNode.Parse(read)!
+                    : new JsonObject { ["contents"] = new JsonArray() },
                 _ => new JsonObject(),
             };
             var reply = new JsonObject { ["jsonrpc"] = "2.0", ["id"] = id.DeepClone(), ["result"] = result };
@@ -107,6 +116,7 @@ namespace JackyAIApp.Server.Tests.TestHelpers
         private JsonNode CallResult(JsonObject call)
         {
             LastCallParams = (JsonObject)call.DeepClone();
+            if (CallResultJson != null) return JsonNode.Parse(CallResultJson)!;
             var failed = call["name"]!.GetValue<string>() == "delete_note";
             return new JsonObject
             {

@@ -56,6 +56,8 @@ namespace JackyAIApp.Server.Services.Connectors
                 var shortKey = $"m{i + 1}";
                 foreach (var tool in CachedTools.Parse(row.ToolsCacheJson))
                 {
+                    // A tool for its app alone is called by the app, never by the model (design/09 §3).
+                    if (tool.AppOnly) continue;
                     if (ToolPermissions.For(tool.Name, tool.Effect, chosen) == ToolPermission.Disabled) continue;
                     var connectorTool = new McpConnectorTool(row, shortKey, tool, mcp, tokens, logger);
                     // A server listing a name twice, or two that read the same once made API-safe ("files.read",
@@ -69,6 +71,11 @@ namespace JackyAIApp.Server.Services.Connectors
     }
 
     /// <summary>One tool of a reader's MCP server, as the chat runs it.</summary>
+    /// <remarks>
+    /// A tool that names an MCP App (<see cref="CachedTool.UiResourceUri"/>) shows its result as an <c>mcp-app</c> card
+    /// (docs/ai-native/design/09 §3): which connector, tool and app, and the call's arguments and result as the app is
+    /// handed them; never the app's HTML, which the client asks for when it draws the card, so a stored answer stays small.
+    /// </remarks>
     internal sealed class McpConnectorTool(
         SQL.ConnectorInstallation installation, string shortKey, CachedTool tool, IMcpToolClient mcp, IMcpOAuthTokens tokens,
         ILogger logger) : IAiTool
@@ -94,7 +101,7 @@ namespace JackyAIApp.Server.Services.Connectors
                 var outcome = await mcp.CallToolAsync(new Uri(installation.ServerUrl!), auth, tool.Name, input, ct);
                 return outcome.IsError
                     ? AiToolResult.Error(string.IsNullOrWhiteSpace(outcome.Text) ? "工具回報失敗。" : outcome.Text)
-                    : new AiToolResult(outcome.Text);
+                    : new AiToolResult(outcome.Text, Card: AppCardOf(input, outcome));
             }
             catch (McpServerException ex)
             {
@@ -105,5 +112,30 @@ namespace JackyAIApp.Server.Services.Connectors
                     : $"「{_connectorName}」需要重新連線：請告訴使用者到 Connectors 頁面更新它的認證。");
             }
         }
+
+        /// <summary>The card of a call of a tool with an app, or null for one without (or a result too large to hand it).</summary>
+        internal object? AppCardOf(JsonElement input, McpToolOutcome outcome)
+        {
+            if (tool.UiResourceUri is not { } uri || outcome.AppResultJson is not { } result) return null;
+            var arguments = input.ValueKind == JsonValueKind.Object ? input.GetRawText() : "{}";
+            if (arguments.Length > McpToolClient.MaxAppResultChars) return null;
+            return new
+            {
+                kind = McpAppCardKind,
+                data = new
+                {
+                    installationId = installation.Id,
+                    connector = _connectorName,
+                    tool = tool.Name,
+                    title = tool.Title ?? tool.Name,
+                    resourceUri = uri,
+                    input = JsonDocument.Parse(arguments).RootElement.Clone(),
+                    result = JsonDocument.Parse(result).RootElement.Clone(),
+                },
+            };
+        }
+
+        /// <summary>The kind of a card that draws a connector's MCP App (the client's <c>McpAppCard</c>).</summary>
+        public const string McpAppCardKind = "mcp-app";
     }
 }

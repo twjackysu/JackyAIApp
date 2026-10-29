@@ -200,6 +200,8 @@ namespace JackyAIApp.Server.Extensions
             // A user's MCP server is reached only through SafeHttp (public addresses only).
             services.AddSingleton<IMcpHttpHandlerSource, SafeMcpHttpHandlerSource>();
             services.AddSingleton<IMcpToolClient, McpToolClient>();
+            // The MCP Apps of the reader's connectors, drawn in the chat (design/09).
+            services.AddScoped<IMcpAppService, McpAppService>();
             // Finding a server in the official MCP Registry (D-122): a fixed public host, read like other outside data.
             services.AddSingleton<IMcpRegistry, McpRegistry>();
             // Signing in to an MCP server with OAuth (design/03 §5.2): its metadata and endpoints are

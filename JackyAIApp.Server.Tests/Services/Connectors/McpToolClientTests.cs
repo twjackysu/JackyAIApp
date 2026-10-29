@@ -40,7 +40,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             var outcome = await Client(server).CallToolAsync(Server, McpAuth.None, "search_notes",
                 JsonSerializer.SerializeToElement(new { q = "會議" }), CancellationToken.None);
 
-            Assert.Equal(new McpToolOutcome("找到 2 則筆記", false), outcome);
+            Assert.Equal(("找到 2 則筆記", false), (outcome.Text, outcome.IsError));
             Assert.Equal("會議", server.LastCallParams!["arguments"]!["q"]!.GetValue<string>());
         }
 

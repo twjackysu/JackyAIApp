@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace JackyAIApp.Server.Services.Connectors
 {
@@ -8,7 +9,13 @@ namespace JackyAIApp.Server.Services.Connectors
     /// <param name="Effect">What calling it does, as worked out when it was listed (an MCP server's
     /// <c>readOnlyHint</c> / <c>destructiveHint</c>).</param>
     /// <param name="InputSchema">Its JSON Schema, as the server sent it.</param>
-    public sealed record CachedTool(string Name, string? Title, string Description, ToolEffect Effect, JsonElement InputSchema);
+    /// <param name="UiResourceUri">The MCP App its results are drawn with (<c>_meta.ui.resourceUri</c>, a <c>ui://</c> URI),
+    /// if it named one (docs/ai-native/design/09). Left out of the stored JSON when null.</param>
+    /// <param name="AppOnly">Only its app may call it (<c>_meta.ui.visibility</c> without <c>model</c>): never offered to the
+    /// model. Left out of the stored JSON when false.</param>
+    public sealed record CachedTool(string Name, string? Title, string Description, ToolEffect Effect, JsonElement InputSchema,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] string? UiResourceUri = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool AppOnly = false);
 
     /// <summary>
     /// The tools of an installation as stored (<c>ConnectorInstallations.ToolsCacheJson</c>, a JSON array).
@@ -19,7 +26,7 @@ namespace JackyAIApp.Server.Services.Connectors
     {
         private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
         {
-            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+            Converters = { new JsonStringEnumConverter() },
         };
 
         public static IReadOnlyList<CachedTool> Parse(string? json)
@@ -41,7 +48,9 @@ namespace JackyAIApp.Server.Services.Connectors
                     var schema = e.TryGetProperty("inputSchema", out var s) && s.ValueKind == JsonValueKind.Object
                         ? s.Clone()
                         : JsonSerializer.SerializeToElement(new { type = "object" });
-                    tools.Add(new CachedTool(name, StringOf(e, "title"), StringOf(e, "description") ?? "", effect, schema));
+                    var appOnly = e.TryGetProperty("appOnly", out var only) && only.ValueKind == JsonValueKind.True;
+                    tools.Add(new CachedTool(name, StringOf(e, "title"), StringOf(e, "description") ?? "", effect, schema,
+                        McpToolClient.AppUriOf(StringOf(e, "uiResourceUri")), appOnly));
                 }
                 return tools;
             }

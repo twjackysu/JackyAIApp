@@ -99,4 +99,12 @@ namespace JackyAIApp.Server.DTO
     public sealed record AuthorizeRedirectDto(string RedirectUrl);
 
     public sealed record ConnectionTestResultDto(bool Ok, long LatencyMs, string? Error, InstalledConnectorDto Connector);
+
+    /// <summary>
+    /// A connector's MCP App as the chat draws it (docs/ai-native/design/09 §3): its HTML, the https origins its CSP may
+    /// add, whether it wants a border, and whose it is, for the line over the frame the app cannot draw on.
+    /// </summary>
+    /// <param name="Host">The MCP server's host, in ASCII (a lookalike name shows as punycode).</param>
+    public sealed record McpAppDto(string Html, IReadOnlyList<string> ConnectDomains, IReadOnlyList<string> ResourceDomains,
+        bool? PrefersBorder, string Connector, string Host);
 }
