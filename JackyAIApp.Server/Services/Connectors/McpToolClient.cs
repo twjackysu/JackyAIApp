@@ -232,6 +232,10 @@ namespace JackyAIApp.Server.Services.Connectors
                 if (text.Length > 200 || text.Any(c => char.IsWhiteSpace(c) || char.IsControl(c) || c is '*' or ';' or ',' or '\'')) continue;
                 if (!Uri.TryCreate(text, UriKind.Absolute, out var origin) || origin.Scheme != Uri.UriSchemeHttps) continue;
                 if (origin.AbsolutePath != "/" || origin.Query.Length > 0 || origin.Fragment.Length > 0 || origin.UserInfo.Length > 0) continue;
+                // A name on the internet: no address literal, localhost or one-label name the reader's browser would reach at home.
+                if (origin.HostNameType != UriHostNameType.Dns || !origin.Host.Contains('.') ||
+                    origin.Host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase) ||
+                    origin.Host.EndsWith(".local", StringComparison.OrdinalIgnoreCase)) continue;
                 var written = origin.IsDefaultPort ? $"https://{origin.IdnHost}" : $"https://{origin.IdnHost}:{origin.Port}";
                 if (!kept.Contains(written, StringComparer.Ordinal)) kept.Add(written);
             }

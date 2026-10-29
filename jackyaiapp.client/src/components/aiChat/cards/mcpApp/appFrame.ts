@@ -18,7 +18,10 @@ export const APP_START_HEIGHT = 240;
 export function httpsOrigins(domains: readonly unknown[] | undefined): string[] {
   const kept: string[] = [];
   for (const d of domains ?? []) {
-    if (typeof d !== 'string' || !/^https:\/\/[a-z0-9.-]+(:\d{1,5})?$/.test(d)) continue;
+    if (typeof d !== 'string') continue;
+    // A name on the internet: no address literal, localhost or one-label name the reader's browser would reach at home.
+    const host = /^https:\/\/((?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*)(?::\d{1,5})?$/.exec(d)?.[1];
+    if (!host || /\.(local|localhost)$/.test(host)) continue;
     if (!kept.includes(d)) kept.push(d);
     if (kept.length >= 20) break;
   }

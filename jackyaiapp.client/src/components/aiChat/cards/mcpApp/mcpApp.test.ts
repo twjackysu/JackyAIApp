@@ -45,6 +45,14 @@ describe('parseMcpAppCard', () => {
     expect(parsed?.title).toBe('forecast');
   });
 
+  it('drops format characters, so a name cannot reorder the caption around it', () => {
+    const parsed = parseMcpAppCard(
+      card({ ...good, title: '\u202e天氣\u200b預報', connector: 'a\u2066b' }),
+    );
+    expect(parsed?.title).toBe('天氣 預報');
+    expect(parsed?.connector).toBe('a b');
+  });
+
   it('a ui:// address with white space or controls is not one', () => {
     expect(appUriOf('ui://a b')).toBeNull();
     expect(appUriOf('ui://a\u0000')).toBeNull();
@@ -82,6 +90,15 @@ describe('the frame', () => {
     expect(csp).not.toContain('http://');
     expect(csp).not.toContain('unsafe-eval');
     expect(httpsOrigins(['https://*.example.com', 'https://ok.example.com/path', 5])).toEqual([]);
+    expect(
+      httpsOrigins([
+        'https://192.168.1.1',
+        'https://localhost',
+        'https://intranet',
+        'https://printer.local',
+        'https://a.b.c',
+      ]),
+    ).toEqual(['https://a.b.c']);
   });
 
   it('puts our doctype and CSP before anything of the app, dropping only its doctype', () => {

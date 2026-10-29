@@ -117,6 +117,8 @@ namespace JackyAIApp.Server.Services.Connectors
         internal object? AppCardOf(JsonElement input, McpToolOutcome outcome)
         {
             if (tool.UiResourceUri is not { } uri || outcome.AppResultJson is not { } result) return null;
+            // Only an app the site will read for it (the connector's first few, D-202); another shows as the answer's text.
+            if (!McpAppService.AppUris(installation.ToolsCacheJson).Contains(uri)) return null;
             var arguments = input.ValueKind == JsonValueKind.Object ? input.GetRawText() : "{}";
             if (arguments.Length > McpToolClient.MaxAppResultChars) return null;
             return new
@@ -129,8 +131,8 @@ namespace JackyAIApp.Server.Services.Connectors
                     tool = tool.Name,
                     title = tool.Title ?? tool.Name,
                     resourceUri = uri,
-                    input = JsonDocument.Parse(arguments).RootElement.Clone(),
-                    result = JsonDocument.Parse(result).RootElement.Clone(),
+                    input = JsonSerializer.Deserialize<JsonElement>(arguments),
+                    result = JsonSerializer.Deserialize<JsonElement>(result),
                 },
             };
         }

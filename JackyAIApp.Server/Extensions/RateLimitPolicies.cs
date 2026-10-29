@@ -69,6 +69,14 @@ namespace JackyAIApp.Server.Extensions
         internal const int ChatSearchPermitsPerMinute = 20;
 
         /// <summary>
+        /// A connector's MCP App, per reader (design/09, D-202): reading its HTML and the calls it asks of its server each reach
+        /// the reader's MCP server, with nothing cached; a page of a few app cards and an app refreshing now and then stay within.
+        /// </summary>
+        public const string McpApp = "mcp-app";
+
+        internal const int McpAppPermitsPerMinute = 60;
+
+        /// <summary>
         /// The PDF unlocker, per address: it takes no sign-in and reads and rewrites a whole document in memory, so a
         /// few requests at once from one place could take the server's memory (D-158).
         /// </summary>
@@ -167,6 +175,12 @@ namespace JackyAIApp.Server.Extensions
                 "user:" + (http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? AnonymousPartition),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = ChatSearchPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
 
+        /// <summary>Each reader their own window (the endpoints take a sign-in).</summary>
+        internal static RateLimitPartition<string> McpAppPartition(HttpContext http) =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                "user:" + (http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? AnonymousPartition),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = McpAppPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+
         /// <summary>Each visitor's address its own window: the unlocker takes no sign-in.</summary>
         internal static RateLimitPartition<string> PdfUnlockPartition(HttpContext http) =>
             RateLimitPartition.GetFixedWindowLimiter(
@@ -243,6 +257,7 @@ namespace JackyAIApp.Server.Extensions
                 options.AddPolicy(ConnectorProbe, ConnectorProbePartition);
                 options.AddPolicy(ChatAttachmentUpload, ChatAttachmentUploadPartition);
                 options.AddPolicy(ChatSearch, ChatSearchPartition);
+                options.AddPolicy(McpApp, McpAppPartition);
                 options.AddPolicy(PdfUnlock, PdfUnlockPartition);
                 options.AddPolicy(DashboardWidgetData, DashboardWidgetDataPartition);
                 options.AddPolicy(JobSearch, JobSearchPartition);

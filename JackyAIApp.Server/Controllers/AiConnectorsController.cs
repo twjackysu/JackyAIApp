@@ -61,9 +61,10 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>
         /// The MCP App a tool of the reader's connector named (<c>ui://…</c>), for the chat to draw its card
-        /// (docs/ai-native/design/09 §3); read from that server, kept 10 minutes.
+        /// (docs/ai-native/design/09 §3); read from that server each time (the client keeps it a while).
         /// </summary>
         [HttpGet("installations/{installationId}/app")]
+        [EnableRateLimiting(RateLimitPolicies.McpApp)]
         public async Task<IActionResult> GetApp(string installationId, [FromQuery] string? uri, CancellationToken ct = default) =>
             responseFactory.ToActionResult(await apps.GetAsync(installationId, uri, ct));
 
@@ -72,7 +73,8 @@ namespace JackyAIApp.Server.Controllers
         /// app alone; no AI, no charge.
         /// </summary>
         [HttpPost("installations/{installationId}/app-call")]
-        [EnableRateLimiting(RateLimitPolicies.ConnectorProbe)]
+        [EnableRateLimiting(RateLimitPolicies.McpApp)]
+        [RequestSizeLimit(McpToolClient.MaxAppResultChars)]
         public async Task<IActionResult> CallFromApp(string installationId, [FromBody] McpAppCallRequestDto request, CancellationToken ct = default) =>
             responseFactory.ToActionResult(await apps.CallAsync(installationId, request.Tool, request.Arguments, ct));
 

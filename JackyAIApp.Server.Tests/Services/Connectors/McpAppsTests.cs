@@ -8,7 +8,6 @@ using JackyAIApp.Server.Services.Connectors;
 using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
@@ -269,8 +268,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
                 http.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, userId)], "test"));
             var tokens = new Mock<IMcpOAuthTokens>();
             tokens.Setup(t => t.AuthOfAsync(It.IsAny<SQL.ConnectorInstallation>(), It.IsAny<CancellationToken>())).ReturnsAsync(McpAuth.None);
-            return new McpAppService(db, TestCurrentUser.Of(http), mcp, tokens.Object, new MemoryCache(new MemoryCacheOptions()),
-                NullLogger<McpAppService>.Instance);
+            return new McpAppService(db, TestCurrentUser.Of(http), mcp, tokens.Object, NullLogger<McpAppService>.Instance);
         }
 
         private static Mock<IMcpToolClient> Reading(McpAppResource? app)
@@ -297,20 +295,6 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Fact]
-        public async Task TheAppIsKept_ForTheNextCardThatAsks()
-        {
-            var id = AddInstallation("u1", Cached(new CachedTool("forecast", null, "", ToolEffect.Read, Schema, AppUri)));
-            var mcp = Reading(new McpAppResource("<html></html>", [], [], null));
-            using var db = new AzureSQLDBContext(_options);
-            var apps = Apps("u1", mcp.Object, db);
-
-            await apps.GetAsync(id, AppUri, default);
-            await apps.GetAsync(id, AppUri, default);
-
-            mcp.Verify(m => m.ReadAppAsync(It.IsAny<Uri>(), It.IsAny<McpAuth>(), AppUri, It.IsAny<CancellationToken>()), Times.Once);
-        }
-
-        [Fact]
         public async Task SomeoneElsesConnector_OrAUriNoToolNamed_IsNotFound_AndTheServerIsNotAsked()
         {
             var id = AddInstallation("u1", Cached(new CachedTool("forecast", null, "", ToolEffect.Read, Schema, AppUri)));
@@ -323,6 +307,60 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Equal(ErrorCodes.NotFound, someoneElse.Error);
             Assert.Equal(ErrorCodes.NotFound, undeclared.Error);
             mcp.Verify(m => m.ReadAppAsync(It.IsAny<Uri>(), It.IsAny<McpAuth>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task ATurnedOffConnectorsApp_IsNotRead()
+        {
+            var id = AddInstallation("u1", Cached(new CachedTool("forecast", null, "", ToolEffect.Read, Schema, AppUri)));
+            using (var setup = new AzureSQLDBContext(_options))
+            {
+                setup.ConnectorInstallations.Find(id)!.Enabled = false;
+                setup.SaveChanges();
+            }
+            var mcp = Reading(new McpAppResource("<html></html>", [], [], null));
+            using var db = new AzureSQLDBContext(_options);
+
+            Assert.Equal(ErrorCodes.NotFound, (await Apps("u1", mcp.Object, db).GetAsync(id, AppUri, default)).Error);
+            Assert.Equal(ErrorCodes.Forbidden, (await Apps("u1", mcp.Object, db).CallAsync(id, "forecast", NoArguments, default)).Error);
+        }
+
+        [Fact]
+        public async Task OnlyAConnectorsFirstFewApps_AreDrawn_TheRestAreText()
+        {
+            var tools = Enumerable.Range(1, McpAppService.MaxAppsPerConnector + 1)
+                .Select(i => new CachedTool($"t{i}", null, "", ToolEffect.Read, Schema, $"ui://app/{i}.html")).ToArray();
+            var id = AddInstallation("u1", Cached(tools));
+            var last = $"ui://app/{McpAppService.MaxAppsPerConnector + 1}.html";
+            var mcp = new Mock<IMcpToolClient>();
+            mcp.Setup(m => m.ReadAppAsync(It.IsAny<Uri>(), It.IsAny<McpAuth>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new McpAppResource("<html></html>", [], [], null));
+            mcp.Setup(m => m.CallToolAsync(It.IsAny<Uri>(), It.IsAny<McpAuth>(), It.IsAny<string>(), It.IsAny<JsonElement>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new McpToolOutcome("ok", false, """{"content":[]}"""));
+            var tokens = new Mock<IMcpOAuthTokens>();
+            tokens.Setup(t => t.AuthOfAsync(It.IsAny<SQL.ConnectorInstallation>(), It.IsAny<CancellationToken>())).ReturnsAsync(McpAuth.None);
+            using var db = new AzureSQLDBContext(_options);
+
+            Assert.True((await Apps("u1", mcp.Object, db).GetAsync(id, "ui://app/1.html", default)).IsSuccess);
+            Assert.Equal(ErrorCodes.NotFound, (await Apps("u1", mcp.Object, db).GetAsync(id, last, default)).Error);
+            var lastTool = (await new ConnectorToolSource(db, mcp.Object, tokens.Object, NullLogger<ConnectorToolSource>.Instance)
+                .ForUserAsync("u1", default)).Single(t => t.Descriptor.PermissionKey == $"t{McpAppService.MaxAppsPerConnector + 1}");
+            Assert.Null((await lastTool.RunAsync(NoArguments, null!, default)).Card);
+        }
+
+        [Fact]
+        public async Task AToolTheReaderMadeAskFirst_IsNotRunByItsApp()
+        {
+            var id = AddInstallation("u1", Cached(new CachedTool("forecast", null, "", ToolEffect.Read, Schema, AppUri)));
+            using (var setup = new AzureSQLDBContext(_options))
+            {
+                setup.ConnectorInstallations.Find(id)!.ToolSettingsJson = """{"forecast":"Confirm"}""";
+                setup.SaveChanges();
+            }
+            var mcp = Calling("forecast");
+            using var db = new AzureSQLDBContext(_options);
+
+            Assert.Equal(ErrorCodes.Forbidden, (await Apps("u1", mcp.Object, db).CallAsync(id, "forecast", NoArguments, default)).Error);
         }
 
         [Fact]
@@ -417,7 +455,8 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         {
             var kept = McpToolClient.HttpsOrigins(new JsonArray(
                 "https://ok.example.com", "https://ok.example.com", "https://ok.example.com/", "HTTPS://Upper.Example.com",
-                "https://user@x.example.com", "https://x.example.com?q=1", "data:", "'self'", "https://x.example.com;script-src *", 5));
+                "https://user@x.example.com", "https://x.example.com?q=1", "data:", "'self'", "https://x.example.com;script-src *", 5,
+                "https://192.168.1.1", "https://[::1]", "https://localhost", "https://intranet", "https://printer.local"));
 
             Assert.Equal(new[] { "https://ok.example.com", "https://upper.example.com" }, kept);
         }

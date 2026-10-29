@@ -21,11 +21,13 @@ export const MCP_APP_CARD_KIND = 'mcp-app';
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** One line of plain text, at most `max` characters (control characters dropped). */
-function line(v: unknown, max: number): string | null {
+/**
+ * One line of plain text, at most `max` characters: control and format characters dropped, so a name cannot reorder the
+ * caption around it (a right-to-left override) and pass itself off as whose app it is.
+ */
+export function line(v: unknown, max: number): string | null {
   if (typeof v !== 'string') return null;
-  // eslint-disable-next-line no-control-regex
-  const plain = v.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
+  const plain = v.replace(/[\p{Cc}\p{Cf}]+/gu, ' ').trim();
   return plain ? Array.from(plain).slice(0, max).join('') : null;
 }
 

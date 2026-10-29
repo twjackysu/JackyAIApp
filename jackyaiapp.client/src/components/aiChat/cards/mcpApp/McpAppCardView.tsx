@@ -6,7 +6,7 @@ import { hairline } from '../../style';
 
 import { stepsFor, toolNotifications } from './appBridge';
 import { APP_SANDBOX, APP_START_HEIGHT, appCsp, appSrcDoc, frameHeight } from './appFrame';
-import { parseMcpAppCard, resultText } from './mcpAppCard';
+import { line, parseMcpAppCard, resultText } from './mcpAppCard';
 
 import type { McpAppCardData } from './mcpAppCard';
 import type { CustomCard } from '../toolCard';
@@ -26,6 +26,8 @@ export default function McpAppCardView({ card }: { card: CustomCard; saved?: boo
 
 function McpAppCard({ data }: { data: McpAppCardData }) {
   const theme = useTheme();
+  // The app navigated its frame away from what the site wrote (its CSP gone with it): drawn as text from then on.
+  const [left, setLeft] = useState(false);
   const {
     data: app,
     error,
@@ -37,12 +39,15 @@ function McpAppCard({ data }: { data: McpAppCardData }) {
 
   return (
     <Box data-testid="mcp-app-card">
+      {/* Whose it is first, the tool's own title last and isolated: the title is the server's words. */}
       <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 0.75 }}>
-        {data.title} · 「{app?.connector ?? data.connector}」的介面
-        {app ? ` · 來自 ${app.host}` : ''}
+        「{line(app?.connector, 60) ?? data.connector}」的介面{app ? ` · 來自 ${app.host}` : ''} ·{' '}
+        <bdi>{data.title}</bdi>
       </Typography>
-      {app ? (
+      {app && !left ? (
         <AppFrame
+          key={theme.palette.mode}
+          onLeft={() => setLeft(true)}
           data={data}
           html={app.html}
           csp={appCsp(app.connectDomains, app.resourceDomains)}
@@ -61,6 +66,11 @@ function McpAppCard({ data }: { data: McpAppCardData }) {
           {error && (
             <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 0.5 }}>
               介面沒有載入：{getApiErrorMessage(error)}
+            </Typography>
+          )}
+          {left && (
+            <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 0.5 }}>
+              這個介面想換成別的網頁，已停止顯示。
             </Typography>
           )}
           {resultText(data.result) && (
@@ -87,16 +97,19 @@ function AppFrame({
   html,
   csp,
   border,
+  onLeft,
 }: {
   data: McpAppCardData;
   html: string;
   csp: string;
   border: boolean;
+  onLeft: () => void;
 }) {
   const theme = useTheme();
   const mode = theme.palette.mode;
   const frameRef = useRef<HTMLIFrameElement>(null);
   const readyRef = useRef(false);
+  const loadsRef = useRef(0);
   const [height, setHeight] = useState(APP_START_HEIGHT);
   const [offeredLink, setOfferedLink] = useState<string | null>(null);
   const [callTool] = useCallFromMcpAppMutation();
@@ -147,6 +160,11 @@ function AppFrame({
         title={`${data.title}（${data.connector}）`}
         sandbox={APP_SANDBOX}
         srcDoc={srcDoc}
+        // A srcdoc frame loads once; a second load is the app going somewhere else, with none of our CSP.
+        onLoad={() => {
+          loadsRef.current += 1;
+          if (loadsRef.current > 1) onLeft();
+        }}
         referrerPolicy="no-referrer"
         sx={{
           display: 'block',

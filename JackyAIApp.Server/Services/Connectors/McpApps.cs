@@ -3,7 +3,6 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Services.Connectors
 {
@@ -28,12 +27,8 @@ namespace JackyAIApp.Server.Services.Connectors
     }
 
     public sealed class McpAppService(
-        AzureSQLDBContext db, ICurrentUser currentUser, IMcpToolClient mcp, IMcpOAuthTokens tokens, IMemoryCache cache,
-        ILogger<McpAppService> logger) : IMcpAppService
+        AzureSQLDBContext db, ICurrentUser currentUser, IMcpToolClient mcp, IMcpOAuthTokens tokens, ILogger<McpAppService> logger) : IMcpAppService
     {
-        /// <summary>How long an app's HTML is kept for its connector: a conversation's cards ask for it again and again.</summary>
-        public static readonly TimeSpan CacheTime = TimeSpan.FromMinutes(10);
-
         private const string NotForAppMessage = "這個介面不能自己執行這個工具；請在對話裡請 AI 幫你做。";
 
         public async Task<ServiceResult<McpAppCallResultDto>> CallAsync(
@@ -59,7 +54,7 @@ namespace JackyAIApp.Server.Services.Connectors
                     arguments.ValueKind == JsonValueKind.Object ? arguments : JsonSerializer.SerializeToElement(new { }), ct);
                 if (outcome.AppResultJson == null)
                     return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"「{connector}」的回應太大，介面沒有收到。");
-                return ServiceResult.Ok(new McpAppCallResultDto(JsonDocument.Parse(outcome.AppResultJson).RootElement.Clone()));
+                return ServiceResult.Ok(new McpAppCallResultDto(JsonSerializer.Deserialize<JsonElement>(outcome.AppResultJson)));
             }
             catch (McpServerException ex)
             {
@@ -75,20 +70,17 @@ namespace JackyAIApp.Server.Services.Connectors
             var row = await db.ConnectorInstallations.AsNoTracking()
                 .FirstOrDefaultAsync(c => c.Id == installationId && c.UserId == userId, ct);
             var appUri = McpToolClient.AppUriOf(uri);
-            // Only a URI one of its tools named: the reader's credentials go to read what the chat may draw, nothing else.
-            if (row?.ServerUrl == null || appUri == null ||
-                !CachedTools.Parse(row.ToolsCacheJson).Any(t => string.Equals(t.UiResourceUri, appUri, StringComparison.Ordinal)))
+            // Only a connector the reader has on, and a URI among the first few its tools named: the reader's credentials go
+            // to read what the chat may draw, nothing else, and no server can make the site read a hundred apps (D-202).
+            if (row?.ServerUrl == null || !row.Enabled || appUri == null || !AppUris(row.ToolsCacheJson).Contains(appUri))
                 return ServiceResult.Fail(ErrorCodes.NotFound, "找不到這個介面。");
 
             var server = new Uri(row.ServerUrl);
             var connector = row.DisplayName ?? row.DefinitionKey;
             try
             {
-                var auth = await tokens.AuthOfAsync(row, ct);
-                // Shared by every request for it: the factory uses no request's token, and the credentials are already read.
-                var app = await cache.GetOrCreateSingleFlightAsync(
-                    $"mcp-app:{row.Id}:{appUri}", CacheTime,
-                    () => mcp.ReadAppAsync(server, auth, appUri, CancellationToken.None), ct);
+                // Not cached here (D-202): an app's HTML may be half a megabyte, and the client keeps it for its page.
+                var app = await mcp.ReadAppAsync(server, await tokens.AuthOfAsync(row, ct), appUri, ct);
                 if (app == null) return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"「{connector}」沒有提供可以顯示的介面。");
                 return ServiceResult.Ok(new McpAppDto(app.Html, app.ConnectDomains, app.ResourceDomains, app.PrefersBorder,
                     connector, server.IdnHost));
@@ -96,8 +88,17 @@ namespace JackyAIApp.Server.Services.Connectors
             catch (McpServerException ex)
             {
                 logger.LogWarning(ex, "MCP app {Uri} of connector {InstallationId} could not be read ({Failure})", appUri, row.Id, ex.Failure);
+                if (ex.Failure == McpFailure.NeedsAuth) await tokens.CredentialsRefusedAsync(row.Id, ex.RequiredScope, CancellationToken.None);
                 return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"「{connector}」的介面目前無法讀取：{ex.Message}");
             }
         }
+
+        /// <summary>The most different apps of one connector drawn; a tool naming another is shown as text.</summary>
+        public const int MaxAppsPerConnector = 5;
+
+        /// <summary>The first <see cref="MaxAppsPerConnector"/> different apps the connector's tools named, in their order.</summary>
+        internal static IReadOnlyList<string> AppUris(string? toolsCacheJson) =>
+            CachedTools.Parse(toolsCacheJson).Select(t => t.UiResourceUri).OfType<string>()
+                .Distinct(StringComparer.Ordinal).Take(MaxAppsPerConnector).ToList();
     }
 }
