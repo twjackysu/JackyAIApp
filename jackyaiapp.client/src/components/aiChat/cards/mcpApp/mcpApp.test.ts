@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   appMessageTextOf,
+  HOST_CONTEXT_CHANGED,
   initializeResult,
   linkOf,
   MAX_APP_MESSAGE_LENGTH,
@@ -16,6 +17,7 @@ import {
   appSrcDoc,
   frameHeight,
   httpsOrigins,
+  SCHEME_SCRIPT,
 } from './appFrame';
 import { appUriOf, parseMcpAppCard, resultText } from './mcpAppCard';
 
@@ -121,6 +123,21 @@ describe('the frame', () => {
     ).toBe(true);
     expect(doc.match(/<!doctype/gi)).toHaveLength(1);
     expect(doc.indexOf('Content-Security-Policy')).toBeLessThan(doc.indexOf('<!-- <head> -->'));
+  });
+
+  it('starts the document in a scheme, with the one script of ours that changes it, before the app', () => {
+    const doc = appSrcDoc(
+      '<html><body><script>app()</script></body></html>',
+      "default-src 'none'",
+      'dark',
+    );
+    expect(doc).toContain('<meta name="color-scheme" content="dark">');
+    expect(doc.indexOf(SCHEME_SCRIPT)).toBeGreaterThan(doc.indexOf('color-scheme'));
+    expect(doc.indexOf(SCHEME_SCRIPT)).toBeLessThan(doc.indexOf('<html>'));
+    // It acts on the host's notification alone, from the parent alone, and only for light or dark.
+    expect(SCHEME_SCRIPT).toContain(`d.method!=="${HOST_CONTEXT_CHANGED}"`);
+    expect(SCHEME_SCRIPT).toContain('e.source!==parent');
+    expect(SCHEME_SCRIPT).toContain('t!=="light"&&t!=="dark"');
   });
 
   it('escapes the CSP in its attribute', () => {

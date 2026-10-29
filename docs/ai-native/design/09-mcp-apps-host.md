@@ -16,7 +16,7 @@
 |---|---|
 | 使用者連線的 remote MCP server 的工具宣告 `_meta.ui.resourceUri` 時，回答裡畫出它的 app | 原生 connector、本站工具（它們已有宣告式卡片，D-019） |
 | `ui/initialize`、`tool-input`、`tool-result`、`size-changed`、`ui/open-link`（先問）、`ping` | `fullscreen`／`pip` 顯示模式、`tool-input-partial` |
-| 主題：app 的文件帶跟聊天一樣的 `color-scheme`，換亮暗時重畫（不送 `host-context-changed`） | `ui/message`（第 54 輪做了：卡片下方顯示 app 想放的字，讀者按「放進輸入框」才進輸入框、當外部文字，不會自己送出；D-204）、`ui/update-model-context`（回 `{}`，不送給模型） |
+| 主題：app 的文件以畫出時的 `color-scheme` 開始，換亮暗時送 `ui/notifications/host-context-changed`（`{ theme }`），本站放在 app 之前的一段 script 跟著改文件的 `color-scheme`，app 不重畫、狀態保留（第 57 輪，D-210） | `ui/message`（第 54 輪做了：卡片下方顯示 app 想放的字，讀者按「放進輸入框」才進輸入框、當外部文字，不會自己送出；D-204）、`ui/update-model-context`（回 `{}`，不送給模型） |
 | app 呼叫同一個 server 的**唯讀**工具（`tools/call`，依權限、visibility 有 `app`）| app 呼叫寫入工具（回錯誤，請使用者在對話裡要求） |
 | `_meta.ui.visibility` 沒有 `model` 的工具不給模型 | `permissions`（相機、麥克風）一律不給 |
 

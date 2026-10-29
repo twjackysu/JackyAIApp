@@ -4,6 +4,8 @@
  * and a Content-Security-Policy written before anything of the app's.
  */
 
+import { HOST_CONTEXT_CHANGED } from './appBridge';
+
 /** The iframe's sandbox: scripts only (no same origin, popups, forms, top navigation or modals). */
 export const APP_SANDBOX = 'allow-scripts';
 
@@ -58,9 +60,21 @@ const escapeAttribute = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /**
+ * Our one script in the app's document, before anything of the app's: on the host's `host-context-changed` it sets the
+ * document's `color-scheme` to the new theme, so the app keeps its state through a change of light or dark and its
+ * background stays transparent (a browser paints a frame whose scheme differs from its element's). It only touches that
+ * `<meta>`; the app gets the same notification and may restyle itself.
+ */
+export const SCHEME_SCRIPT =
+  '<script>addEventListener("message",function(e){var d=e.data,t=d&&d.params&&d.params.theme;' +
+  `if(e.source!==parent||(t!=="light"&&t!=="dark")||d.method!=="${HOST_CONTEXT_CHANGED}")return;` +
+  'var m=document.querySelector(\'meta[name="color-scheme"]\');if(m)m.setAttribute("content",t)})</script>';
+
+/**
  * The iframe's `srcdoc`: our doctype and CSP first, then the app's document without its own doctype. The parser puts
  * the `<meta>` in the head before any of the app's markup, so nothing of the app's — a comment, a fake `<head>` — can
- * come before it, and a CSP of the app's own only adds to ours (policies are all enforced).
+ * come before it, and a CSP of the app's own only adds to ours (policies are all enforced). `scheme` is the light or
+ * dark it starts in; a later change is a notification, never a new document (`SCHEME_SCRIPT`).
  */
 export function appSrcDoc(html: string, csp: string, scheme: 'light' | 'dark' = 'light'): string {
   const body = html.replace(/^\ufeff?\s*<!doctype[^>]*>/i, '');
@@ -71,6 +85,7 @@ export function appSrcDoc(html: string, csp: string, scheme: 'light' | 'dark' = 
     // The same light or dark as the frame's element (its color-scheme): with the schemes the same, the browser leaves the
     // app's background transparent rather than painting it white under a dark chat.
     `<meta name="color-scheme" content="${scheme}">` +
+    SCHEME_SCRIPT +
     body
   );
 }

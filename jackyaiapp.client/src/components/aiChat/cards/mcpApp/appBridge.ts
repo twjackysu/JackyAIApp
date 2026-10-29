@@ -171,3 +171,11 @@ export function toolNotifications(
     { jsonrpc: '2.0', method: 'ui/notifications/tool-result', params: result },
   ];
 }
+
+/** The notification that tells an app the host's light or dark changed (`hostContext.theme`, D-210). */
+export const HOST_CONTEXT_CHANGED = 'ui/notifications/host-context-changed';
+
+/** What the app is sent when the reader's light or dark changes: only the part of the host's context that changed. */
+export function hostContextChanged(theme: HostState['theme']): JsonRpcNotification {
+  return { jsonrpc: '2.0', method: HOST_CONTEXT_CHANGED, params: { theme } };
+}

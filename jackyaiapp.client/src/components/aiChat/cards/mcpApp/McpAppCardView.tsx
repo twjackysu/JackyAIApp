@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { hairline } from '../../style';
 
-import { stepsFor, toolNotifications } from './appBridge';
+import { hostContextChanged, stepsFor, toolNotifications } from './appBridge';
 import { useAppDraft } from './appDraft';
 import { APP_SANDBOX, APP_START_HEIGHT, appCsp, appSrcDoc, frameHeight } from './appFrame';
 import {
@@ -66,7 +66,6 @@ function McpAppCard({ data }: { data: McpAppCardData }) {
       </Typography>
       {app && !left ? (
         <AppFrame
-          key={theme.palette.mode}
           onLeft={() => setLeft(true)}
           data={data}
           html={app.html}
@@ -204,15 +203,28 @@ function AppFrame({
   useEffect(() => {
     if (refusedKey) shiftedAtRef.current = performance.now();
   }, [refusedKey]);
-  // A change of light or dark draws the app again (the scheme is the document's); it is told the theme as it starts.
-  const srcDoc = useMemo(() => appSrcDoc(html, csp, mode), [html, csp, mode]);
-  // A new document (light or dark) is a new app: the old one's calls are not answered into it; the reader's decisions stay.
-  useEffect(() => {
-    setGate(forNewDocument(gateRef.current));
-  }, [srcDoc, setGate]);
-
+  // The document starts in the light or dark of the moment it is drawn; a later change is told, never drawn again, so
+  // the app keeps its state and the calls the reader allowed (D-210).
+  const [startScheme] = useState(mode);
+  const srcDoc = useMemo(() => appSrcDoc(html, csp, startScheme), [html, csp, startScheme]);
+  // The light or dark the document's color-scheme has now: the start's, then each one the app was told.
+  const schemeRef = useRef(startScheme);
+  // A new document is a new app: not ready, in its starting scheme, the old one's calls not answered into it; the
+  // reader's decisions stay.
   useEffect(() => {
     readyRef.current = false;
+    schemeRef.current = startScheme;
+    setGate(forNewDocument(gateRef.current));
+  }, [srcDoc, startScheme, setGate]);
+  // Told only once it is ready (nothing is sent before `initialized`); it learned the theme of that moment from ui/initialize.
+  const tellScheme = useCallback(() => {
+    if (!readyRef.current || schemeRef.current === mode) return;
+    schemeRef.current = mode;
+    post(hostContextChanged(mode));
+  }, [mode, post]);
+  useEffect(tellScheme, [tellScheme]);
+
+  useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       // Only this frame's app: its origin is opaque ("null"), so the window is what tells it from any other.
       if (!frameRef.current || event.source !== frameRef.current.contentWindow) return;
@@ -222,6 +234,7 @@ function AppFrame({
           if (readyRef.current) continue;
           readyRef.current = true;
           toolNotifications(data.input, data.result).forEach(post);
+          tellScheme();
         } else if (step.type === 'resize') {
           const h = frameHeight(step.height);
           if (h !== null) {
@@ -248,7 +261,7 @@ function AppFrame({
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [data, srcDoc, mode, takesMessages, post, fail, runCall, setGate]);
+  }, [data, srcDoc, mode, takesMessages, post, fail, runCall, setGate, tellScheme]);
 
   return (
     <Box>
