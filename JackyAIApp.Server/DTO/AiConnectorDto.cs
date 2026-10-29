@@ -107,4 +107,10 @@ namespace JackyAIApp.Server.DTO
     /// <param name="Host">The MCP server's host, in ASCII (a lookalike name shows as punycode).</param>
     public sealed record McpAppDto(string Html, IReadOnlyList<string> ConnectDomains, IReadOnlyList<string> ResourceDomains,
         bool? PrefersBorder, string Connector, string Host);
+
+    /// <summary>A call an MCP App asks of its server (<c>tools/call</c> from the app, design/09 §3).</summary>
+    public sealed record McpAppCallRequestDto(string? Tool, System.Text.Json.JsonElement Arguments);
+
+    /// <summary>What the call came to, as the app reads it: a <c>CallToolResult</c> (its text blocks and structured content).</summary>
+    public sealed record McpAppCallResultDto(System.Text.Json.JsonElement Result);
 }

@@ -6,6 +6,8 @@ import { useAiChatConfig } from '../config';
 import { hairline } from '../style';
 
 import LinkCardView from './LinkCardView';
+import { MCP_APP_CARD_KIND } from './mcpApp/mcpAppCard';
+import McpAppCardView from './mcpApp/McpAppCardView';
 import TableCardActions from './TableCardActions';
 import TableCardView from './TableCardView';
 
@@ -15,7 +17,7 @@ import type { ToolStep } from '../utils/toolActivity';
 /**
  * The cards an answer's tools returned, in the order they ran, above its text: from the answer's
  * tool steps while it streams, or the cards stored with it when a conversation is reopened. The
- * chat draws tables and links; any other kind is drawn by the app's renderer for it, or not at all.
+ * chat draws tables, links and connectors' MCP Apps; any other kind is drawn by the app's renderer for it, or not at all.
  */
 export default function ToolCards({
   steps,
@@ -81,6 +83,9 @@ function cardView(
 ): React.ReactNode {
   if (card.kind === 'table' && 'columns' in card) return <TableCardView card={card} />;
   if (card.kind === 'link' && 'href' in card) return <LinkCardView card={card} />;
+  // A connector's MCP App (design/09): any assistant may use a connector's tools, so the chat draws it itself.
+  if (card.kind === MCP_APP_CARD_KIND && 'data' in card)
+    return <McpAppCardView card={card} saved={saved} />;
   const Renderer = 'data' in card ? renderers?.[card.kind] : undefined;
   return Renderer && 'data' in card ? <Renderer card={card} saved={saved} /> : null;
 }

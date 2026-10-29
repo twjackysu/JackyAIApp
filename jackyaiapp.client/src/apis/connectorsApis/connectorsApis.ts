@@ -20,6 +20,8 @@ import {
   SiteAccessTokenList,
   CreateSiteAccessTokenRequest,
   CreatedSiteAccessToken,
+  McpApp,
+  McpAppCallResult,
 } from './types';
 
 import type { ApiOkResponse } from '../types';
@@ -87,6 +89,27 @@ export const connectorsApi = createApi({
       transformResponse: unwrapData,
       keepUnusedDataFor: 600,
     }),
+    /** A connector's MCP App (`ui://…`) for its card in a chat (design/09 §3); read from its server, kept a while. */
+    getMcpApp: builder.query<McpApp, { installationId: string; uri: string }>({
+      query: ({ installationId, uri }) => ({
+        url: `installations/${encodeURIComponent(installationId)}/app`,
+        params: { uri },
+      }),
+      transformResponse: unwrapData,
+      keepUnusedDataFor: 600,
+    }),
+    /** A call a connector's app asks of its server (`tools/call` from the app): a tool that only reads, design/09 §3. */
+    callFromMcpApp: builder.mutation<
+      McpAppCallResult,
+      { installationId: string; tool: string; arguments: Record<string, unknown> }
+    >({
+      query: ({ installationId, tool, arguments: args }) => ({
+        url: `installations/${encodeURIComponent(installationId)}/app-call`,
+        method: 'POST',
+        body: { tool, arguments: args },
+      }),
+      transformResponse: unwrapData,
+    }),
     probeMcpServer: builder.mutation<McpProbeResult, { serverUrl: string }>({
       query: (body) => ({ url: 'installations/probe', method: 'POST', body }),
       transformResponse: unwrapData,
@@ -151,6 +174,8 @@ export const {
   useLazyGetRefreshTokenQuery,
   useGetConnectorCatalogQuery,
   useSearchMcpRegistryQuery,
+  useGetMcpAppQuery,
+  useCallFromMcpAppMutation,
   useProbeMcpServerMutation,
   useCreateInstallationMutation,
   useAuthorizeInstallationMutation,

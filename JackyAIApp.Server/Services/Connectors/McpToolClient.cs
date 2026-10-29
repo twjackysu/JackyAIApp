@@ -368,8 +368,14 @@ namespace JackyAIApp.Server.Services.Connectors
                     ? tool.InputSchema.Clone()
                     : JsonSerializer.SerializeToElement(new { type = "object" }),
                 ui?["resourceUri"] is JsonValue uri && uri.TryGetValue<string>(out var text) ? AppUriOf(text) : null,
-                AppOnlyOf(ui?["visibility"]));
+                AppOnlyOf(ui?["visibility"]),
+                NotForAppOf(ui?["visibility"]));
         }
+
+        /// <summary>Whether a tool's apps may not call it: a visibility list that does not name <c>app</c>.</summary>
+        internal static bool NotForAppOf(JsonNode? visibility) =>
+            visibility is JsonArray array &&
+            !array.OfType<JsonValue>().Any(v => v.TryGetValue<string>(out var s) && s == "app");
 
         /// <summary>
         /// Whether a tool is for its app alone (<c>_meta.ui.visibility</c> names <c>app</c> and not <c>model</c>): such a tool

@@ -341,6 +341,77 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Equal(ErrorCodes.ExternalApiError, unreachable.Error);
         }
 
+        // --- a call an app asks of its server (POST installations/{id}/app-call) ---
+
+        private static Mock<IMcpToolClient> Calling(string tool, string appResult = """{"content":[{"type":"text","text":"ok"}]}""")
+        {
+            var mcp = new Mock<IMcpToolClient>();
+            mcp.Setup(m => m.CallToolAsync(It.IsAny<Uri>(), It.IsAny<McpAuth>(), tool, It.IsAny<JsonElement>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new McpToolOutcome("ok", false, appResult));
+            return mcp;
+        }
+
+        private static readonly JsonElement NoArguments = JsonSerializer.SerializeToElement(new { });
+
+        [Fact]
+        public async Task AnAppMayCall_AToolOfItsServerThatOnlyReads_AndGetsTheResult()
+        {
+            var id = AddInstallation("u1", Cached(
+                new CachedTool("forecast", null, "", ToolEffect.Read, Schema, AppUri),
+                new CachedTool("refresh_forecast", null, "", ToolEffect.Read, Schema, AppUri, AppOnly: true)));
+            var mcp = Calling("refresh_forecast");
+            using var db = new AzureSQLDBContext(_options);
+
+            var result = await Apps("u1", mcp.Object, db).CallAsync(id, "refresh_forecast", NoArguments, default);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal("ok", result.Data!.Result.GetProperty("content")[0].GetProperty("text").GetString());
+        }
+
+        [Fact]
+        public async Task AnApp_MayNotCall_AWrite_AToolNotForApps_OneTheReaderTurnedOff_OrAnyOnAServerWithoutApps()
+        {
+            var withApp = new CachedTool("forecast", null, "", ToolEffect.Read, Schema, AppUri);
+            var id = AddInstallation("u1", Cached(withApp,
+                new CachedTool("set_alert", null, "", ToolEffect.Write, Schema),
+                new CachedTool("model_only", null, "", ToolEffect.Read, Schema, NotForApp: true)));
+            var noApps = AddInstallation("u1", Cached(new CachedTool("forecast", null, "", ToolEffect.Read, Schema)));
+            var off = AddInstallation("u1", Cached(withApp));
+            using (var setup = new AzureSQLDBContext(_options))
+            {
+                setup.ConnectorInstallations.Single(c => c.Id == off).ToolSettingsJson = """{"forecast":"Disabled"}""";
+                setup.SaveChanges();
+            }
+            var mcp = Calling("forecast");
+            using var db = new AzureSQLDBContext(_options);
+            var apps = Apps("u1", mcp.Object, db);
+
+            Assert.Equal(ErrorCodes.Forbidden, (await apps.CallAsync(id, "set_alert", NoArguments, default)).Error);
+            Assert.Equal(ErrorCodes.Forbidden, (await apps.CallAsync(id, "model_only", NoArguments, default)).Error);
+            Assert.Equal(ErrorCodes.Forbidden, (await apps.CallAsync(id, "not_listed", NoArguments, default)).Error);
+            Assert.Equal(ErrorCodes.Forbidden, (await apps.CallAsync(noApps, "forecast", NoArguments, default)).Error);
+            Assert.Equal(ErrorCodes.Forbidden, (await apps.CallAsync(off, "forecast", NoArguments, default)).Error);
+            Assert.Equal(ErrorCodes.NotFound, (await Apps("u2", mcp.Object, db).CallAsync(id, "forecast", NoArguments, default)).Error);
+            mcp.Verify(m => m.CallToolAsync(It.IsAny<Uri>(), It.IsAny<McpAuth>(), It.IsAny<string>(), It.IsAny<JsonElement>(),
+                It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task AToolsVisibilityWithoutApp_IsKeptAsNotForApps()
+        {
+            var listed = await Client(new FakeMcpServer
+            {
+                ToolsJson = """
+                    { "tools": [ { "name": "a", "inputSchema": { "type": "object" }, "_meta": { "ui": { "visibility": ["model"] } } },
+                                 { "name": "b", "inputSchema": { "type": "object" } } ] }
+                    """,
+            }).ListToolsAsync(Server, McpAuth.None, CancellationToken.None);
+
+            Assert.True(listed.Tools[0].NotForApp);
+            Assert.False(listed.Tools[1].NotForApp);
+            Assert.True(CachedTools.Parse(CachedTools.Serialize(listed.Tools))[0].NotForApp);
+        }
+
         [Fact]
         public void OnlyPlainHttpsOrigins_MayJoinTheCsp()
         {

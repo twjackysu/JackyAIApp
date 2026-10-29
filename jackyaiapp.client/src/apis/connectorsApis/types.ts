@@ -207,3 +207,21 @@ export interface CreatedSiteAccessToken {
   /** The token itself: the only time it is shown. */
   token: string;
 }
+
+/** A connector's MCP App as a chat draws it (the server's `McpAppDto`, design/09). */
+export interface McpApp {
+  html: string;
+  /** https origins the app may connect to (its CSP's connect-src). */
+  connectDomains: string[];
+  /** https origins it may load scripts, styles, images, fonts and media from. */
+  resourceDomains: string[];
+  prefersBorder: boolean | null;
+  /** The connector's name, and its server's host, for the line over the frame. */
+  connector: string;
+  host: string;
+}
+
+/** What a call an app asked came to: a `CallToolResult` as the app reads it. */
+export interface McpAppCallResult {
+  result: Record<string, unknown>;
+}

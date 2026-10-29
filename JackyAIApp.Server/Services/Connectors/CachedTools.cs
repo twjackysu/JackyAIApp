@@ -13,9 +13,12 @@ namespace JackyAIApp.Server.Services.Connectors
     /// if it named one (docs/ai-native/design/09). Left out of the stored JSON when null.</param>
     /// <param name="AppOnly">Only its app may call it (<c>_meta.ui.visibility</c> without <c>model</c>): never offered to the
     /// model. Left out of the stored JSON when false.</param>
+    /// <param name="NotForApp">Its server's apps may not call it (<c>_meta.ui.visibility</c> without <c>app</c>). Left out of the
+    /// stored JSON when false.</param>
     public sealed record CachedTool(string Name, string? Title, string Description, ToolEffect Effect, JsonElement InputSchema,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] string? UiResourceUri = null,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool AppOnly = false);
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool AppOnly = false,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool NotForApp = false);
 
     /// <summary>
     /// The tools of an installation as stored (<c>ConnectorInstallations.ToolsCacheJson</c>, a JSON array).
@@ -49,8 +52,9 @@ namespace JackyAIApp.Server.Services.Connectors
                         ? s.Clone()
                         : JsonSerializer.SerializeToElement(new { type = "object" });
                     var appOnly = e.TryGetProperty("appOnly", out var only) && only.ValueKind == JsonValueKind.True;
+                    var notForApp = e.TryGetProperty("notForApp", out var notApp) && notApp.ValueKind == JsonValueKind.True;
                     tools.Add(new CachedTool(name, StringOf(e, "title"), StringOf(e, "description") ?? "", effect, schema,
-                        McpToolClient.AppUriOf(StringOf(e, "uiResourceUri")), appOnly));
+                        McpToolClient.AppUriOf(StringOf(e, "uiResourceUri")), appOnly, notForApp));
                 }
                 return tools;
             }
