@@ -116,10 +116,13 @@ let searches: string[];
 let failSearch: boolean;
 /** Called while a chat turn is being answered, to let a test change the server's state first. */
 let whileAnswering: (() => void) | undefined;
+/** Holds a conversation's history back until the promise it returns settles (a slow load). */
+let holdMessages: ((id: string) => Promise<void>) | undefined;
 
 beforeEach(() => {
   conversations = [];
   messagesOf = {};
+  holdMessages = undefined;
   chatReplies = [];
   chatBodies = [];
   listFetches = 0;
@@ -216,7 +219,10 @@ beforeEach(() => {
         return json({ data: messageHits[q] ?? [] });
       }
       const messages = url.match(/conversations\/([^/]+)\/messages$/);
-      if (messages) return json({ data: messagesOf[messages[1]] ?? [] });
+      if (messages) {
+        await holdMessages?.(messages[1]);
+        return json({ data: messagesOf[messages[1]] ?? [] });
+      }
       // The list is the assistant's own (the server filters by profile).
       if (url.endsWith('/api/chatbot/conversations?profile=finance')) {
         listFetches += 1;
@@ -468,6 +474,34 @@ describe('AiAssistantPanel', () => {
       attachmentIds: [],
       profile: 'finance',
     });
+  });
+
+  it('a conversation still loading when a message is sent does not replace the conversation it went to', async () => {
+    conversations = [conversation('conv-b', '另一個對話')];
+    messagesOf['conv-b'] = [turn(1, 'user', 'B 的問題'), turn(2, 'assistant', 'B 的回答')];
+    let release = () => {};
+    holdMessages = () => new Promise<void>((resolve) => (release = resolve));
+    await mount();
+    await openConversation('另一個對話');
+
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: 'A 的回答' }, { type: 'done', conversationId: 'conv-a' }),
+    );
+    await send('A 的問題');
+    await waitForText('A 的回答');
+    await act(async () => release());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(container.textContent).toContain('A 的回答');
+    expect(container.textContent).not.toContain('B 的回答');
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '好' }, { type: 'done', conversationId: 'conv-a' }),
+    );
+    await send('再問');
+    await waitForText('好');
+    expect(chatBodies[1].conversationId).toBe('conv-a');
   });
 
   it('keeps a message too long for the server in the box, saying so, and sends it once shortened', async () => {

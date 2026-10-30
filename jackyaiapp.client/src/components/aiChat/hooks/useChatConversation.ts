@@ -97,12 +97,16 @@ export function useChatConversation(options?: ChatConversationOptions) {
   const { blocks, currentHtmlBlock } = useStreamingHtmlParser(currentStreamingContent);
   const busy = streamingStatus.isLoading;
   const nextTurnKey = useRef(0);
+  // Each change of what is on screen (a conversation opened, a new one, a message sent) takes the next number: a
+  // conversation whose history arrives after a later change is not put on screen over it.
+  const screenChange = useRef(0);
 
   // Start a fresh conversation (the server assigns a new id with the next reply). Not while a
   // reply is still coming in: it would carry on into the old conversation under an empty screen.
   // Says whether it did.
   const newChat = useCallback(() => {
     if (busy) return false;
+    screenChange.current++;
     setMessages([]);
     setConversationId('');
     setCurrentStreamingContent('');
@@ -114,8 +118,11 @@ export function useChatConversation(options?: ChatConversationOptions) {
   const selectConversation = useCallback(
     async (id: string) => {
       if (busy) return false;
+      const change = ++screenChange.current;
       try {
         const res = await fetchConversationMessages(id).unwrap();
+        // Another conversation was picked, a new one started, or a message sent while this one loaded.
+        if (change !== screenChange.current) return false;
         setMessages(mapHistoryToMessages(res.data));
         setConversationId(id);
         setCurrentStreamingContent('');
@@ -128,12 +135,14 @@ export function useChatConversation(options?: ChatConversationOptions) {
     [fetchConversationMessages, busy],
   );
 
-  // 實時更新最後一條 bot 消息的 parsedBlocks
+  // The reply being written shows as blocks while it streams. Only a bubble still streaming takes them (its
+  // `parsedBlocks` is a list from the start): an error or a stop clears the list to show its own text, and blocks of
+  // the last delta that render after it must not draw the half answer back over that text.
   useEffect(() => {
     if (blocks.length > 0) {
       setMessages((prev) => {
         const lastMessage = prev[prev.length - 1];
-        if (lastMessage && !lastMessage.isUser) {
+        if (lastMessage && !lastMessage.isUser && lastMessage.parsedBlocks !== undefined) {
           return prev.map((msg, index) =>
             index === prev.length - 1 ? { ...msg, parsedBlocks: blocks } : msg,
           );
@@ -164,6 +173,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
     edited?: Message,
     { fresh = false, quotesPageText = false, handedOverBy, readAloud = false }: SendOptions = {},
   ) => {
+    screenChange.current++;
     const userMessage: Message = {
       id: `${Date.now()}-${nextTurnKey.current++}`,
       content: text,
