@@ -27,8 +27,8 @@
    `AppOnly` 的工具不進 `ConnectorToolSource` 給模型的清單。
 2. **呼叫工具**（`CallToolAsync`）：`McpToolOutcome` 多 `AppResult`：`CallToolResult` 的 `content`（只留 text block）與
    `structuredContent`，序列化後 ≤ 64 KB（超過就不給 app，只有文字）。
-3. **卡片**：該工具有 `UiResourceUri` 時，`tool_result.card` 是 `{ kind: "mcp-app", installationId, toolName, title, input, result }`
-   ——**不含 HTML**。卡片照舊存進 `ChatMessages.CardsJson`（小），重開對話也能重畫。`ToolCardGuard` 認得這個 kind（input／result 各 ≤ 64 KB）。
+3. **卡片**：該工具有 `UiResourceUri` 時，`tool_result.card` 是 `{ kind: "mcp-app", title, data: { installationId, connector, tool, title, resourceUri, input, result } }`（實作的形狀，第 64 輪校正）
+   ——**不含 HTML**。卡片照舊存進 `ChatMessages.CardsJson`（小），重開對話也能重畫。input／result 各 ≤ 64 KB 在建卡片時就限住（`ConnectorToolSource`、`McpToolClient.AppResultOf`）；`ToolCardGuard` 以一般物件卡片的 200 KB 總上限把關（第 64 輪校正）。
 4. **HTML**：前端畫卡片時才 `GET api/connectors/installations/{id}/app?uri=ui://…`：伺服器以使用者的認證對**同一個 server**
    `resources/read`（經 `SafeHttp`），要求 mimeType `text/html;profile=mcp-app`、文字（不收 blob）、≤ 512 KB、connector 開著、uri 是
    該 connector 的工具宣告過的**前 5 個不同的 app** 之一（`McpAppService.AppUris`；其餘工具的結果只顯示文字）；回
@@ -42,7 +42,7 @@
 
 ## 4. 前端：`McpAppCard`
 
-- `AiChatConfig.cardRenderers` 的共用 renderer（三個助理都有，因為 connector 工具三個助理都能用）。`React.lazy`。
+- 由 chat 自己畫（`cards/ToolCards` 直接畫 `McpAppCardView`，三個助理都有，因為 connector 工具三個助理都能用），不是各 app 的 `cardRenderers`；沒有 `React.lazy`（第 64 輪校正）。
 - **一層 iframe，`sandbox="allow-scripts"`、不給 `allow-same-origin`**：app 的 origin 是 opaque，讀不到本站的 cookie、
   localStorage，也不能 `fetch` 本站 API（沒有 cookie）。`srcdoc` = 我們在 `<head>` 最前面插入的 CSP `<meta>` + app 的 HTML。
   多個 CSP 取交集，所以 app 自己的 `<meta>` 只能更嚴、不能放寬。
@@ -51,13 +51,13 @@
 - **CSP**（`mcpAppCsp(declared)`）：規格的預設——`default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline';
   img-src data:; media-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`，
   再加上 server 宣告的 `connectDomains`／`resourceDomains`，**只收 `https://` 的主機**（不收 `*`、`http:`、`data:` 以外的 scheme）。
-  `frameDomains` 不給。
+  `frameDomains` 不給。`font-src` 也放行 `data:` 與宣告的 `resourceDomains`（只多了字型，第 64 輪校正）。
 - **橋**（`useMcpAppBridge`，純函式 `handleAppMessage` 有測試）：只收 `event.source === iframe.contentWindow` 的 JSON-RPC 2.0；
   - `ui/initialize` → `{ protocolVersion, hostInfo: { name: "Jacky Studio" }, hostCapabilities: { openLinks: {}, serverTools: {} },
     hostContext: { theme, displayMode: "inline", locale: "zh-TW", timeZone: "Asia/Taipei", platform: "web", containerDimensions: { maxHeight: 640 } } }`
   - 收到 `ui/notifications/initialized` 後送 `tool-input`、`tool-result`（之前什麼都不送）
   - `size-changed` → iframe 高度，夾在 80–640
-  - `ui/open-link` → 只收 https、不含帳密；卡片下方出現「介面想開啟 example.com　開啟／不用」，讀者按了才 `window.open(…, 'noopener')`（app 不能自己開）
+  - `ui/open-link` → 只收 https、不含帳密；卡片下方出現「介面想開啟 example.com　開啟／不用」，讀者按了才 `window.open(…, 'noopener')`（app 不能自己開）。**一次一個**：還在等讀者時再來的回 `{ isError: true }`、不換掉畫面上的網址；出現後或 app 改高度後 `PRESS_GUARD_MS` 內的按不算（D-232，`ui/message` 的「放進輸入框」同樣）
   - `tools/call` → `app-call`（伺服器決定能不能）；`ui/request-display-mode` → `inline`；`ui/update-model-context` → `{}`；`ping` → `{}`；其他 → `-32601`
 - **外框**：iframe 外面永遠有一行「「{connector}」的介面 · 來自 example.com · {工具標題}」，app 畫不到；名稱先、server 給的標題放最後並用
   `<bdi>` 隔開，名稱與標題都去掉控制與格式字元（`\p{Cc}\p{Cf}`：RLO 之類不能把說明列重新排序，D-202）。
@@ -68,7 +68,7 @@
 ## 5. 安全（補 design/06）
 
 - **隔離**：opaque origin、無 `allow-same-origin`／`allow-popups`／`allow-forms`／`allow-top-navigation`／`allow-modals`。
-- **外洩**：app 拿到的只是同一個 server 自己的工具結果；CSP 只放行它宣告的 https 主機。它想送出的資料 server 本來就有。
+- **外洩**：app 拿到的只是同一個 server 自己的工具結果；CSP 只放行它宣告的 https 主機。它想送出的資料 server 本來就有。CSP 擋不住 app 把整個 frame 導到別的網址（資料可以放在網址裡）：第二次 `load` 會移除 frame，但那一次導覽已經送出——送出的仍只是同一個 server 自己的資料，所以結論不變（第 64 輪補註）。
 - **注入**：app 的文字不經模型；`ui/message` 只進輸入框，送出時當外部文字（taint）。
 - **寫入**：app 不能呼叫寫入工具；寫入仍只能經模型 → 確認卡。
 - **SSRF**：`resources/read` 只對 installation 本身的網址，經 `SafeHttp`。

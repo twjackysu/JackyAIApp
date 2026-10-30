@@ -75,6 +75,15 @@ const message = {
 const button = (name: string) =>
   [...container!.querySelectorAll('button')].find((b) => b.textContent === name);
 
+// A press counts only PRESS_GUARD_MS after what it answers appeared (D-232): the clock is moved on past it, except where a
+// test presses too soon on purpose.
+let clock = 0;
+vi.spyOn(performance, 'now').mockImplementation(() => clock);
+const press = (name: string, after = 1000) => {
+  clock += after;
+  act(() => button(name)!.click());
+};
+
 describe('an MCP App’s ui/message', () => {
   it('is offered under the app and goes in the box only when the reader presses', () => {
     const putInDraft = vi.fn();
@@ -87,7 +96,7 @@ describe('an MCP App’s ui/message', () => {
     expect(html()).toContain('幫我把時間換成台北時間');
     expect(putInDraft).not.toHaveBeenCalled();
 
-    act(() => button('放進輸入框')!.click());
+    press('放進輸入框');
 
     expect(putInDraft).toHaveBeenCalledWith('幫我把時間換成台北時間');
     expect(html()).not.toContain('介面想把這段話放進輸入框');
@@ -107,7 +116,7 @@ describe('an MCP App’s ui/message', () => {
     // The app is told the second one was not shown, not that it was (D-211).
     expect(replies).toContainEqual({ jsonrpc: '2.0', id: 7, result: {} });
     expect(replies).toContainEqual({ jsonrpc: '2.0', id: 8, result: { isError: true } });
-    act(() => button('放進輸入框')!.click());
+    press('放進輸入框');
 
     expect(putInDraft).toHaveBeenCalledWith('幫我把時間換成台北時間');
   });
@@ -117,7 +126,7 @@ describe('an MCP App’s ui/message', () => {
     const { fromApp, replies, html } = mount(putInDraft);
 
     fromApp(message);
-    act(() => button('不用')!.click());
+    press('不用');
     fromApp({
       ...message,
       id: 8,
@@ -133,7 +142,7 @@ describe('an MCP App’s ui/message', () => {
     const { fromApp, html } = mount(putInDraft);
 
     fromApp(message);
-    act(() => button('不用')!.click());
+    press('不用');
 
     expect(putInDraft).not.toHaveBeenCalled();
     expect(html()).not.toContain('介面想把這段話放進輸入框');
@@ -159,5 +168,78 @@ describe('an MCP App’s ui/message', () => {
     });
 
     expect(html()).not.toContain('介面想把這段話放進輸入框');
+  });
+});
+
+describe('an MCP App’s offer to put words in the box (D-232)', () => {
+  it('takes no press right after it appeared', () => {
+    const putInDraft = vi.fn();
+    const { fromApp } = mount(putInDraft);
+
+    fromApp(message);
+    press('放進輸入框', 100);
+
+    expect(putInDraft).not.toHaveBeenCalled();
+    press('放進輸入框');
+    expect(putInDraft).toHaveBeenCalledWith('幫我把時間換成台北時間');
+  });
+});
+
+const link = (id: number, url: string) => ({
+  jsonrpc: '2.0',
+  id,
+  method: 'ui/open-link',
+  params: { url },
+});
+
+describe('an MCP App’s ui/open-link (D-232)', () => {
+  it('is offered, and opened only on the reader’s press', () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const { fromApp, replies, html } = mount(null);
+
+    fromApp(link(3, 'https://example.com/a'));
+
+    expect(replies).toContainEqual({ jsonrpc: '2.0', id: 3, result: {} });
+    expect(html()).toContain('介面想開啟 example.com');
+    expect(open).not.toHaveBeenCalled();
+
+    press('開啟');
+
+    expect(open).toHaveBeenCalledWith('https://example.com/a', '_blank', 'noopener,noreferrer');
+    expect(html()).not.toContain('介面想開啟');
+    open.mockRestore();
+  });
+
+  it('keeps the address on screen until the reader decides: a second one does not replace it', () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const { fromApp, replies, html } = mount(null);
+
+    fromApp(link(3, 'https://example.com/a'));
+    fromApp(link(4, 'https://evil.example/b'));
+
+    expect(replies).toContainEqual({ jsonrpc: '2.0', id: 4, result: { isError: true } });
+    expect(html()).not.toContain('evil.example');
+    press('開啟');
+
+    expect(open).toHaveBeenCalledWith('https://example.com/a', '_blank', 'noopener,noreferrer');
+    open.mockRestore();
+  });
+
+  it('takes no press right after it appeared, nor right after the app resized', () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const { fromApp } = mount(null);
+
+    fromApp(link(3, 'https://example.com/a'));
+    press('開啟', 100);
+    expect(open).not.toHaveBeenCalled();
+
+    clock += 1000;
+    fromApp({ jsonrpc: '2.0', method: 'ui/notifications/size-changed', params: { height: 400 } });
+    press('開啟', 100);
+    expect(open).not.toHaveBeenCalled();
+
+    press('開啟');
+    expect(open).toHaveBeenCalledTimes(1);
+    open.mockRestore();
   });
 });

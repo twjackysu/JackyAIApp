@@ -37,8 +37,11 @@ export type AppStep =
   /** The app is ready: now send it the tool's input and result (nothing is sent before, as the spec requires). */
   | { type: 'ready' }
   | { type: 'resize'; height: unknown }
-  /** Offer the reader to open this https address; the app cannot open it itself. */
-  | { type: 'offerLink'; url: string }
+  /**
+   * Offer the reader to open this https address; the app cannot open it itself. The card answers it like a `ui/message`:
+   * `{}` once it is shown, `messageRefused` when another link is still waiting for the reader (D-232).
+   */
+  | { type: 'offerLink'; id: JsonRpcId; url: string }
   /**
    * Offer the reader to put this text in the box (`ui/message`); the app cannot send it itself. The card answers it:
    * `{}` once it is shown, `messageRefused` when another one is still waiting for the reader (D-211).
@@ -128,7 +131,7 @@ export function stepsFor(data: unknown, state: HostState): AppStep[] {
     case 'ui/open-link': {
       const url = linkOf(params.url);
       return url
-        ? [{ type: 'offerLink', url }, reply(id, {})]
+        ? [{ type: 'offerLink', id, url }]
         : [refuse(id, -32602, 'Only https links can be opened.')];
     }
     case 'ui/message': {
@@ -177,7 +180,8 @@ export function toolNotifications(
 
 /**
  * The answer to a `ui/message` the card does not show: one is already waiting for the reader, and showing this one would
- * replace words the reader may be reading (D-204). The extension's result for a message the host did not deliver.
+ * replace words the reader may be reading (D-204). The extension's result for a message the host did not deliver. A
+ * `ui/open-link` the card does not show is answered the same way (D-232).
  */
 export function messageRefused(id: JsonRpcId): JsonRpcReply {
   return { jsonrpc: '2.0', id, result: { isError: true } };

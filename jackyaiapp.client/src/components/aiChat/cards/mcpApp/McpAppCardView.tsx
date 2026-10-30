@@ -132,7 +132,14 @@ function AppFrame({
   const readyRef = useRef(false);
   const loadsRef = useRef(0);
   const [height, setHeight] = useState(APP_START_HEIGHT);
-  const [offeredLink, setOfferedLink] = useState<string | null>(null);
+  // The app asked to open a link (ui/open-link): one at a time, like ui/message, so it is never swapped under the reader's
+  // press (D-232).
+  const [offeredLink, setOfferedLinkState] = useState<string | null>(null);
+  const offeredLinkRef = useRef<string | null>(null);
+  const setOfferedLink = useCallback((url: string | null) => {
+    offeredLinkRef.current = url;
+    setOfferedLinkState(url);
+  }, []);
   // The app asked to put words in the box (ui/message): shown here, in the box only once the reader presses (D-204).
   const [offeredMessage, setOfferedMessageState] = useState<string | null>(null);
   const offeredMessageRef = useRef<string | null>(null);
@@ -246,12 +253,22 @@ function AppFrame({
             shiftedAtRef.current = performance.now();
             setHeight(h);
           }
-        } else if (step.type === 'offerLink') setOfferedLink(step.url);
-        else if (step.type === 'offerMessage') {
+        } else if (step.type === 'offerLink') {
+          // One at a time, and a press just after it appeared is not taken: the app cannot swap the address, or put a
+          // fresh one, under a press meant for another (D-232).
+          if (offeredLinkRef.current !== null) post(messageRefused(step.id));
+          else {
+            shiftedAtRef.current = performance.now();
+            setOfferedLink(step.url);
+            post({ jsonrpc: '2.0', id: step.id, result: {} });
+          }
+        } else if (step.type === 'offerMessage') {
           // One at a time: a new one never replaces the text the reader is reading (they could press on what they did not
-          // read), and the app is told this one was not shown rather than that it was (D-211).
+          // read), and the app is told this one was not shown rather than that it was (D-211). A press just after it
+          // appeared is not taken either (D-232).
           if (offeredMessageRef.current !== null) post(messageRefused(step.id));
           else {
+            shiftedAtRef.current = performance.now();
             setOfferedMessage(step.text);
             post({ jsonrpc: '2.0', id: step.id, result: {} });
           }
@@ -282,6 +299,7 @@ function AppFrame({
     setGate,
     tellScheme,
     setOfferedMessage,
+    setOfferedLink,
   ]);
 
   return (
@@ -375,6 +393,7 @@ function AppFrame({
             <Button
               size="small"
               onClick={() => {
+                if (!pressCounts()) return;
                 window.open(offeredLink, '_blank', 'noopener,noreferrer');
                 setOfferedLink(null);
               }}
@@ -411,6 +430,7 @@ function AppFrame({
             <Button
               size="small"
               onClick={() => {
+                if (!pressCounts()) return;
                 putInDraft(offeredMessage);
                 setOfferedMessage(null);
               }}

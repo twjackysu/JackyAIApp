@@ -134,7 +134,8 @@ const events = [
     await page.screenshot({ path: path.join(out, `studio-mcp-app-${name}.png`) });
     const frame = page.frameLocator('iframe[title^="天氣預報"]');
     await frame.getByText('看完整預報').click();
-    await page.waitForTimeout(500);
+    // 開啟 只在出現 PRESS_GUARD_MS（600 ms）之後才算數（D-232）。
+    await page.waitForTimeout(700);
     await page.screenshot({ path: path.join(out, `studio-mcp-app-link-${name}.png`) });
     await page.getByRole('button', { name: '開啟' }).click();
     await page.waitForTimeout(300);

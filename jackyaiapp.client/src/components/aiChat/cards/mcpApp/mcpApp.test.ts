@@ -195,10 +195,7 @@ describe('the bridge', () => {
         { jsonrpc: '2.0', id: 2, method: 'ui/open-link', params: { url: 'https://example.com/a' } },
         state,
       ),
-    ).toEqual([
-      { type: 'offerLink', url: 'https://example.com/a' },
-      { type: 'reply', message: { jsonrpc: '2.0', id: 2, result: {} } },
-    ]);
+    ).toEqual([{ type: 'offerLink', id: 2, url: 'https://example.com/a' }]);
     const [refused] = stepsFor(
       { jsonrpc: '2.0', id: 3, method: 'ui/open-link', params: { url: 'javascript:alert(1)' } },
       state,

@@ -96,7 +96,7 @@ const events = [
     console.log(name, 'after Get Server Time:', await frame.locator('#server-time').textContent().catch((e) => 'ERR ' + e.message));
     await frame.locator('#message-text').fill('幫我把這個時間換成台北時間');
     await frame.locator('#send-message-btn').click();
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(700); // 放進輸入框 只在出現 600 ms 後才算數（D-232）
     await page.locator('[data-testid="mcp-app-card"]').scrollIntoViewIfNeeded();
     await page.screenshot({ path: path.join(out, `official-app-message-${name}.png`) });
     await page.getByRole('button', { name: '放進輸入框' }).click();
@@ -104,7 +104,7 @@ const events = [
     console.log(name, 'box now:', JSON.stringify(await page.getByRole('textbox').last().inputValue()));
     await page.screenshot({ path: path.join(out, `official-app-draft-${name}.png`) });
     await frame.locator('#open-link-btn').click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(700); // 開啟 只在出現 600 ms 後才算數（D-232）
     const offered = await page.getByText('介面想開啟').count();
     if (offered) await page.getByRole('button', { name: '開啟' }).click();
     await page.waitForTimeout(300);
