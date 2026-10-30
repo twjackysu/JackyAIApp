@@ -172,6 +172,7 @@
 7. **安全（1 分鐘）**：在 connector 詳情把某個工具設成「停用」→ AI 說它沒有這個能力；「需確認」的工具一律出確認卡；標「無法復原」的工具沒有「自動」可選；按「停止」整輪什麼都不執行。讀過外部內容（connector、行事曆、Jira、MCP 目錄）的對話，之後的寫入一律先問（即使設成「以後直接執行」），**也不再自動切頁或交棒**（拿今日簡報那個對話說「帶我去複習」：只給連結卡，頁面不動）；MCP server 把工具說明偷偷改掉時，那個工具自動改回「需確認」。
    ![connector 詳情：每個工具自動／需確認／停用，無法復原的一定先問](screenshots/connectors-drawer-custom-desktop.png)
    ![讀過 Jira 之後的留言：確認卡寫出整則留言](screenshots/studio-jira-comment-approval-desktop.png)
+   ![今日簡報（讀過行事曆）之後說「帶我去複習」：只有連結卡，背後的首頁不動](screenshots/studio-tainted-go-desktop.png)
 8. **反過來：網站本身就是 MCP server（1 分鐘）**：/connectors 往下捲到「讓其他 AI 使用本站」→「產生 token」（名稱 Claude Code、唯讀）→ 複製「Claude Code」那一行指令貼到終端機 → 在 Claude Code 問「用 jacky-studio 查一下 serendipity，再看我今天要複習幾個字」→ 它呼叫本站的 `look_up_word`、`learning_progress`。再打 `/mcp__jacky-studio__daily_briefing`（產生 token 的對話框會寫出這行）→ Claude Code 一次呼叫行程、學習進度、投資組合三個工具，整理成三段簡報；`/mcp__jacky-studio__quiz_me` 則一次問一題。回到 /connectors 看到 token「最後使用」更新；按「撤銷」後 Claude Code 立刻連不上。
    **或在 Claude.ai**：設定 → Connectors → 新增自訂 connector，只貼 `https://apps.jacky-studio.com/api/mcp` → 跳到本站的同意頁「Claude 想用你的身分使用 Jacky Studio 的工具，完成後會回到 claude.ai」→ 允許 → 回到 Claude.ai，工具出現。
    接著在 Claude.ai 問「我的投資組合現在怎麼樣？」→ 回答下方出現 **Jacky Studio 的持倉表格卡片**（MCP App），問「serendipity 是什麼」→ 單字卡，按「看完整解釋」開到本站字典頁；token 允許寫入時卡片上還有「加入單字庫」，在 Claude 裡按一下就加進本站的單字庫（MCP App 經 host 呼叫 `tools/call`）。
