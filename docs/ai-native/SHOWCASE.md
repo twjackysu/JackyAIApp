@@ -56,12 +56,14 @@
 
 下面的完整腳本超過 10 分鐘。只有 5 分鐘時，照這五步走，每一步各代表一個 2026 的 AI 趨勢；細節與截圖在完整腳本對應的那一步。
 
+> **第 2 步起，每一步先按 Studio 標題列的「新對話」（✎）。** 今日簡報讀過行事曆（別人寫的會議標題），那個對話之後**不會再自動切頁或交棒、寫入一律先問**——這是安全設計（第 7 步），但在同一個對話裡接著 demo「帶我去」或交棒，頁面就不會動。抽屜關掉再按 ⌘K 仍是原本的對話。
+
 | # | 做什麼 | 觀眾看到的「哇」 | 趨勢 | 完整腳本 |
 |---|---|---|---|---|
 | 1 | 首頁按「AI 今日簡報」 | 「思考中…」→ 一次叫三個工具 → 行程表格、待複習的字、資產重點；按「已思考 N 秒」展開推理 | agent 跨 app 組合、看得見的推理 | 第 1 步 |
-| 2 | ⌘K：「serendipity 是什麼？幫我加入單字庫」；再到 /english 按 ⌘K 的第一個建議「考我今天該複習的單字」 | 確認卡（先問才動手）→ 回答裡長出能作答的測驗卡，答完記進複習排程 | human-in-the-loop、generative UI | 第 3 步 |
-| 3 | 首頁 ⌘K：「幫我做一個業績總覽 dashboard，存完打開」 | Studio 交棒 → 頁面自己切到 /data-analysis，那裡的助理接手畫三張圖 → 「全部允許（3）」→ 切到做好的 dashboard | 多 agent 交棒、一次做完「一件事」 | 第 5 步 |
-| 4 | /connectors 按 ⌘K：「幫我找一個能查天氣的 MCP server」→ 加入 → 「在 Studio AI 試試看」 | AI 在 MCP 官方目錄找工具，裝不裝由你按；接上就用；有 MCP App 的 server（例如官方範例）直接在回答裡畫出它自己的介面 | MCP Registry、MCP Apps | 第 6 步 |
+| 2 | ⌘K →「新對話」→「serendipity 是什麼？幫我加入單字庫」→ 允許；接著在同一個對話打 `/考我`、按 Enter（＝「考我今天該複習的單字」） | 確認卡（先問才動手）→ 回答裡長出能作答的測驗卡，答完記進複習排程 | human-in-the-loop、generative UI | 第 3 步 |
+| 3 | 首頁 ⌘K →「新對話」→「幫我做一個業績總覽 dashboard，存完打開」 | Studio 交棒 → 頁面自己切到 /data-analysis，那裡的助理接手畫三張圖 → 「全部允許（3）」→ 切到做好的 dashboard | 多 agent 交棒、一次做完「一件事」 | 第 5 步 |
+| 4 | /connectors 按 ⌘K →「新對話」→ 按建議「幫我找一個能查天氣的 MCP server」再按 Enter（建議只放進輸入框）→ 卡片上的「加入」→ 加完按「在 Studio AI 試試看」（自己開新對話） | AI 在 MCP 官方目錄找工具，裝不裝由你按；接上就用；有 MCP App 的 server（例如官方範例）直接在回答裡畫出它自己的介面 | MCP Registry、MCP Apps | 第 6 步 |
 | 5 | /connectors「讓其他 AI 使用本站」→ 產生 token → 貼到 Claude Code，打 `/mcp__jacky-studio__daily_briefing` | 別家的 AI 用本站的功能做出同一份今日簡報 | 網站本身就是 MCP server（tools＋prompts＋apps） | 第 8 步 |
 
 收尾一句：「每個寫入都先問你、讀過外部內容就更小心」（第 7 步的安全設計），再指架構圖。
@@ -85,11 +87,11 @@
    ![Studio 的斜線指令](screenshots/studio-slash-desktop.png)
    在自己的 dashboard 上打「/」，第一個就是 **「解讀這個 dashboard」**；在字典的單字頁是 **「解釋 serendipity」**——指令跟著頁面走。
    ![dashboard 頁的斜線指令](screenshots/studio-slash-dashboard-desktop.png)
-2. **AI 操作網站（30 秒）**：在首頁 ⌘K →「帶我去複習」→ 背後的頁面直接切到「複習」，Studio 說明怎麼翻牌（手機上回答完抽屜自動收起，再按按鈕對話還在）。
+2. **AI 操作網站（30 秒）**：在首頁 ⌘K → 先按標題列的 **「新對話」**（第 1 步的簡報讀過行事曆，那個對話不會再自動切頁，見第 7 步）→「帶我去複習」→ 背後的頁面直接切到「複習」，Studio 說明怎麼翻牌（手機上回答完抽屜自動收起，再按按鈕對話還在）。
    ![帶我去複習](screenshots/studio-go-desktop.png)
 3. **本站即工具（1 分鐘）**：輸入「serendipity 是什麼？幫我加入單字庫」→ 回答上方顯示用了「查字典」→ 單字連結卡 → 出現**確認卡**「加入單字庫：serendipity」→ 按「允許」→「已加入」與「前往單字庫」。確認卡下方寫著「3 分鐘內沒有回覆，這次就不執行」（最後一分鐘倒數秒數）；切到別的分頁時，分頁標題變成「（等你確認）Jacky's Studio」，這時重新整理頁面，瀏覽器會先問要不要離開（D-105～D-107）。
    ![確認卡](screenshots/studio-approval-desktop.png)
-   接著到 /english → ⌘K → 第一個建議「考我今天該複習的單字」→ 回答裡出現**測驗卡**，直接按選項：對錯與解說立刻出現，三題答完顯示「答對 2 / 3 題」並記進複習排程（+XP），下方「再考我 3 題」。
+   接著到 /english → ⌘K →「新對話」→ 按第一個建議「考我今天該複習的單字」（建議只放進輸入框，再按 Enter）→ 回答裡出現**測驗卡**，直接按選項：對錯與解說立刻出現，三題答完顯示「答對 2 / 3 題」並記進複習排程（+XP），下方「再考我 3 題」。
    ![Studio 的複習小測驗](screenshots/studio-quiz-desktop.png)
    ![作答後立刻顯示答案與解說](screenshots/studio-quiz-answered-desktop.png)
    ![答完：答對幾題、記進複習排程與 XP](screenshots/studio-quiz-result-phone.png)
@@ -167,7 +169,7 @@
    ![Studio 裡畫出 MCP server 自己的介面](screenshots/studio-mcp-app-desktop.png)
    ![app 要開連結時要讀者按（手機）](screenshots/studio-mcp-app-link-phone.png)
    ![app 向自己的 server 要新資料](screenshots/studio-mcp-app-refreshed-desktop.png)
-7. **安全（1 分鐘）**：在 connector 詳情把某個工具設成「停用」→ AI 說它沒有這個能力；「需確認」的工具一律出確認卡；標「無法復原」的工具沒有「自動」可選；按「停止」整輪什麼都不執行。讀過外部內容（connector、行事曆、Jira）的對話，之後的寫入一律先問（即使設成「以後直接執行」）；MCP server 把工具說明偷偷改掉時，那個工具自動改回「需確認」。
+7. **安全（1 分鐘）**：在 connector 詳情把某個工具設成「停用」→ AI 說它沒有這個能力；「需確認」的工具一律出確認卡；標「無法復原」的工具沒有「自動」可選；按「停止」整輪什麼都不執行。讀過外部內容（connector、行事曆、Jira、MCP 目錄）的對話，之後的寫入一律先問（即使設成「以後直接執行」），**也不再自動切頁或交棒**（拿今日簡報那個對話說「帶我去複習」：只給連結卡，頁面不動）；MCP server 把工具說明偷偷改掉時，那個工具自動改回「需確認」。
    ![connector 詳情：每個工具自動／需確認／停用，無法復原的一定先問](screenshots/connectors-drawer-custom-desktop.png)
    ![讀過 Jira 之後的留言：確認卡寫出整則留言](screenshots/studio-jira-comment-approval-desktop.png)
 8. **反過來：網站本身就是 MCP server（1 分鐘）**：/connectors 往下捲到「讓其他 AI 使用本站」→「產生 token」（名稱 Claude Code、唯讀）→ 複製「Claude Code」那一行指令貼到終端機 → 在 Claude Code 問「用 jacky-studio 查一下 serendipity，再看我今天要複習幾個字」→ 它呼叫本站的 `look_up_word`、`learning_progress`。再打 `/mcp__jacky-studio__daily_briefing`（產生 token 的對話框會寫出這行）→ Claude Code 一次呼叫行程、學習進度、投資組合三個工具，整理成三段簡報；`/mcp__jacky-studio__quiz_me` 則一次問一題。回到 /connectors 看到 token「最後使用」更新；按「撤銷」後 Claude Code 立刻連不上。
