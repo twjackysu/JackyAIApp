@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   authorize: vi.fn(),
   test: vi.fn(),
+  updateCredentials: vi.fn(),
   setEnabled: vi.fn(),
   remove: vi.fn(),
   setPermission: vi.fn(),
@@ -35,6 +36,7 @@ vi.mock('@/apis/connectorsApis/connectorsApis', () => ({
   useCreateInstallationMutation: mutation(mocks.create),
   useAuthorizeInstallationMutation: mutation(mocks.authorize),
   useTestInstallationMutation: mutation(mocks.test),
+  useUpdateInstallationCredentialsMutation: mutation(mocks.updateCredentials),
   useSetInstallationEnabledMutation: mutation(mocks.setEnabled),
   useRemoveInstallationMutation: mutation(mocks.remove),
   useSetToolPermissionMutation: mutation(mocks.setPermission),
@@ -302,6 +304,43 @@ describe('AiConnectorsSection', () => {
     await click(button('確定移除'));
     expect(mocks.remove).toHaveBeenCalledWith('i-1');
     expect(notify).toHaveBeenCalledWith('已移除 DeepWiki', 'success');
+  });
+
+  it('takes a new token for a connector its server refused, in place, and tests it (D-224)', async () => {
+    mocks.updateCredentials.mockReturnValue({
+      ok: true,
+      latencyMs: 80,
+      error: null,
+      connector: installed({ authKind: 'bearer' }),
+    });
+    render(catalog({ installed: [installed({ health: 'needsAuth', authKind: 'bearer' })] }));
+    await openFirstCard();
+    expect(button('更新認證').className).toContain('MuiButton-contained');
+    expect(button('重新授權')).toBeUndefined();
+
+    await click(button('更新認證'));
+    const input = document.body.querySelector<HTMLInputElement>('input[type="password"]')!;
+    expect(button('儲存並測試').disabled).toBe(true);
+    await act(async () => {
+      const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+      set.call(input, ' new-token ');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await click(button('儲存並測試'));
+
+    expect(mocks.updateCredentials).toHaveBeenCalledWith({
+      id: 'i-1',
+      credentials: { value: 'new-token' },
+    });
+    expect(notify).toHaveBeenCalledWith('已更新認證，連線正常（1 個工具）', 'success');
+    // Tried: the form closes.
+    expect(document.body.querySelector('input[type="password"]')).toBeNull();
+  });
+
+  it('offers no credentials to type for a connector that signs in otherwise', async () => {
+    render(catalog({ installed: [installed()] }));
+    await openFirstCard();
+    expect(button('更新認證')).toBeUndefined();
   });
 
   it('reports a failed connection test in words', async () => {

@@ -438,6 +438,74 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Fact]
+        public async Task ANewApiKey_IsKeptInTheSameHeader_AndTheServerIsListedWithIt()
+        {
+            ServerHas(Search);
+            await Service().CreateAsync(Request("apiKey", "old", "X-API-Key"), default);
+            var row = _db.ConnectorInstallations.AsNoTracking().Single();
+            ServerFails(McpFailure.NeedsAuth);
+            await Service().TestAsync(row.Id, default);
+            ServerHas(Search);
+
+            var result = await Service().UpdateCredentialsAsync(row.Id, new McpCredentialsDto { Value = " new " }, default);
+
+            Assert.True(result.Data!.Ok);
+            Assert.Equal("ok", result.Data.Connector.Health);
+            var saved = _db.ConnectorInstallations.AsNoTracking().Single();
+            Assert.Equal(new McpAuth("X-API-Key", "new"), _secrets.AuthOf(saved));
+            Assert.Equal("Ok", saved.LastStatus);
+            _mcp.Verify(m => m.ListToolsAsync(Url, new McpAuth("X-API-Key", "new"), It.IsAny<CancellationToken>()));
+        }
+
+        [Fact]
+        public async Task ANewBearerToken_IsKept_EvenWhenTheServerStillRefusesIt_AndSaysSo()
+        {
+            ServerHas(Search);
+            await Service().CreateAsync(Request("bearer", "old"), default);
+            var id = _db.ConnectorInstallations.AsNoTracking().Single().Id;
+            ServerFails(McpFailure.NeedsAuth, "不接受");
+
+            var result = await Service().UpdateCredentialsAsync(id, new McpCredentialsDto { Value = "Bearer new" }, default);
+
+            Assert.False(result.Data!.Ok);
+            Assert.Equal("needsAuth", result.Data.Connector.Health);
+            Assert.Equal(new McpAuth("Authorization", "Bearer new"), _secrets.AuthOf(_db.ConnectorInstallations.AsNoTracking().Single()));
+        }
+
+        [Fact]
+        public async Task CredentialsAreOnlyTypedForAConnectorThatTakesThem_AndOnlyTheReadersOwn()
+        {
+            ServerHas(Search);
+            await Service().CreateAsync(Request(), default);
+            var none = _db.ConnectorInstallations.AsNoTracking().Single().Id;
+
+            var refused = await Service().UpdateCredentialsAsync(none, new McpCredentialsDto { Value = "k" }, default);
+            Assert.Equal(ErrorCodes.BadRequest, refused.Error);
+
+            _db.ConnectorInstallations.Add(new SQL.ConnectorInstallation
+            {
+                Id = "theirs-key", UserId = "u2", DefinitionKey = SQL.ConnectorInstallation.CustomKey, ServerUrl = Url.ToString(),
+                AuthKind = "Bearer", EncryptedSecret = _secrets.Seal(new McpAuth("Authorization", "Bearer x")),
+            });
+            await _db.SaveChangesAsync();
+            Assert.Equal(ErrorCodes.NotFound,
+                (await Service().UpdateCredentialsAsync("theirs-key", new McpCredentialsDto { Value = "k" }, default)).Error);
+        }
+
+        [Fact]
+        public async Task AnEmptyKey_IsABadRequest_AndTheOldOneIsKept()
+        {
+            ServerHas(Search);
+            await Service().CreateAsync(Request("bearer", "old"), default);
+            var id = _db.ConnectorInstallations.AsNoTracking().Single().Id;
+
+            var result = await Service().UpdateCredentialsAsync(id, new McpCredentialsDto { Value = " " }, default);
+
+            Assert.Equal(ErrorCodes.BadRequest, result.Error);
+            Assert.Equal(new McpAuth("Authorization", "Bearer old"), _secrets.AuthOf(_db.ConnectorInstallations.AsNoTracking().Single()));
+        }
+
+        [Fact]
         public async Task AServerThatNoLongerTakesItsCredentials_TellsTheModelToSendTheReaderToReconnect()
         {
             ServerHas(Search);

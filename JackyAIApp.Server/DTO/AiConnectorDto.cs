@@ -85,6 +85,12 @@ namespace JackyAIApp.Server.DTO
         public McpCredentialsDto? Credentials { get; set; }
     }
 
+    /// <summary>A connector's new API key (its header kept unless another is named) or bearer token.</summary>
+    public sealed class UpdateCredentialsRequestDto
+    {
+        public McpCredentialsDto? Credentials { get; set; }
+    }
+
     public sealed class ProbeRequestDto
     {
         public string? ServerUrl { get; set; }

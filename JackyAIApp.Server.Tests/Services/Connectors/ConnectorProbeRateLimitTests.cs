@@ -136,6 +136,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         [InlineData(nameof(AiConnectorsController.Probe))]
         [InlineData(nameof(AiConnectorsController.Create))]
         [InlineData(nameof(AiConnectorsController.Test))]
+        [InlineData(nameof(AiConnectorsController.UpdateCredentials))]
         public void TheEndpointsThatReachAServer_AreHeldToIt(string action)
         {
             var method = typeof(AiConnectorsController).GetMethod(action)!;

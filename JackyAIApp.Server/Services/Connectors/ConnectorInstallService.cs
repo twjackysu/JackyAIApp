@@ -21,6 +21,13 @@ namespace JackyAIApp.Server.Services.Connectors
 
         /// <summary>Lists the server's tools again, and keeps them.</summary>
         Task<ServiceResult<ConnectionTestResultDto>> TestAsync(string installationId, CancellationToken ct);
+
+        /// <summary>
+        /// A new API key or bearer token for a connector that signs in with one (the way back once its server refused the
+        /// old one, D-224): kept, then the server's tools listed with it, as a test does.
+        /// </summary>
+        Task<ServiceResult<ConnectionTestResultDto>> UpdateCredentialsAsync(string installationId, McpCredentialsDto? credentials,
+            CancellationToken ct);
     }
 
     public sealed class ConnectorInstallService(
@@ -134,6 +141,46 @@ namespace JackyAIApp.Server.Services.Connectors
             return ServiceResult.Ok(new ConnectionTestResultDto(ok, latency, ok ? null : blocked ?? row.LastError,
                 ConnectorCatalogService.InstalledDto(row)));
         }
+
+        public async Task<ServiceResult<ConnectionTestResultDto>> UpdateCredentialsAsync(string installationId,
+            McpCredentialsDto? credentials, CancellationToken ct)
+        {
+            var userId = currentUser.RequireId();
+            var row = await db.ConnectorInstallations.FirstOrDefaultAsync(c => c.Id == installationId && c.UserId == userId, ct);
+            if (row?.ServerUrl == null) return ServiceResult.Fail(ErrorCodes.NotFound, "找不到這個 connector。");
+            var kind = TypedAuthKindOf(row.AuthKind);
+            if (kind == null)
+                return ServiceResult.Fail(ErrorCodes.BadRequest, row.AuthKind == "OAuth"
+                    ? "這個 connector 用登入授權，請按「重新授權」。"
+                    : "這個 connector 不需要認證。");
+
+            // An API key goes in the header it went in, unless the reader names another.
+            var header = credentials?.HeaderName;
+            if (kind == "apiKey" && string.IsNullOrWhiteSpace(header)) header = secrets.AuthOf(row).HeaderName;
+            var (auth, _, error) = AuthFrom(new CreateInstallationRequestDto
+            {
+                AuthKind = kind,
+                Credentials = new McpCredentialsDto { HeaderName = header, Value = credentials?.Value },
+            });
+            if (error != null) return ServiceResult.Fail(ErrorCodes.BadRequest, error);
+
+            // Kept whatever the server says next: they are the reader's, and the old ones are what it refused.
+            row.EncryptedSecret = secrets.Seal(auth);
+            var started = time.GetTimestamp();
+            var (ok, blocked) = await InstallationTools.RefreshAsync(row, auth, mcp, time, ct);
+            var latency = (long)time.GetElapsedTime(started).TotalMilliseconds;
+            await db.SaveChangesAsync(ct);
+            return ServiceResult.Ok(new ConnectionTestResultDto(ok, latency, ok ? null : blocked ?? row.LastError,
+                ConnectorCatalogService.InstalledDto(row)));
+        }
+
+        /// <summary>The request's name for a stored way of signing in that the reader types (apiKey, bearer); null for another.</summary>
+        internal static string? TypedAuthKindOf(string storedAuthKind) => storedAuthKind switch
+        {
+            "ApiKey" => "apiKey",
+            "Bearer" => "bearer",
+            _ => null,
+        };
 
         /// <summary>
         /// What a server that answered 401 wants: an OAuth sign-in when its metadata leads to an authorization

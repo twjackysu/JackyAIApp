@@ -439,7 +439,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   `ConnectorToolSource` (named `m1__…` per turn, their connector the installation's id; the reader's permission for one is
   kept and looked up under the server's own name, `AiToolDescriptor.PermissionName`; two that come to one name are offered once). A call the server
   refuses for its credentials marks the connector NeedsAuth and answers with a link card to that connector on the connectors page
-  (`ReconnectCard`, 「前往重新連線」, D-223). Probing, adding and testing one (what makes the server reach a
+  (`ReconnectCard`, 「前往重新連線」, D-223). One that signs in with an API key or a bearer token takes a new one in place,
+  `PUT installations/{id}/credentials` (`UpdateCredentialsAsync`, D-224: only the reader's own, the API key in the header it
+  went in, checked as when added, kept whatever the server says next, then its tools listed as a test does). Probing, adding,
+  testing and updating the credentials of one (what makes the server reach a
   host a reader named) are held to 20 a minute per reader (`RateLimitPolicies.ConnectorProbe`)
 - The chat is also an MCP Apps host for the reader's own servers (docs/ai-native/design/09, D-201, D-202): a tool whose
   `_meta.ui.resourceUri` names a `ui://` app keeps it (`CachedTool.UiResourceUri`; `AppOnly` when its visibility leaves out

@@ -25,6 +25,7 @@ import {
   useSetInstallationEnabledMutation,
   useSetToolPermissionMutation,
   useTestInstallationMutation,
+  useUpdateInstallationCredentialsMutation,
 } from '@/apis/connectorsApis/connectorsApis';
 import { getApiErrorMessage, getCaughtErrorMessage } from '@/apis/utils/errorMessage';
 import CenteredSpinner from '@/components/CenteredSpinner';
@@ -53,6 +54,8 @@ export default function AiConnectorsSection({
   const [createInstallation] = useCreateInstallationMutation();
   const [authorizeInstallation] = useAuthorizeInstallationMutation();
   const [testInstallation, { isLoading: testing }] = useTestInstallationMutation();
+  const [updateCredentials, { isLoading: updatingCredentials }] =
+    useUpdateInstallationCredentialsMutation();
   const [setEnabled, { isLoading: toggling }] = useSetInstallationEnabledMutation();
   const [removeInstallation, { isLoading: removing }] = useRemoveInstallationMutation();
   const [setToolPermission, { isLoading: saving }] = useSetToolPermissionMutation();
@@ -192,7 +195,7 @@ export default function AiConnectorsSection({
       <ConnectorDetailDrawer
         connector={selected}
         onClose={() => setSelectedKey(null)}
-        busy={testing || toggling || removing || saving}
+        busy={testing || toggling || removing || saving || updatingCredentials}
         onTest={() =>
           selected?.id &&
           run(async () => {
@@ -220,6 +223,19 @@ export default function AiConnectorsSection({
           }, `已移除 ${selected.displayName}`)
         }
         onReauthorize={() => selected && authorize(selected)}
+        onUpdateCredentials={async (value) => {
+          if (!selected?.id) return;
+          const id = selected.id;
+          await run(async () => {
+            const r = await updateCredentials({ id, credentials: { value } }).unwrap();
+            notify(
+              r.ok
+                ? `已更新認證，連線正常（${r.connector.tools.length} 個工具）`
+                : `已更新認證，但連線失敗：${r.error ?? '未知原因'}`,
+              r.ok ? 'success' : 'error',
+            );
+          });
+        }}
         onPermission={(toolName, permission) =>
           selected &&
           run(async () => {

@@ -46,6 +46,13 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> Test(string installationId, CancellationToken ct = default) =>
             responseFactory.ToActionResult(await installs.TestAsync(installationId, ct));
 
+        /// <summary>A new API key or bearer token for a connector that signs in with one, tested at once (D-224).</summary>
+        [HttpPut("installations/{installationId}/credentials")]
+        [EnableRateLimiting(RateLimitPolicies.ConnectorProbe)]
+        public async Task<IActionResult> UpdateCredentials(string installationId, [FromBody] UpdateCredentialsRequestDto request,
+            CancellationToken ct = default) =>
+            responseFactory.ToActionResult(await installs.UpdateCredentialsAsync(installationId, request.Credentials, ct));
+
         /// <summary>Starts signing in to an OAuth connector: where to send the reader.</summary>
         [HttpPost("installations/{installationId}/authorize")]
         public async Task<IActionResult> Authorize(string installationId, CancellationToken ct = default) =>

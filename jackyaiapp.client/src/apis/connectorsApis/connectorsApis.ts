@@ -22,6 +22,7 @@ import {
   CreatedSiteAccessToken,
   McpApp,
   McpAppCallResult,
+  McpCredentials,
 } from './types';
 
 import type { ApiOkResponse } from '../types';
@@ -134,6 +135,19 @@ export const connectorsApi = createApi({
       transformResponse: unwrapData,
       invalidatesTags: refreshCatalog,
     }),
+    /** A new API key or bearer token for a connector that signs in with one, tested at once (D-224). */
+    updateInstallationCredentials: builder.mutation<
+      ConnectionTestResult,
+      { id: string; credentials: McpCredentials }
+    >({
+      query: ({ id, credentials }) => ({
+        url: `installations/${id}/credentials`,
+        method: 'PUT',
+        body: { credentials },
+      }),
+      transformResponse: unwrapData,
+      invalidatesTags: refreshCatalog,
+    }),
     setInstallationEnabled: builder.mutation<InstalledConnector, { id: string; enabled: boolean }>({
       query: ({ id, enabled }) => ({
         url: `installations/${id}/enabled`,
@@ -186,6 +200,7 @@ export const {
   useCreateInstallationMutation,
   useAuthorizeInstallationMutation,
   useTestInstallationMutation,
+  useUpdateInstallationCredentialsMutation,
   useSetInstallationEnabledMutation,
   useRemoveInstallationMutation,
   useSetToolPermissionMutation,

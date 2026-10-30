@@ -14,6 +14,7 @@ import { useState } from 'react';
 
 import CategoryIcon from './CategoryIcon';
 import { canTryInStudio, drawerDescription, HEALTH_VIEW } from './connectorView';
+import CredentialsForm from './CredentialsForm';
 import { EFFECT_LABELS } from './toolPermission';
 import ToolPermissionToggle from './ToolPermissionToggle';
 
@@ -41,6 +42,8 @@ export interface ConnectorDetailActions {
   onSetEnabled: (enabled: boolean) => void;
   onRemove: () => void;
   onReauthorize: () => void;
+  /** A new API key or bearer token, saved and tested (D-224). */
+  onUpdateCredentials: (value: string) => Promise<void>;
   onPermission: (toolName: string, permission: ToolPermission) => void;
 }
 
@@ -87,9 +90,14 @@ function DetailBody({
   onSetEnabled,
   onRemove,
   onReauthorize,
+  onUpdateCredentials,
   onPermission,
 }: ConnectorDetailDrawerProps & { connector: InstalledConnector }) {
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [editingCredentials, setEditingCredentials] = useState(false);
+  const typedAuthKind =
+    connector.authKind === 'apiKey' || connector.authKind === 'bearer' ? connector.authKind : null;
+  const waitsForSignIn = connector.health === 'needsAuth';
   const health = HEALTH_VIEW[connector.health];
   const enabled = connector.health !== 'disabled';
   const canReauthorize = connector.authKind === 'oauth';
@@ -189,11 +197,20 @@ function DetailBody({
           {canReauthorize && (
             // What the reader came for when the connector waits for a sign-in (a reconnect card leads here, D-223).
             <Button
-              variant={connector.health === 'needsAuth' ? 'contained' : 'outlined'}
+              variant={waitsForSignIn ? 'contained' : 'outlined'}
               onClick={onReauthorize}
               disabled={busy}
             >
               重新授權
+            </Button>
+          )}
+          {typedAuthKind && !editingCredentials && (
+            <Button
+              variant={waitsForSignIn ? 'contained' : 'outlined'}
+              onClick={() => setEditingCredentials(true)}
+              disabled={busy}
+            >
+              更新認證
             </Button>
           )}
           <Button variant="outlined" onClick={() => onSetEnabled(!enabled)} disabled={busy}>
@@ -212,6 +229,17 @@ function DetailBody({
             </Button>
           )}
         </Stack>
+      )}
+      {typedAuthKind && editingCredentials && (
+        <CredentialsForm
+          authKind={typedAuthKind}
+          busy={busy}
+          onSave={async (value) => {
+            await onUpdateCredentials(value);
+            setEditingCredentials(false);
+          }}
+          onCancel={() => setEditingCredentials(false)}
+        />
       )}
       {!enabled && (
         <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: -2, mb: 2 }}>

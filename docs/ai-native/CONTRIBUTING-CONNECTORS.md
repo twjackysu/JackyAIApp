@@ -87,6 +87,7 @@ services.AddSingleton(new SiteToolSet("功能名稱", [MyTool.Definition]));   /
 
 - token 用 `IConnectorService.GetAccessTokenAsync(context.UserId, ConnectorProviders.Google)` 拿（既有帳號連線，過期會自己 refresh）；scope 是 `Connectors:Providers:<Provider>:Scopes`，需要新 scope 時寫進 FOR_JACKY（已連線的人要重新連線）。
 - **沒連線不是錯誤**：回一句請使用者到 Connectors 連線的話，加一張 `href = "/connectors"` 的連結卡。對方回 401／403 也一樣（多半是 scope 不夠或過期）。其他失敗回 `AiToolResult.Error`，不帶對方的原文。
+- **失敗也能帶「下一步」**（D-223）：失敗的呼叫（`IsError: true`）只會顯示**本站路徑的連結卡**（`/connectors`、`/portfolio`…），其他卡片（表格、圖表、外站連結）一律不送。要讓讀者一鍵回去重新連線，就給 `/connectors?connector=<installation id>`（MCP connector 被拒絕認證時 `ConnectorToolSource.ReconnectCard` 自動會加）。
 - 打固定網址的 GET 用具名 client `ExternalReadOnly`（有重試）；**使用者給的網址**才一定要 `SafeHttp`。
 - 結果裡有**別人能寫的字**（行事曆邀請的標題、email 主旨、Jira 留言）就在 descriptor 設 `OutsideText: true`：這輪之後的寫入一律先問使用者，跟外部 MCP connector 一樣（`AiToolDescriptor.ReadsOutsideText`）。外部文字也要壓成一行、截長度。
 - 時間一律台北時間（`time.GetTaipeiToday()`），測試用 `TestClock` 跨台北午夜。
