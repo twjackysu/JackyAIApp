@@ -323,5 +323,6 @@ flowchart LR
 | 10/30 | 54 | **MCP Apps 收尾**：`initialize` 宣告本站會畫 app（照規格先看 client 能力的 server 也會給，D-203）、app 的 `ui/message` 先問讀者再放進輸入框（D-204）；用 **MCP 官方範例 app** 的真 HTML 跑過整個 host 流程（D-205），審查修正（D-206） |
 | 10/30 | 55 | **MCP App 的寫入要讀者允許**：官方 system-monitor 範例每 2 秒呼叫的只給 app、未標唯讀的工具原本一定被拒 → 卡片上方問「允許／不用」、允許後帶 `readerAllowed`、可停止允許（D-207）；app 的呼叫有自己的頻率限制；審查修正：問題放 app 上方、600 ms 防誤按、一次一個工具（D-208） |
 | 10/30 | 56 | MCP App 卡片：捲出畫面或切到別的分頁時，已允許的工具暫停（輪詢的 app 看不到就不花資源）；拒絕過的工具可以「改為允許」（放在 app 上方、防連按誤觸；D-209）；全站截圖巡檢無退化 |
+| 10/30 | 57 | MCP App：換亮暗改送 `host-context-changed`、不再重畫（app 的狀態與等待中的呼叫都保留，D-210）；第二則 `ui/message` 照規格回 `isError`，不假裝送到（D-211）；本頁校對（已知限制、demo 補上 D-209） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

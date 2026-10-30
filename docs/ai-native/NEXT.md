@@ -12,6 +12,7 @@
 
 ## 1. CI 狀態
 
+- 第 57 輪：只動前端（D-210、D-211）；CI 40976174812（b7e2d8d5）第一次就綠，40977142905（f6c28271）也綠。**本站全站只有深色**（`main.tsx` 的 `darkTheme`）：亮暗相關的改動只能用測試與自建的 Chromium 實驗驗證（第 57 輪的作法：一頁 `<iframe sandbox>`＋srcdoc，截 1px 用 PIL 讀顏色）。
 - 第 56 輪：只動前端（D-209）；CI 40961309416（af66cbd3）第一次就綠。截圖巡檢時 `selection.cjs` 的 `studio-handoff-*-phone` 在送出後 700 ms 拍，抽屜可能正在收起：差異大不代表退化。
 - 第 55 輪：後端＋前端（D-207、D-208）；cscheck 0 個新診斷；CI 40944862751（d8bc6314）第一次就綠，40947180302（4408c6a8，前端審查修正＋截圖）第一次就綠。新的錯誤碼要同時加在 `Common/ErrorCodes.cs` 與 `apis/types.ts` 的 `ErrorCodes`（以名稱序列化）。
 - 第 54 輪：後端（D-203）＋前端（D-204、D-206）；cscheck 0 個新診斷；CI 40926326281（3b5c0546）、40927424179（6c0e659f）都第一次就綠。**官方 MCP Apps 範例 server 可以在 sandbox 用 npm 裝來跑**（`.loop/shots/mcp-host-official.cjs` 開頭有步驟；curl 要 `--noproxy localhost`）。在下載目錄裡跑 `python3 -c` 會被權限分類器擋（Code from External），讀那些檔案用 Grep／Read。
@@ -55,6 +56,7 @@
 
 ## 2. 下一步（依序）
 
+00000000. **第 57 輪（D-210、D-211）**：MCP Apps 剩下的（低，可不做）：`ui/resource-teardown` 沒送（卡片卸下時 iframe 立刻消失，要送得先讓 iframe 多活一下，價值低）；問題顯示 app 給的名稱不是伺服器的標題（D-208）。**下一輪建議**：MCP Apps 到此收手。剩下的時間（到 11/3 凍結）做 2 的截圖巡檢或 3 的 SHOWCASE 定稿準備：demo 腳本第 1～10 步逐步對一次畫面（第 57 輪已校對截圖與連結都存在、migration 清單一致、已知限制更新），開發日誌表補第 57 輪起的列（已補到第 56 輪；統計：第 57 輪時 `rev-list --count --no-merges origin/master..HEAD` 約 475）。
 0000. **第 56 輪（D-209）**：MCP App 卡片畫面外暫停已允許的工具、拒絕後可「改為允許」；截圖巡檢（chat.cjs 等 7 支）無退化。MCP Apps 剩下（低，可不做）：問題顯示 app 給的名稱不是伺服器的標題（D-208）；換亮暗是整個重畫（沒送 `host-context-changed`）。**這個環境不能執行 npm 下載的套件**（第 55 輪起權限分類器擋）：官方範例只能讀原始碼，或用 `.loop/shots/` 自製的假 app。**下一輪建議**：1 的選做挑一個，或 3 的 SHOWCASE 定稿先做（demo 腳本走一遍、統計：第 56 輪時 `rev-list --count --no-merges origin/master..HEAD` 約 470）；11/3 凍結前最後一輪重拍全部截圖（截圖比對的 python 片段見 PROGRESS 第 56 輪的作法：PIL `ImageChops.difference`、門檻 24、>1% 才看）。
 00000. **第 55 輪（D-207、D-208）**：只給 app 的寫入工具讀者在卡片上允許後才跑。剩下的兩項第 56 輪已做（D-209）。**這個環境不能執行 npm 下載的套件**（權限分類器擋 Code from External，第 54 輪可以、第 55 輪不行）：官方範例只能讀原始碼，或用 `.loop/shots/` 自製的假 app。
 000. **MCP Apps 已收尾（第 54 輪：D-203 宣告能力、D-204 `ui/message`、D-205 demo 來源、D-206 審查）**。剩下（低，可不做）：(a) `host-context-changed`／`resource-teardown` 沒送（換亮暗是整個重畫）；(b) app 在讀者決定前就收到 `ui/message` 成功；(c) 官方其他範例（`server-map` 已裝過、要外部 tile CDN；`server-budget-allocator`、`server-system-monitor`）可用同一支 `mcp-host-official.cjs` 換 uri／tool 試，確認 CSP 宣告的 `resourceDomains` 實際能載入；(d) mcpplaygroundonline 的 server 合併後實測（FOR_JACKY 19）。**下一輪先做 1 的選做或 2 的截圖巡檢**；凍結前（11/3）最後一輪重拍全部截圖。

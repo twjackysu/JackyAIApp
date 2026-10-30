@@ -1,5 +1,13 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-30 07:42 – 第 57 輪（MCP App：換亮暗不重畫、第二則 ui/message 回 isError；SHOWCASE 校對）
+
+- 開工：鎖不存在（`lock.py check` FREE）；master 沒有新 commit；上一輪最後的 CI（40961309416）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。
+- **D-210**（NEXT 000(a)）：換亮暗原本以 `key={mode}` 整個重畫 app。先在 headless Chromium 實驗：`color-scheme: light dark` 不會跟著 iframe 元素走（底色變白），**動態改 `<meta name="color-scheme">` 會立即生效、底色維持透明**。所以文件以畫出時的 scheme 開始，`appSrcDoc` 在 app 之前放 `SCHEME_SCRIPT`（只認 parent 送來的 `host-context-changed`），app `initialized` 後送 `hostContextChanged(theme)`。本站目前全站深色，所以這是規格面與穩健度的修正。
+- **D-211**（NEXT 000(b) 的一部分）：第二則 `ui/message`（第一則還在等讀者）原本回 `{}` 卻沒顯示 → 改回 `{ isError: true }`（`McpUiMessageResult.isError`，查過官方 API 文件）；顯示出來的仍立即回 `{}`（等讀者決定會撞上 SDK 的 60 秒逾時）。
+- **SHOWCASE 校對**：所有截圖與連結都存在；migration 清單與 `git diff origin/master -- Migrations` 一致（4 個）；已知限制裡「對話紀錄按鈕包按鈕、選取工具列沒有鍵盤入口」已在 D-186／D-188 修好 → 改寫；demo 第 6 步補上 D-209（畫面外暫停、改為允許）與截圖。
+- 驗證：前端 lint、全套測試（183 檔 1902 個）、build 全過；新測試 `McpAppTheme.test.tsx`（同一個 iframe、srcdoc 不變、ready 前不送）；`SCHEME_SCRIPT` 原字串在 Chromium 跑過（CSP 下換兩次亮暗都透明，錯的 method 不動）；`mcp-app-allow.cjs` 重拍與 repo 的圖差異 0。CI 40976174812（b7e2d8d5，D-210）第一次就綠；40977142905（f6c28271，D-211，本輪最後一次含程式碼的 push）第一次就綠。只動前端，沒跑 cscheck。
+
 ## 2026-10-30 05:42 – 第 56 輪（MCP App 卡片：畫面外暫停、拒絕後改為允許；截圖巡檢）
 
 - 開工：鎖不存在（`lock.py check` FREE）；master 沒有新 commit；上一輪最後的 CI（40947180302）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`。
