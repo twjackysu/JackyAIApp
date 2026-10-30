@@ -12,7 +12,7 @@
 
 ## 1. CI 狀態
 
-- 第 67 輪：只動前端與文件（D-246～D-250）；CI 41120704149（925a72e1）第一次就綠，D-249／D-250 的 push 見 PROGRESS。`ToolCards` 的 app renderer 現在包在 `ChartLoadBoundary` 裡：測試裡 renderer 丟例外不會再讓整個 render 失敗。**`index.test.tsx` 的 fetch 替身多了 `holdMessages`**（讓某個對話的歷史晚點回來）；`SiteMcpSection` 測試的 mutation 替身要有 `reset`（`CreateTokenDialog` 關掉時呼叫）。
+- 第 67 輪：只動前端與文件（D-246～D-250）；CI 41120704149（925a72e1）第一次就綠，D-249／D-250 的 CI 41122644924（6d1a53d9）也綠。`ToolCards` 的 app renderer 現在包在 `ChartLoadBoundary` 裡：測試裡 renderer 丟例外不會再讓整個 render 失敗。**`index.test.tsx` 的 fetch 替身多了 `holdMessages`**（讓某個對話的歷史晚點回來）；`SiteMcpSection` 測試的 mutation 替身要有 `reset`（`CreateTokenDialog` 關掉時呼叫）。
 - 第 66 輪：只有後端（D-243～D-245）；cscheck 0 個新診斷（只有已知的 EF `CountAsync`／`Count` 雜訊與測試用的 `Microsoft.Data.SqlClient` 找不到）；CI 41102291021（373fced8）第一次就綠；41104104197（da865578）紅——master 的 `TodayInThePrompt_IsTheUtcDate` 照舊行為釘著 UTC，改成台北後 41105076320（c332cf4a）綠。**新的限流**：`ChatTitle`（取標題每人每分鐘 20）、`DataQuery`（資料分析的查詢端點每人每分鐘 300、未登入 120）——新的整合測試若一個 client 連打很多次這些端點會拿到 429。`DataSourceStore` 每人最多 20 個資料源。
 - 第 65 輪：後端＋前端（D-237～D-242）；cscheck 每次 0 個新診斷；CI 41085554392（5177a8b0）、41087195865（df63afc8）、41088075161（67d5ce57）第一次就綠、41088858532（1f2feddf，D-242）都第一次就綠。**`ClientToolRunner` 現在把同一個回覆中排在 `ReadsOutsideText` 工具後面的非讀取呼叫也放進確認卡**：新的假串流若一個回覆裡先叫 connector 讀取再叫自動的寫入，會出現 `approval_required`。MCP App 卡片同時最多 4 個呼叫（`MAX_CALLS_IN_FLIGHT`）：前端測試若一次送 5 個以上不回應的呼叫，第 5 個會被拒。
 - 第 64 輪：後端＋前端（D-232、D-234、D-236）；cscheck 0 個新診斷；CI 41075118078（f4ff4407）、41075940650（22a9eb74）、41077408185（661dbc20）都第一次就綠。**MCP App 卡片的「開啟」「放進輸入框」現在要等提議出現 600 ms 後才算數**：新的前端測試照 `McpAppMessage.test.tsx` 的 `clock`／`press` 把時間往前推，截圖腳本按之前等 700 ms。`AnthropicChatStreamTests` 的 `_chargeFails` 可以讓工具輪收費丟例外。
