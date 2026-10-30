@@ -7,6 +7,8 @@ import {
   MAKE_DASHBOARD,
   MY_HOLDINGS_MARKET,
   studioChatConfig,
+  studioConnectedLabel,
+  studioPageLabel,
   studioFollowUpsFor as followUpsOn,
   studioShownOn,
   dictionaryWordOf,
@@ -187,5 +189,37 @@ describe('studioFollowUpsFor', () => {
   it('carries on from a dashboard it read', () => {
     const rule = followUpsOn('/dashboards/x').find((r) => r.tools?.includes('read_dashboard'));
     expect(rule?.texts.length).toBeGreaterThan(0);
+  });
+});
+
+describe('studioPageLabel', () => {
+  const boards = [
+    { id: 'b-1', name: '業績追蹤', isOwner: true },
+    { id: 'b 2', name: '一個名字非常非常非常長的季度營運 dashboard', isOwner: true },
+  ];
+
+  it('names the page by the site’s name for it, the deepest that holds the path', () => {
+    expect(studioPageLabel('/')).toBe('首頁');
+    expect(studioPageLabel('/english')).toBe('英文學習');
+    expect(studioPageLabel('/english/review')).toBe('複習');
+    expect(studioPageLabel('/english/exam/cloze')).toBe('測驗');
+    expect(studioPageLabel('/connectors')).toBe('Connectors');
+  });
+
+  it('names a word’s dictionary page by the word, and a dashboard of the reader’s by its name', () => {
+    expect(studioPageLabel('/english/dictionary/Serendipity')).toBe('字典：serendipity');
+    expect(studioPageLabel('/dashboards/b-1', boards)).toBe('業績追蹤');
+    expect(studioPageLabel('/dashboards/b%202', boards)).toBe('一個名字非常非常非常長的季度營運…');
+  });
+
+  it('falls back to the list’s name for a dashboard not (yet) in the list, and to nothing for a page the site does not name', () => {
+    expect(studioPageLabel('/dashboards/zzz', boards)).toBe('Dashboards');
+    expect(studioPageLabel('/nowhere')).toBeUndefined();
+  });
+
+  it('puts it in the header’s line', () => {
+    expect(studioConnectedLabel('/english/review')).toBe('全站助理・在「複習」');
+    expect(studioConnectedLabel('/nowhere')).toBe('全站助理');
+    expect(studioChatConfig('/portfolio').connectedLabel).toBe('全站助理・在「投資組合」');
   });
 });

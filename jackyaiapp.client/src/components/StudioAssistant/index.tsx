@@ -77,7 +77,7 @@ export default function StudioAssistant() {
     if (open) void loadBoards();
   }, [open, loadBoards]);
   const boards = boardList?.data;
-  const config = useMemo(() => studioChatConfig(pathname, boards), [pathname, boards]);
+  const config = useMemo(() => studioChatConfig(pathname, boards ?? []), [pathname, boards]);
   // A write Studio AI made (a holding updated, a word added) shows at once on the page under the drawer.
   const dispatch = useAppDispatch();
   const toolDone = useCallback(

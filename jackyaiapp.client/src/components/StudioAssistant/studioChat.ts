@@ -13,6 +13,7 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDownOutlined';
 
 import { BRIEFING_PROMPT, FIND_MY_WEAK_SPOTS, READ_DASHBOARD_PROMPT } from './askStudio';
 import McpServersCardView from './McpServersCardView';
+import { QUICK_PAGES } from './quickActions';
 import QuizCardView from './QuizCardView';
 
 import type { AiChatConfig, AiChatSuggestion } from '@/components/aiChat/config';
@@ -100,8 +101,43 @@ const COMMON: AiChatSuggestion[] = [
 
 /** A dashboard of the reader's, as the /dashboards list gives it. */
 export interface StudioDashboard {
+  /** Its id, the last part of its page's path (`/dashboards/{id}`). */
+  id?: string;
   name: string;
   isOwner: boolean;
+}
+
+/** A page name longer than this is cut in the header (a dashboard's name is the reader's own). */
+const MAX_PAGE_LABEL = 16;
+
+/**
+ * The page Studio AI is on, as its header names it (design/05 §1: 「在：Data Analysis」), so the reader knows what
+ * "this page" means to it: the site's name for the page (`QUICK_PAGES`, the deepest that holds the path), a word's
+ * dictionary page by the word, one of the reader's dashboards by its name once the list is read. Nothing for a page
+ * the site has no name for.
+ */
+export function studioPageLabel(
+  path: string,
+  dashboards: readonly StudioDashboard[] = [],
+): string | undefined {
+  if (path === '/' || path === '') return '首頁';
+  const word = dictionaryWordOf(path);
+  if (word) return `字典：${word}`;
+  const board = /^\/dashboards\/([^/]+)\/?$/.exec(path);
+  if (board) {
+    let id: string;
+    try {
+      id = decodeURIComponent(board[1]);
+    } catch {
+      id = board[1];
+    }
+    const name = dashboards.find((d) => d.id === id)?.name.trim();
+    if (name) return name.length > MAX_PAGE_LABEL ? `${name.slice(0, MAX_PAGE_LABEL)}…` : name;
+  }
+  const page = QUICK_PAGES.filter((p) => on(path, p.path)).sort(
+    (a, b) => b.path.length - a.path.length,
+  )[0];
+  return page?.title;
 }
 
 /** A name longer than this is not put in a suggestion (read_dashboard finds a dashboard by its whole name). */
@@ -200,6 +236,15 @@ export function studioFollowUpsFor(path: string): NonNullable<AiChatConfig['foll
   }));
 }
 
+/** The header's line under Studio AI's name: what it is and, where the site names the page, where it is. */
+export function studioConnectedLabel(
+  path: string,
+  dashboards: readonly StudioDashboard[] = [],
+): string {
+  const page = studioPageLabel(path, dashboards);
+  return page ? `全站助理・在「${page}」` : '全站助理';
+}
+
 /** Studio AI's config on `path`; the path goes with every message as the page context. */
 export function studioChatConfig(
   path: string,
@@ -213,7 +258,7 @@ export function studioChatConfig(
       '告訴我你想做的事，我帶你到對的地方，也能使用你在 Connectors 接上的工具（會改變東西的動作會先問你）。打頁面名稱、dashboard 名稱或一個英文單字，可以不經 AI 直接前往；打 / 看現成指令（今日簡報、考我單字…）；在頁面上選取一段字，也能直接叫我解釋或翻譯。說「記住…」，我就會記得你的目標與偏好。',
     examples: ['這個網站可以做哪些事？', '幫我查一個英文單字', '我的投資組合現在怎麼樣？'],
     suggestions: studioSuggestionsFor(path, dashboards),
-    connectedLabel: '全站助理',
+    connectedLabel: studioConnectedLabel(path, dashboards),
     signedOutPlaceholder: '登入後即可使用 Studio AI',
     inputPlaceholder: {
       narrow: '想做什麼？打 / 看指令',

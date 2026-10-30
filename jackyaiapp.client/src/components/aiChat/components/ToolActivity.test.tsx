@@ -55,4 +55,27 @@ describe('ToolActivity', () => {
     ]);
     expect(container.querySelector('[role="progressbar"]')).not.toBeNull();
   });
+
+  it('says how long a finished call took, not one still running or one the server did not time', () => {
+    act(() =>
+      root.render(
+        <ToolActivity
+          steps={[
+            { ...step('a', '查字典', 'done'), durationMs: 812 },
+            { ...step('b', '彙總資料', 'failed'), durationMs: 12_400 },
+            { ...step('c', 'stock history', 'running'), durationMs: 3000 },
+            step('d', 'realtime quote', 'done'),
+          ]}
+        />,
+      ),
+    );
+
+    const items = [...container.querySelectorAll('li')].map((li) => li.textContent);
+    expect(items).toEqual([
+      '查字典· 0.8 秒（完成）',
+      '彙總資料· 12 秒（失敗）',
+      'stock history（查詢中）',
+      'realtime quote（完成）',
+    ]);
+  });
 });

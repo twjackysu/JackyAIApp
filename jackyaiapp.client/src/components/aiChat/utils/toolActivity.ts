@@ -35,6 +35,18 @@ export const labelFromName = (name: string): string => {
   return words || name;
 };
 
+/**
+ * How long a finished call took, as its chip says it (design/05 §1: 轉圈→✓（耗時）): a tenth of a second under ten
+ * seconds, whole seconds from there. Nothing for a call the server did not time (a hosted tool), or one too quick to
+ * matter (a write the reader declined, a cached read).
+ */
+export function toolDurationText(durationMs: number | undefined): string | null {
+  if (durationMs === undefined || !Number.isFinite(durationMs) || durationMs < 100) return null;
+  return durationMs < 9950
+    ? `${(durationMs / 1000).toFixed(1)} 秒`
+    : `${Math.round(durationMs / 1000)} 秒`;
+}
+
 /** The steps after one more event; an event that matches nothing leaves them as they are. */
 export function applyToolEvent(steps: readonly ToolStep[], event: ToolEvent): ToolStep[] {
   if (event.type === 'tool_use') {

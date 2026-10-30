@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { applyToolEvent, labelFromName, settleToolSteps, type ToolStep } from './toolActivity';
+import {
+  applyToolEvent,
+  labelFromName,
+  settleToolSteps,
+  toolDurationText,
+  type ToolStep,
+} from './toolActivity';
 
 describe('labelFromName', () => {
   it('drops the get_ prefix and the underscores', () => {
@@ -107,5 +113,21 @@ describe('settleToolSteps', () => {
 
   it('closes them as failed when no answer came', () => {
     expect(settleToolSteps(open(), false).map((s) => s.status)).toEqual(['failed', 'failed']);
+  });
+});
+
+describe('toolDurationText', () => {
+  it('says tenths of a second under ten seconds and whole seconds from there', () => {
+    expect(toolDurationText(812)).toBe('0.8 秒');
+    expect(toolDurationText(9_940)).toBe('9.9 秒');
+    expect(toolDurationText(9_950)).toBe('10 秒');
+    expect(toolDurationText(61_400)).toBe('61 秒');
+  });
+
+  it('says nothing for a call not timed or too quick to matter', () => {
+    expect(toolDurationText(undefined)).toBeNull();
+    expect(toolDurationText(99)).toBeNull();
+    expect(toolDurationText(Number.NaN)).toBeNull();
+    expect(toolDurationText(100)).toBe('0.1 秒');
   });
 });

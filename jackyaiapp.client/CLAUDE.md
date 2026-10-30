@@ -79,7 +79,8 @@ jackyaiapp.client/src/
   `addThinking`, `pauseThinking`; thinking that resumes after a tool is a new paragraph), unfolded on a press; plain text, never
   Markdown or links (it may repeat what a tool read); the header says 💭 思考中… and no dots are drawn meanwhile; this session
   only (`Message.thinking`), and a failed turn drops it with its text. The tools
-  an answer used are `ToolActivity` (from the stream's `tool_use`/`tool_result`, `utils/toolActivity`),
+  an answer used are `ToolActivity` (from the stream's `tool_use`/`tool_result`, `utils/toolActivity`; a finished call
+  says how long it took, `toolDurationText` of the result's `durationMs`, nothing under 0.1 s or for a hosted tool, D-218),
   a write waiting for the reader is `ApprovalCard` (`approval_required`, `utils/approval`; several calls are decided one
   by one or together, 全部拒絕 always and 全部允許 only when all are the site's own tools, none destructive, and the conversation read no outside content,
   and 「以後直接執行」 is offered once per tool; MessageArea keys it by `pendingId`, so a later question is a new card; a call the site describes in words,
@@ -156,7 +157,9 @@ jackyaiapp.client/src/
   instead: what Studio AI does and a Google sign-in that comes back to the page (with its query), nothing asked of
   the AI, and no button until it is known who the reader is (D-217). Not where a page has an assistant of its own
   (/finance, /data-analysis) or fills the screen; which pages, the suggestions per page and the shortcut are
-  `studioChat`. It is the site's command bar too: while the reader types, a few words naming a page ("複習",
+  `studioChat`. Its header names the page it is on (`studioPageLabel`, design/05 §1, D-219: 全站助理・在「複習」 — the
+  site's name for the page from `QUICK_PAGES`, a word's dictionary page by the word, one of the reader's dashboards by its
+  name once the list is read), so the reader knows what "this page" is to it. It is the site's command bar too: while the reader types, a few words naming a page ("複習",
   "portfolio", "帶我去 dashboards") or one English word offer to go straight there (`quickActionsFor`, shown over the
   box by `QuickActionChips` through the panel's `inputAccessory`): a press navigates, empties the box and closes the
   drawer, with no AI and no usage; Enter still sends the text to the AI. A draft starting with `/` lists Studio AI's ready-made
