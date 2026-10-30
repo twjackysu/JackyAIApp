@@ -1,5 +1,18 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-31 00:30 – 第 65 輪（合併前最後一輪安全審查：六份 subagent 審查，修 D-237～D-242）
+
+- 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（41077408185）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。鎖用 `.loop/lock.py`。
+- 照 NEXT 的建議「審查最近的 commit」，六個 general-purpose subagent 各看一塊（不帶我的結論）：MCP app-call（D-201／202／207）、connector 認證與限流（D-223／224／196）、MCP Apps host 前端、本站 MCP server＋OAuth、AI 寫入工具、確認卡與 taint。**都沒有高風險**；修了：
+  - **D-237**（中，安全）：`CachedTools.Changed` 沒比 `AppOnly`／`NotForApp`——只給 app 的寫入工具設成自動後，server 改成也給模型，就變成模型不經確認能呼叫。
+  - **D-238**：加密 key 換過時「更新認證」對 API key 是死路 → 表單選填 header、伺服器讀不到時要求填（FOR_JACKY 21 已處理）。
+  - **D-239**：MCP App 卡片同時最多 4 個呼叫；按鍵防護的時間改在 `useLayoutEffect` 設。
+  - **D-240**：site token 記錄使用時間時剛被撤銷就不放行。
+  - **D-241**（中，安全）：記憶筆記去掉控制／格式／私用字元（tag block 能讓確認卡只顯示無害句子）；`update_holding` 用 `quantity` 時卡片也說成交價、數字上限一兆；`save_to_dashboard` 建立前先檢查標題、失敗回服務的原因。
+  - **D-242**：同一個回覆裡外部讀取之後的寫入也問；`OutsideText` 結果擋自己的換頁；`ModelTurn` 例外時 taint 仍存（finally）。design/06 §8 補「分類是 server 自己說的」。
+- 驗證：每次後端改動 cscheck 0 個新診斷；前端 lint／test（186 檔、1945 個）／build 全過；CI 41085554392（5177a8b0）、41087195865（df63afc8）、41088075161（67d5ce57）都第一次就綠，1f2feddf 見下一則或 NEXT §1。
+- 接受不改（寫在各 D-xxx）：app 換頁後 `load` 前仍能送訊息、`readerAllowed` 不綁參數（D-208）、錯 token 不限流、token 上限的競態、新 key 存好後舊呼叫的 401、`add_word_to_repository` 卡片說變化形。
+
 ## 2026-10-30 23:08 – 第 64 輪（design/08、09 對照完成；審查最近的高風險 commit：工具輪收費的例外、MCP App 連結、connector 名稱）
 
 - 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（41054734621）綠；沒有 Jacky 的新 commit（有一個不是迴圈的 branch `claude/nice-allen-szv1lq`，不在範圍內，沒碰）。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。鎖用 `openssl rand`。
