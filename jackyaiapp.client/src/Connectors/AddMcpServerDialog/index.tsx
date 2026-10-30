@@ -17,6 +17,7 @@ import {
 import { useState } from 'react';
 
 import { canTryInStudio } from '../connectorView';
+import CopyField from '../SiteMcpSection/CopyField';
 import { EFFECT_LABELS } from '../toolPermission';
 import ToolPermissionToggle from '../ToolPermissionToggle';
 
@@ -277,6 +278,14 @@ function AddMcpServerForm({
                 <Typography variant="body2" color="text.secondary">
                   這個授權伺服器不接受自動註冊，請先在它那邊建立 OAuth app，再填入：
                 </Typography>
+                {probe.redirectUri && (
+                  <Stack spacing={0.5}>
+                    <Typography variant="caption" color="text.secondary">
+                      建立時，Redirect URI（Callback URL）請填：
+                    </Typography>
+                    <CopyField text={probe.redirectUri} label="複製 Redirect URI" />
+                  </Stack>
+                )}
                 <TextField
                   label="Client ID"
                   value={form.clientId}

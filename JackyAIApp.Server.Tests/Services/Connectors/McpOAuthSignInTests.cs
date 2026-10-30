@@ -174,7 +174,10 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         {
             _web = new FakeAuthorizationServer { Registration = false };
             _web.RegisterClient("my-app", RedirectUri);
-            Assert.Equal("manual", (await Install().ProbeAsync(Url, default)).Data!.Registration);
+            var probe = (await Install().ProbeAsync(Url, default)).Data!;
+            Assert.Equal("manual", probe.Registration);
+            // What the reader registers there, so the server sends them back to us.
+            Assert.Equal(RedirectUri, probe.RedirectUri);
 
             var id = await SignedInAsync(new McpCredentialsDto { ClientId = "my-app" });
 

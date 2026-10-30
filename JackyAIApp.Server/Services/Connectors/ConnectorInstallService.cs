@@ -194,7 +194,10 @@ namespace JackyAIApp.Server.Services.Connectors
                 if (challenge != null)
                 {
                     var found = await discovery.DiscoverAsync(url, challenge, ct);
-                    return new McpProbeResultDto(url.ToString(), "oauth", new Uri(found.Issuer).Host, urls.Urls.RegistrationFor(found), null);
+                    var registration = urls.Urls.RegistrationFor(found);
+                    // A client made by hand there needs our redirect URI, or the server refuses to send the reader back.
+                    return new McpProbeResultDto(url.ToString(), "oauth", new Uri(found.Issuer).Host, registration, null,
+                        registration == "manual" ? urls.Urls.RedirectUri : null);
                 }
             }
             catch (Exception ex) when (ex is McpOAuthException or McpServerException)

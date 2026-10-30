@@ -197,6 +197,24 @@ describe('AddMcpServerDialog', () => {
     expect(onAuthorize).toHaveBeenCalledWith(added);
   });
 
+  it('shows the redirect URI to register when the reader has to make the OAuth app by hand', async () => {
+    const redirectUri = 'https://apps.example.com/api/connectors/callback/mcp';
+    mocks.probe.mockReturnValue(probe({ auth: 'oauth', registration: 'manual', redirectUri }));
+    render();
+    type(input('MCP server 網址'), 'https://mcp.example.com/mcp');
+    await click('檢查');
+    expect(text()).toContain(redirectUri);
+    expect(document.body.querySelector('button[aria-label="複製 Redirect URI"]')).not.toBeNull();
+  });
+
+  it('shows no redirect URI when the server registers us itself', async () => {
+    mocks.probe.mockReturnValue(probe({ auth: 'oauth', registration: 'dcr' }));
+    render();
+    type(input('MCP server 網址'), 'https://mcp.example.com/mcp');
+    await click('檢查');
+    expect(text()).not.toContain('Redirect URI');
+  });
+
   it('asks a catalog entry only for its key, under its own definition', async () => {
     mocks.create.mockReturnValue(installed({ definitionKey: 'exa' }));
     render(entry({ key: 'exa', displayName: 'Exa', authKind: 'apiKey' }));

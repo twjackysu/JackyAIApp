@@ -98,8 +98,10 @@ namespace JackyAIApp.Server.DTO
 
     /// <param name="Auth">none, oauth or apiKey.</param>
     /// <param name="Registration">cimd, dcr or manual, for OAuth; null otherwise.</param>
+    /// <param name="RedirectUri">For a manual registration: the redirect URI the reader registers on the client they make.</param>
     public sealed record McpProbeResultDto(
-        string ServerUrl, string Auth, string? AuthorizationServer, string? Registration, string? ServerName);
+        string ServerUrl, string Auth, string? AuthorizationServer, string? Registration, string? ServerName,
+        string? RedirectUri = null);
 
     /// <summary>Where to send the reader to sign in (an authorization server's URL).</summary>
     public sealed record AuthorizeRedirectDto(string RedirectUrl);

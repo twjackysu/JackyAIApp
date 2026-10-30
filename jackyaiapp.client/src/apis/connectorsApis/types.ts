@@ -110,6 +110,8 @@ export interface McpProbeResult {
   registration: 'cimd' | 'dcr' | 'manual' | null;
   /** The server's own name for itself, when it says one. */
   serverName: string | null;
+  /** For a manual registration: the redirect URI to register on the OAuth app the reader makes there. */
+  redirectUri?: string | null;
 }
 
 /**

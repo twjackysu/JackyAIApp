@@ -281,7 +281,8 @@ sent or stored, so a reopened conversation shows a plain message. A site tool's 
   reader's connectors (`InstalledSection`, each card saying when it was last tested, `lastTestedText`: minutes or
   hours ago, else the Taipei date, D-221; each opening `ConnectorDetailDrawer` with the tools'
   `ToolPermissionToggle`), the catalog (`CatalogSection`) and adding an MCP server of their own
-  (`AddMcpServerDialog`: URL → credentials → tools; a reader without a URL searches the official MCP Registry right there,
+  (`AddMcpServerDialog`: URL → credentials → tools; an OAuth server that cannot register us shows the redirect URI the reader
+  registers on the app they make there, with a copy button, the probe's `redirectUri`, D-231; a reader without a URL searches the official MCP Registry right there,
   `RegistrySearch`, folded until asked or opened from the catalog's last card 找更多 MCP server, D-122: picking one checks its URL as if
   pasted, named by its title, an API key's header filled in, `registryView`; one the catalog has is connected from the catalog).
   `/connectors?registry=<search>` (`connectorsRegistryPath`, `registrySearchOf`, D-124) opens that dialog with the search filled in,
