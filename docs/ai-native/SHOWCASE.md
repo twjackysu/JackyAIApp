@@ -270,7 +270,7 @@ flowchart LR
 - [ ] **既有功能多了上限**（D-158）：AI 助理一則訊息最多 2 萬字（輸入框會說明、長文改附加文字檔）；附件上傳每人每分鐘 20 次；`/pdf` 解鎖每個位址每分鐘 10 次；Word／Excel 附件解開後單一 XML 超過 1600 萬字就讀不出；/data-analysis 上傳的資料列讀進記憶體超過約 128 MB 就拒絕。正常使用碰不到，若有人回報「訊息太長」或 429 再調。
 - [ ] **再兩個上限**（D-159）：考試的錄音轉文字最多 4 MB（錄音 2 分鐘自動停並照常轉文字，麥克風提示「最長 2 分鐘」，轉文字失敗時輸入框下方會說）；/data-analysis 的匿名上傳每個人（登入者或位址）最多佔 128 MB（app setting `DataAnalysis__SessionUpload__MaxBytesPerCaller`）。
 - [ ] **Data Analysis 的上限**（D-163、D-164，master 既有功能）：自訂 SQL Server 資料源只能連網路上的主機（內網 IP、`localhost`、沒有點的機器名、named pipe、解析到內網的名稱都拒絕）；新增／修改資料源每人每分鐘 20 次；「任何人」可看的 dashboard 的 widget 資料，未登入每個位址每分鐘 120 次、登入者 600 次。合併後若你有存資料源，確認它還能讀。
-- [ ] 用量：AI 對話照既有每日預算計費（每則訊息 `UsageCosts.ForChatMessage`、`ask_data` 照 問 AI）。
+- [ ] 用量：AI 對話照既有每日預算計費（每則訊息 `UsageCosts.ForChatMessage`、`ask_data` 照 問 AI）；Studio／資料分析的一則訊息若要第 4 次以上的工具請求，每次多收 1 單位（`ChatToolRound`，最多多 5；額度不夠就用已查到的結果回答，D-226）。
 
 ## 本機試跑
 
@@ -358,5 +358,6 @@ flowchart LR
 | 10/30 | 60 | 第 7 步補上「今日簡報之後說『帶我去複習』：只有連結卡、頁面不動」的截圖；精華版第 4 步（找 MCP server → 加入 → 連線 → 在 Studio AI 試試看）改成一支腳本連續走完並補兩張截圖 |
 | 10/30 | 61 | **對照 design/05 補齊 Studio AI 的落差**：沒登入的訪客也有按鈕（說明＋登入，D-217）、工具 chip 寫出耗時（D-218）、標題列寫出所在頁面（D-219）、新對話列出「我能用的工具」（D-220）、connector 卡片的最後測試時間（D-221）、抽屜可拉寬（D-222） |
 | 10/30 | 62 | **授權過期時一鍵回到重新授權**：connector 被拒絕認證時，失敗的工具呼叫附上「前往重新連線」卡片，/connectors 直接打開那個 connector（D-223）；失敗的呼叫只能帶本站連結卡，也讓 Jira、投資組合原本寫好卻被吃掉的提示卡出現；API key／token 的 connector 在詳情裡直接「更新認證」（D-224）；Google／Outlook／Jira 的「先連線」卡片直接捲到帳號連線（D-225） |
+| 10/30 | 63 | **對照 design/06（安全）補齊落差**：一則訊息第 4 次起的工具請求每次收 1 單位、額度不夠就用已讀到的結果回答（原本 5 單位能跑 8 次請求，D-226）；MCP 工具說明去掉看不見的字元（Unicode tag 字元能藏指令，D-227）；每輪最多 64 個 connector 工具（D-228）；手動建 OAuth app 時對話框給出要填的 Redirect URI（D-231）；對照 design/04、design/03 其餘差異記錄接受（D-229～D-231） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

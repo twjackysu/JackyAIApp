@@ -1,5 +1,16 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-30 19:42 – 第 63 輪（對照 design/06、04、03 補齊落差：工具輪收費、看不見的字元、64 個工具上限、手動 OAuth 的 Redirect URI）
+
+- 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（41041520459）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`。鎖用 `od` 產生 run_id。
+- 照第 61、62 輪的作法，請 Explore subagent 逐條對 design/06（安全）、design/04（共用 chat）、design/03（connector 架構），只修中風險或小落差：
+  - **D-226**（中）：design/06 §6 的 `ChatToolRound` 從沒實作，一則訊息 5 單位能跑 8 次請求。現在第 4 次起每次請求前先收 1 單位；額度不夠就送最後一次請求（`tool_choice: none`＋`OutOfBudgetNote`），用已讀到的結果回答。/finance 不受影響。
+  - **D-227**：MCP 工具的標題與說明去掉控制字元與格式字元（含 Unicode tag 區塊，`McpToolClient.Plain`）；截斷不切在 surrogate pair 中間。
+  - **D-228**（中）：每輪最多 64 個 connector 工具（原本最多約 1,000 個）。`SafeHttpTests` 補 AAAA 指到內網的案例。
+  - **D-231**（demo 卡關點）：授權伺服器要手動建 OAuth app 時，新增對話框顯示要填的 Redirect URI（可複製）。
+  - 其餘差異記錄接受：D-229（design/06）、D-230（design/04）、D-231 內（design/03；工具清單不會自己每小時重讀，寫進 FOR_JACKY 20）。
+- 驗證：cscheck 每次都 0 個新診斷；前端 lint、全套測試（1939 個）、build 全過；CI 41051468980（33027395，D-226／D-227）、41052059373（f0671913，D-228）第一次就綠；41054734621（23aa89a7，D-231）第一次就綠。
+
 ## 2026-10-30 17:42 – 第 62 輪（授權過期時一鍵回到重新授權：失敗呼叫的「前往重新連線」卡片、API key／token 直接更新認證、原生 connector 卡片捲到帳號連線）
 
 - 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（41028152017）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。鎖用 `openssl rand` 產生 run_id。
