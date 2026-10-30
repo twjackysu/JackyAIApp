@@ -71,7 +71,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             var datesBlock = NlPrompt.DatesBlock(await LatestDatesAsync(schema.DateColumns, maxDateFetcher, ct));
             _logger.LogInformation("NlSummarize Phase2 dateBlock: {db}", datesBlock.Length > 0 ? datesBlock : "(none)");
 
-            var today = DateOnly.FromDateTime(_time.GetUtcNow().UtcDateTime);
+            // Taipei's day: from 00:00 to 08:00 there the UTC date is still yesterday (「今天」「今年」).
+            var today = _time.GetTaipeiToday();
             var run = new NlPlanRun(_openAIPromptService, _logger, schema, values,
                 NlPrompt.System(summarizePrompt, schema.FieldList, today, valuesBlock, datesBlock), valueSource, ct);
 

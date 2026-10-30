@@ -361,15 +361,18 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   streams each piece that has text as SSE `thinking`. It is not the answer: not added to the text, not counted as the
   answer having started (a turn with thinking and no answer text is still a failure), not stored, never sent again in
   the history; within a turn the tool rounds still send the reply back whole, thinking blocks and signatures included
-- A conversation's title is its first question's first 30 characters (`AnthropicChatService.TitleFrom`) until the AI names
+- A conversation's title is its first question's first 30 characters (`AnthropicChatService.TitleFrom`, 29 when the 30th
+  is the first half of an emoji) until the AI names
   it (D-141): after a new conversation's first answer the client asks `POST conversations/{id}/title` once, and
   `ConversationTitler` (`IConversationTitler`) has Haiku 5.5 read the question and the start of the answer (600 and 800
   characters, as data inside `<question>`/`<answer>` with `<`/`>` full-width, `AsData`, since the answer may repeat a tool's
   result; effort low, no tools, 20s, not on the request's token, so closing the page right after does not lose a paid-for title)
   and keeps its reply cleaned into a title (`ConversationTitler.Clean`: the first line, no markdown, quotes, label or end
-  punctuation, `<`/`>` full-width, at most 24 characters). Only the reader's own conversation (else NotFound), only once its
+  punctuation, `<`/`>` full-width, no control, format or private-use characters — `Visible`, which the reader's own titles
+  also go through — at most 24 characters). Only the reader's own conversation (else NotFound), only once its
   first two messages are a question and an answer and it still has the title its question gave it (one already named keeps
-  its name). One try a conversation while the process remembers it (`IMemoryCache`, a day; two requests at once ask once,
+  its name), and never when that answer is only `StoppedNote` (stopped before anything was said: that message was refunded,
+  so naming it would be a free model call, D-243). Held to `RateLimitPolicies.ChatTitle` (20 a minute per reader). One try a conversation while the process remembers it (`IMemoryCache`, a day; two requests at once ask once,
   `InFlight`), so a failed one is not asked again and again — after a restart or a day one still under its question's title
   may be named once more; without the API key or on any failure (deleted meanwhile included) the title stays as it was, still
   200, a reply with no title logged with its stop reason. Not charged on its own: a conversation exists only after a charged
@@ -628,8 +631,15 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   `SafeHttp` connects to them), nor can a login the server routes elsewhere (TDS routing). So the owner is never told how a
   connection failed (refused, timed out, reset, not SQL Server): those driver texts become `EngineSources.ConnectionFailedMessage`
   (`EngineSources.OwnerMessage`); a login, permission or query error is still shown as the driver says it. Saving one is held to
-  `RateLimitPolicies.ConnectorProbe`. Tests give the resolver
-  `TestHelpers/PublicAddresses`
+  `RateLimitPolicies.ConnectorProbe`, and a user keeps at most `DataSourceStore.MaxSourcesPerUser` (20). The driver gets the
+  string through `DataSourceConfigValidator.Bounded` (D-244): `Min Pool Size` 0, at most 5 pooled connections, a command
+  timeout of 1–120s, at most 2 reconnect tries 10s apart — clamped, not refused, so sources saved earlier still work; the
+  stored string is the owner's. An edit that sends the masked `Password=***` back keeps every other change and only takes
+  the stored password (`DataSourceConfigService.WithStoredPassword`). An ADX source's tenant and client id may hold no
+  space, `;`, `=` or quote, its database no `;`, `=`, quote or control character (the library may build a Kusto
+  connection string from them). The page's queries (schema, latest date, distinct values, summarize, details, export)
+  are held to `RateLimitPolicies.DataQuery` (300 a minute per reader, 120 per address without a sign-in). Tests give the
+  resolver `TestHelpers/PublicAddresses`
 - A dashboard widget's rows (`GET api/dashboard/{id}/widgets/{widgetId}/data`, anonymous for an "Anyone" dashboard) run the
   owner's saved query again on the owner's source, uncharged, so they are held to 600 a minute per reader and 120 per address
   without a sign-in (`RateLimitPolicies.DashboardWidgetData`, D-163); a page asks once per widget when it opens
@@ -663,11 +673,16 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   sends with each message (`sourceId`/`tableName`, or `sessionId`; none = the default source), read by
   `DataAnalysisPage.From`; whether the reader may read that source is the query's own check
 - `NlQueryPlanner.BuildPlanAsync` only orchestrates. Which columns are String or date columns is
-  `NlSchema`; which String columns' real values are read (300 a column) and listed in the prompt (2000 in
-  all), and which can check a plan against all their values, is `NlPromptValues`; the wording sent to the
+  `NlSchema` (a name's control characters become spaces, so a column name cannot start a line of the prompt); which String
+  columns' real values are read (300 a column) and listed in the prompt (2000 values and 40,000 characters in all; never a
+  column with a value over 100 characters or holding a line break, which is the data's words and could start a rule of its
+  own — such a column is still checked by lookup, D-245), and which can check a plan against all their values, is
+  `NlPromptValues`; the wording sent to the
   LLM is `NlPrompt`; the LLM calls of one question — a plan checked against the data, and its one
-  correction — are `NlPlanRun`. The rules for filter values and notes stay in `NlPlanValidator`, the
-  relative dates in `NlDateRanges`. Change a rule in its unit, each of which has its own tests
+  correction — are `NlPlanRun`. The rules for filter values and notes stay in `NlPlanValidator` (an unmatched condition is kept on one
+  line and at most 60 characters: it is shown as the page's own note), the relative dates in `NlDateRanges`; "today" is
+  Taipei's. A reply missing a part (a null group, field or filter value: `AiJson` does not enforce `required`) is an unusable
+  plan, not a 500. Change a rule in its unit, each of which has its own tests
 - `NlQueryPlannerPipelineTests` pins the whole pipeline against a mocked LLM and value source: what each
   call is told and asked, what the source is queried for, and which plan and notes come back. A change to
   what the LLM sees gets a case there

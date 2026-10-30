@@ -133,13 +133,18 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         /// <summary>Upper bound on reported unmatched conditions — a question names only a few.</summary>
         private const int MaxUnmatched = 5;
 
+        /// <summary>Longest an unmatched condition may be, in characters.</summary>
+        internal const int MaxUnmatchedLength = 60;
+
         /// <summary>
         /// The LLM's <c>unmatched</c> list, cleaned: trimmed, blanks and repeats removed, bounded.
         /// </summary>
         public static List<string> CleanUnmatched(IEnumerable<string?>? unmatched) =>
             (unmatched ?? [])
-                .Select(u => u?.Trim())
-                .Where(u => !string.IsNullOrEmpty(u))
+                .Select(u => u == null ? null : NlSchema.OneLine(u).Trim())
+                // The user's wording for one condition is a few words; anything longer is not that (the model may have
+                // been led by the data's words), and it is shown as the page's own note.
+                .Where(u => !string.IsNullOrEmpty(u) && u.Length <= MaxUnmatchedLength)
                 .Select(u => u!)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Take(MaxUnmatched)

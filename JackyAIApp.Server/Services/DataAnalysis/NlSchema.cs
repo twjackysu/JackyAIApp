@@ -35,8 +35,12 @@ namespace JackyAIApp.Server.Services.DataAnalysis
 
         public bool IsString(string column) => _strings.Contains(column);
 
+        /// <summary>The text with every control character (a line break included) as a space.</summary>
+        internal static string OneLine(string text) => new(text.Select(c => char.IsControl(c) ? ' ' : c).ToArray());
+
         public static NlSchema From(IReadOnlyList<(string Name, string CanonicalType)> fields) => new(
-            string.Join(", ", fields.Select(f => $"{f.Name}({f.CanonicalType})")),
+            // A name is the data's words: a line break in one must not start a section of the prompt.
+            string.Join(", ", fields.Select(f => $"{OneLine(f.Name)}({f.CanonicalType})")),
             fields.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase),
             // Only String columns are candidates for value-based filtering; numbers/dates use ranges.
             fields.Where(f => string.Equals(f.CanonicalType, "String", StringComparison.OrdinalIgnoreCase)).Select(f => f.Name).ToList(),

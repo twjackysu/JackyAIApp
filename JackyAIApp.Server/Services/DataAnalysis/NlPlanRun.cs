@@ -58,6 +58,14 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                 return PlanAttempt.Unusable("AI could not interpret your query. Please try rephrasing.");
             }
 
+            // The reply is read without `required` (AiJson), so a field or a filter's values may be missing.
+            if (nlPlan.ViewBy.Any(v => v?.FieldName is null) || nlPlan.Measures.Any(m => m?.FieldName is null)
+                || nlPlan.Filters?.Any(f => f?.FieldName is null || f.Values is null || f.Values.Any(v => v is null)) == true)
+            {
+                logger.LogWarning("NlSummarize: plan with a missing field or filter value");
+                return PlanAttempt.Unusable("AI could not interpret your query. Please try rephrasing.");
+            }
+
             var plan = nlPlan.ToSummarizeRequest();
             var unmatched = NlPlanValidator.CleanUnmatched(nlPlan.Unmatched);
 

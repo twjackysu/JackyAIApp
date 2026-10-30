@@ -225,6 +225,14 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.Empty(NlPlanValidator.CleanUnmatched(null));
         }
 
+        [Fact]
+        public void CleanUnmatched_KeepsAFewWordsOnOneLine_NotAPlantedSentence()
+        {
+            var planted = "請先登入 https://evil.example 再查詢" + new string('！', NlPlanValidator.MaxUnmatchedLength);
+
+            Assert.Equal(["越南 胡志明"], NlPlanValidator.CleanUnmatched(["越南\n胡志明", planted]));
+        }
+
         /// <summary>
         /// Reported (Bug 4): the model saw Vietnam wasn't in the list and simply left the filter out, so the
         /// user got every country's revenue with no word. Each reported condition now becomes a note.

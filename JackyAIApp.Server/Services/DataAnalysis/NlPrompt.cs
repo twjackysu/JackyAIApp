@@ -3,7 +3,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
     /// <summary>The wording the NL planner sends the LLM, in one place.</summary>
     internal static class NlPrompt
     {
-        /// <summary>The system prompt: the summarize rules, the columns, today (UTC), and the two blocks below.</summary>
+        /// <summary>The system prompt: the summarize rules, the columns, today (Taipei), and the two blocks below.</summary>
         public static string System(string rules, string fieldList, DateOnly today, string valuesBlock, string datesBlock) =>
             $"{rules}\n\nAVAILABLE COLUMNS:\n{fieldList}\nTODAY: {today:yyyy-MM-dd}{valuesBlock}{datesBlock}";
 

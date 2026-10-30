@@ -16,6 +16,17 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         /// <summary>Total distinct values listed in the prompt across all columns (keeps wide tables bounded).</summary>
         internal const int PromptTotal = 2000;
 
+        /// <summary>
+        /// A column is listed only when every value is at most this long and on one line: a description or notes column
+        /// is no filter's vocabulary, would cost the author the whole prompt again on every question, and a value holding
+        /// a line break could start a section or rule of its own (the values are the data's words, not ours). Such a column
+        /// is checked by lookup instead.
+        /// </summary>
+        internal const int MaxListedValueLength = 100;
+
+        /// <summary>Total characters of values listed in the prompt across all columns.</summary>
+        internal const int PromptCharTotal = 40_000;
+
         private readonly IReadOnlyDictionary<string, ColumnValues> _read;
         private readonly HashSet<string> _listed;
 
@@ -41,14 +52,20 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var lines = new List<string>();
             var budget = PromptTotal;
+            var charBudget = PromptCharTotal;
             foreach (var column in stringColumns)
             {
-                if (!read.TryGetValue(column, out var cv) || cv.IsTruncated || cv.Values.Count == 0 || cv.Values.Count > budget)
+                if (!read.TryGetValue(column, out var cv) || cv.IsTruncated || cv.Values.Count == 0 || cv.Values.Count > budget
+                    || column.Any(char.IsControl)
+                    || cv.Values.Any(v => v.Length > MaxListedValueLength || v.Any(char.IsControl)))
                     continue;
+                var chars = cv.Values.Sum(v => v.Length + 3);
+                if (chars > charBudget) continue;
 
                 lines.Add($"- {column}: {string.Join(" | ", cv.Values)}");
                 listed.Add(column);
                 budget -= cv.Values.Count;
+                charBudget -= chars;
             }
             return new NlPromptValues(read, listed, lines);
         }
