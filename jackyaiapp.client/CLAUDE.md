@@ -25,7 +25,8 @@ jackyaiapp.client/src/
 
 ## API slices
 
-- A feature in the shared API (`apis/api.ts`: repository, review, stats, daily challenge, exam)
+- A feature in the shared API (`apis/api.ts`: repository, review, stats, daily challenge, exam, assistant memories,
+  OAuth consent)
   adds endpoints with `api.injectEndpoints` in its own `apis/[feature]/index.ts`, paths relative to
   `/api`. A new tag goes in `TAG_TYPES` there.
 - When a mutation changes data another feature shows, it invalidates that data's tag with
@@ -167,7 +168,7 @@ jackyaiapp.client/src/
   use now (`StudioToolsRow` through `AiChatConfig.welcomeFooter`, D-220; `usableConnectors`: the site's own first, then those
   working or not yet tested with a tool not switched off; five named, the rest counted) and links to /connectors. It is the site's command bar too: while the reader types, a few words naming a page ("複習",
   "portfolio", "帶我去 dashboards") or one English word offer to go straight there (`quickActionsFor`, shown over the
-  box by `QuickActionChips` through the panel's `inputAccessory`): a press navigates, empties the box and closes the
+  box by `QuickChips` through the panel's `inputAccessory`): a press navigates, empties the box and closes the
   drawer, with no AI and no usage; Enter still sends the text to the AI. A draft starting with `/` lists Studio AI's ready-made
   requests instead (`slashCommands`, matched by the chat's `matchSlashCommands` like every assistant's, D-111: 今日簡報, 考我單字, 用我的單字寫短文, 找出我的弱點, 投資組合健檢, …, narrowed by what follows
   the slash, in either language or by the site MCP server's prompt name, `/quiz`): a press sends one as if typed, the drawer

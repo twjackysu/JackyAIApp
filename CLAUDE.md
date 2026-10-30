@@ -29,7 +29,8 @@ deployment detail here and in the sub-`CLAUDE.md` files, not in the README; do n
 - **Entity Framework Core 10** with Azure SQL Database
 - **Azure integrations**: Key Vault for secrets, App Service hosting
 - **OpenAI integration** via Betalgo.Ranul.OpenAI package (v9.2)
-- **Anthropic integration** via the `Anthropic` SDK (Finance AI assistant, see AI Integration Patterns)
+- **Anthropic integration** via the `Anthropic` SDK (the AI assistants — Finance, Studio AI, Data Analysis — and their
+  conversation titles, see AI Integration Patterns)
 - **Google OAuth** authentication
 - **External API integrations**: Taiwan Stock Exchange (TWSE) Open API, Yahoo Finance, FundRich (基富通), TWStockLib (NuGet package, own test suite — see Testing Status)
 - **Resilience**: Polly retry + circuit breaker (`Microsoft.Extensions.Http.Resilience`) on the named `"ExternalReadOnly"` client and TWStockLib's named client (`TwStockOptions.HttpClientName`, 30s timeout, the library's own rate limit on: 3 requests in any 5s per exchange host, the rest queued), scoped away from the OpenAI/Anthropic clients to avoid retrying non-idempotent calls
@@ -130,8 +131,8 @@ The home portal (`/`) is the only place users switch between apps; the registry 
 11. **Folder Slideshow** (`/slideshow`) - Plays the photos in a folder the user picks; runs entirely in the browser, no API
 
 12. **Connectors** (`/connectors`, on the portal) - what the AI may use: the site's own tools (always on) and the
-    reader's own remote MCP servers (no sign-in, an API key or a bearer token; OAuth not yet), with a permission per
-    tool (run on its own / ask first / off); the Data Analysis assistant offers their tools. Below that, the
+    reader's own remote MCP servers (no sign-in, an API key, a bearer token, or OAuth), with a permission per
+    tool (run on its own / ask first / off); Studio AI and the Data Analysis assistant offer their tools. Below that, the
     account OAuth connections to Atlassian (Jira) / Microsoft / Google, unchanged. Tokens stored encrypted.
     Design: docs/ai-native/design/03; backend in [JackyAIApp.Server/CLAUDE.md](JackyAIApp.Server/CLAUDE.md) ("Connectors")
 
@@ -157,7 +158,8 @@ The home portal (`/`) is the only place users switch between apps; the registry 
      digest (once per user per budget day, the UTC day; the digest itself is new each Taipei day),
      chat (cost depends on attachments; and a turn's tool rounds past the first
      `UsageCosts.FreeChatToolRounds` (3) requests cost one `ChatToolRound` each, charged in the loop
-     before the request — without the budget the model answers from what it read, no tool allowed)
+     before the request — without the budget the model answers from what it read, no tool allowed;
+     within a chat, the Data Analysis assistant's `ask_data` also charges `NlSummarize` per call)
    - `UsageLimits:DailyBudget` (default 60) sets the shared default; `User.UsageLimitMultiplier`
      lets the author raise an individual user's effective limit directly in the DB (no admin UI).
      Resetting today's usage is `UPDATE DailyUsages SET Used = 0` for that `UserId` and today's
@@ -184,7 +186,7 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
   changes the review queue, finishing a challenge changes the stats), the mutation names that
   data's tag, with `invalidatesTags: onSuccess(...)` (a failed mutation refetches nothing). All tags
   are listed in `apis/api.ts`. The English-learning slices (repository, review, stats, daily
-  challenge, exam) are in it; the others are still their own `createApi` and share no tags
+  challenge, exam), the assistant's memories and the OAuth consent are in it; the others are still their own `createApi` and share no tags
 - **TypeScript interfaces** for all API contracts in `apis/[feature]/types.ts`
 - **Error message extraction** via `apis/utils/errorMessage.ts` — the only supported way to turn
   an RTK Query error into display text, since `FetchBaseQueryError.data` is not guaranteed to hold
@@ -213,20 +215,22 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 ### AI Service Integration
 - **OpenAI client** configured in dependency injection using Betalgo.Ranul.OpenAI
 - **Models used**: 
-  - gpt-6-luna (`NewModels.GPT_6_LUNA`) for every chat/JSON completion **except the Finance AI
-    assistant below**; it is reasoning-family, so `OpenAIPromptService` sends
+  - gpt-6-luna (`NewModels.GPT_6_LUNA`) for every chat/JSON completion **except the AI assistants
+    (and their conversation titles) below**; it is reasoning-family, so `OpenAIPromptService` sends
     `reasoning_effort=low`, never `temperature` or `max_tokens`, and caps output with
     `max_completion_tokens` (16384, output only — prompts can be far longer). Its HttpClient waits 90s
     (`AddOpenAIClient`, `Extensions/HttpClientTimeoutExtensions.cs`), not the app's 20s default for
     external APIs: calls take 5-20s and more, and at 20s 1.6% were cut off after OpenAI had billed them.
     90s stays under Cloudflare's 100s; no retries (a completion that reached OpenAI would be paid twice)
-  - **Finance AI assistant** (`/finance`; `AnthropicChatService`): Claude Haiku 5.5
+  - **AI assistants** (`AnthropicChatService`, one engine for every profile: Finance at `/finance`, Studio AI,
+    Data Analysis; what the Finance one does is described here, the others in
+    [JackyAIApp.Server/CLAUDE.md](JackyAIApp.Server/CLAUDE.md)): Claude Haiku 5.5
     (`claude-haiku-5-5`, SDK `Anthropic` NuGet) called directly through the Anthropic API (key
-    `Settings:AnthropicApiKey`) — not Dify (removed) and not OpenAI. It uses Anthropic's MCP
+    `Settings:AnthropicApiKey`) — not Dify (removed) and not OpenAI. Finance uses Anthropic's MCP
     connector to attach the remote `tw-stock` MCP server (`TW-Stock-MCP-Server.fastmcp.app`), which
     Anthropic's servers call, not ours. Its tools are deferred behind the regex tool search (not
     BM25, which misses Chinese queries), except a few always loaded
-    (`AnthropicChatService.AlwaysLoadedTools`; the turn log names the tools each turn called, to
+    (`TwStockMcp.AlwaysLoadedTools`; the turn log names the tools each turn called, to
     keep that list honest). Haiku 5.5 thinks by default (adaptive) and the thinking
     counts toward `max_tokens`; effort is set explicitly to `medium`; its thinking's summary is asked for
     (`display: summarized`, not the model's default `omitted`; billed the same) and streamed to the reader
