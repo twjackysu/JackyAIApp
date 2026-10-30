@@ -10,7 +10,7 @@
   - **D-240**：site token 記錄使用時間時剛被撤銷就不放行。
   - **D-241**（中，安全）：記憶筆記去掉控制／格式／私用字元（tag block 能讓確認卡只顯示無害句子）；`update_holding` 用 `quantity` 時卡片也說成交價、數字上限一兆；`save_to_dashboard` 建立前先檢查標題、失敗回服務的原因。
   - **D-242**：同一個回覆裡外部讀取之後的寫入也問；`OutsideText` 結果擋自己的換頁；`ModelTurn` 例外時 taint 仍存（finally）。design/06 §8 補「分類是 server 自己說的」。
-- 驗證：每次後端改動 cscheck 0 個新診斷；前端 lint／test（186 檔、1945 個）／build 全過；CI 41085554392（5177a8b0）、41087195865（df63afc8）、41088075161（67d5ce57）都第一次就綠，1f2feddf 見下一則或 NEXT §1。
+- 驗證：每次後端改動 cscheck 0 個新診斷；前端 lint／test（186 檔、1945 個）／build 全過；CI 41085554392（5177a8b0）、41087195865（df63afc8）、41088075161（67d5ce57）都第一次就綠、41088858532（1f2feddf）都第一次就綠。
 - 接受不改（寫在各 D-xxx）：app 換頁後 `load` 前仍能送訊息、`readerAllowed` 不綁參數（D-208）、錯 token 不限流、token 上限的競態、新 key 存好後舊呼叫的 401、`add_word_to_repository` 卡片說變化形。
 
 ## 2026-10-30 23:08 – 第 64 輪（design/08、09 對照完成；審查最近的高風險 commit：工具輪收費的例外、MCP App 連結、connector 名稱）

@@ -12,7 +12,7 @@
 
 ## 1. CI 狀態
 
-- 第 65 輪：後端＋前端（D-237～D-242）；cscheck 每次 0 個新診斷；CI 41085554392（5177a8b0）、41087195865（df63afc8）、41088075161（67d5ce57）第一次就綠，1f2feddf（D-242）收尾時確認。**`ClientToolRunner` 現在把同一個回覆中排在 `ReadsOutsideText` 工具後面的非讀取呼叫也放進確認卡**：新的假串流若一個回覆裡先叫 connector 讀取再叫自動的寫入，會出現 `approval_required`。MCP App 卡片同時最多 4 個呼叫（`MAX_CALLS_IN_FLIGHT`）：前端測試若一次送 5 個以上不回應的呼叫，第 5 個會被拒。
+- 第 65 輪：後端＋前端（D-237～D-242）；cscheck 每次 0 個新診斷；CI 41085554392（5177a8b0）、41087195865（df63afc8）、41088075161（67d5ce57）第一次就綠、41088858532（1f2feddf，D-242）都第一次就綠。**`ClientToolRunner` 現在把同一個回覆中排在 `ReadsOutsideText` 工具後面的非讀取呼叫也放進確認卡**：新的假串流若一個回覆裡先叫 connector 讀取再叫自動的寫入，會出現 `approval_required`。MCP App 卡片同時最多 4 個呼叫（`MAX_CALLS_IN_FLIGHT`）：前端測試若一次送 5 個以上不回應的呼叫，第 5 個會被拒。
 - 第 64 輪：後端＋前端（D-232、D-234、D-236）；cscheck 0 個新診斷；CI 41075118078（f4ff4407）、41075940650（22a9eb74）、41077408185（661dbc20）都第一次就綠。**MCP App 卡片的「開啟」「放進輸入框」現在要等提議出現 600 ms 後才算數**：新的前端測試照 `McpAppMessage.test.tsx` 的 `clock`／`press` 把時間往前推，截圖腳本按之前等 700 ms。`AnthropicChatStreamTests` 的 `_chargeFails` 可以讓工具輪收費丟例外。
 - 第 63 輪：後端＋前端（D-226～D-228、D-231）；cscheck 0 個新診斷；CI 41051468980（33027395）、41052059373（f0671913）、41054734621（23aa89a7，D-231）都第一次就綠。**`AnthropicChatStreamTests` 的 `IUsageLimitService` 是 mock，預設回 `_budgetLeft`（true）**：新的多輪工具測試若要測額度不夠，設 `_budgetLeft = false`。
 - 第 62 輪：後端＋前端（D-223、D-224）；cscheck 0 個新診斷；CI 41037377396（c360d50d）、41037911711（c3fbe3b0）第一次就綠；41039615668（e1c04e29，D-224）綠；41041520459（ad67e606，D-225）第一次就綠。截圖腳本新增 `.loop/shots/reconnect.cjs`。**失敗的工具呼叫現在可以帶本站連結卡**：新的前端假串流若在 `ok: false` 的 `tool_result` 放 `/…` 的連結卡，畫面會出現它（以前不會）。
