@@ -1,6 +1,6 @@
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { hairline } from '../../style';
 
@@ -9,10 +9,12 @@ import { useAppDraft } from './appDraft';
 import { APP_SANDBOX, APP_START_HEIGHT, appCsp, appSrcDoc, frameHeight } from './appFrame';
 import {
   BUSY_MESSAGE,
+  MAX_CALLS_IN_FLIGHT,
   OPEN_GATE,
   PAUSED_MESSAGE,
   PRESS_GUARD_MS,
   REFUSED_MESSAGE,
+  TOO_MANY_CALLS_MESSAGE,
   allowAgain,
   askingAbout,
   decide,
@@ -168,9 +170,16 @@ function AppFrame({
   );
   // The server decides whether the app may (a tool that only reads and runs on its own, or one for the app alone the reader
   // allowed here); the app gets its answer. One the server says waits on the reader is held, for the card to ask.
+  // How many of this card's calls the server is answering now: at most MAX_CALLS_IN_FLIGHT (D-239).
+  const inFlightRef = useRef(0);
   const runCall = useCallback(
     (call: WaitingCall, readerAllowed: boolean) => {
       if (readerAllowed && !seenRef.current) return fail(call.id, PAUSED_MESSAGE);
+      if (inFlightRef.current >= MAX_CALLS_IN_FLIGHT) return fail(call.id, TOO_MANY_CALLS_MESSAGE);
+      inFlightRef.current += 1;
+      const settled = () => {
+        inFlightRef.current -= 1;
+      };
       callTool({
         installationId: data.installationId,
         tool: call.name,
@@ -178,7 +187,16 @@ function AppFrame({
         readerAllowed,
       })
         .unwrap()
-        .then((r) => post({ jsonrpc: '2.0', id: call.id, result: r.result }))
+        .then(
+          (r) => {
+            settled();
+            post({ jsonrpc: '2.0', id: call.id, result: r.result });
+          },
+          (e: unknown) => {
+            settled();
+            throw e;
+          },
+        )
         .catch((e: unknown) => {
           if (!readerAllowed && needsReader(e)) {
             const current = gateRef.current;
@@ -207,12 +225,14 @@ function AppFrame({
     }
   };
   const asking = askingAbout(gate);
-  useEffect(() => {
+  // Before the browser paints (a layout effect): the question appears on a message or an answer, not on the reader's
+  // input, so a press landing between that paint and a later passive effect would otherwise count (D-239).
+  useLayoutEffect(() => {
     if (asking !== null) shiftedAtRef.current = performance.now();
   }, [asking]);
   // 改為允許 appears where 不用 was: a second press of 不用 must not land on it.
   const refusedKey = gate.refused.join('\n');
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (refusedKey) shiftedAtRef.current = performance.now();
   }, [refusedKey]);
   // The document starts in the light or dark of the moment it is drawn; a later change is told, never drawn again, so

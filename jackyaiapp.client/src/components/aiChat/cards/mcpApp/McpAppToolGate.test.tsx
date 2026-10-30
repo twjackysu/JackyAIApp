@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { PAUSED_MESSAGE } from './appToolGate';
+import { MAX_CALLS_IN_FLIGHT, PAUSED_MESSAGE, TOO_MANY_CALLS_MESSAGE } from './appToolGate';
 import McpAppCardView from './McpAppCardView';
 
 // An app's call of a tool for it alone that may change something (D-207): the server says it waits on the reader, the card
@@ -247,5 +247,36 @@ describe('an MCP App’s tool for it alone that may change something', () => {
     await poll(3);
     expect(mocks.call.mock.calls.length).toBe(calls + 1);
     expect(replies).toContainEqual(expect.objectContaining({ id: 3, result: expect.anything() }));
+  });
+});
+
+describe('an MCP App’s calls at once (D-239)', () => {
+  it('sends at most MAX_CALLS_IN_FLIGHT to the server, refusing the rest, and sends again once one is answered', async () => {
+    const answers: (() => void)[] = [];
+    mocks.call.mockImplementation(() => ({
+      unwrap: () =>
+        new Promise((resolve) =>
+          answers.push(() => resolve({ result: { content: [{ type: 'text', text: 'ok' }] } })),
+        ),
+    }));
+    const { other, replies } = mount();
+
+    for (let id = 1; id <= MAX_CALLS_IN_FLIGHT + 1; id++) await other(id);
+
+    expect(mocks.call).toHaveBeenCalledTimes(MAX_CALLS_IN_FLIGHT);
+    expect(replies).toContainEqual(
+      expect.objectContaining({
+        id: MAX_CALLS_IN_FLIGHT + 1,
+        error: expect.objectContaining({ message: TOO_MANY_CALLS_MESSAGE }),
+      }),
+    );
+
+    await act(async () => {
+      answers[0]();
+      await Promise.resolve();
+    });
+    expect(replies).toContainEqual(expect.objectContaining({ id: 1, result: expect.anything() }));
+    await other(99);
+    expect(mocks.call).toHaveBeenCalledTimes(MAX_CALLS_IN_FLIGHT + 1);
   });
 });

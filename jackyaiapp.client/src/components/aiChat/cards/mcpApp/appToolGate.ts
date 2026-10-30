@@ -35,6 +35,11 @@ export const MAX_WAITING_CALLS = 3;
 /** What the app is told when the reader said no, or while too many of its calls wait. */
 export const REFUSED_MESSAGE = 'The user did not allow this tool.';
 export const BUSY_MESSAGE = 'Waiting for the user to allow this tool.';
+/** The most of a card's calls sent to the server at once (D-239): a looping app would otherwise spend the reader's shared
+ * limit for apps' calls, so their other apps fail, and flood the tab; past it a call is refused here, never sent. */
+export const MAX_CALLS_IN_FLIGHT = 4;
+export const TOO_MANY_CALLS_MESSAGE =
+  'Too many tool calls at once; try again once one has finished.';
 /** What the app is told when it calls a tool the reader allowed while its card is out of sight (scrolled away, or the
  * tab hidden): what was allowed was the app the reader is looking at, so a polling app costs nothing unseen. */
 export const PAUSED_MESSAGE =
