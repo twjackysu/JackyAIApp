@@ -1,12 +1,13 @@
 # PROGRESS（新的在最上面）
 
-## 2026-10-30 17:42 – 第 62 輪（授權過期時一鍵回到重新授權：失敗呼叫的「前往重新連線」卡片、API key／token 直接更新認證）
+## 2026-10-30 17:42 – 第 62 輪（授權過期時一鍵回到重新授權：失敗呼叫的「前往重新連線」卡片、API key／token 直接更新認證、原生 connector 卡片捲到帳號連線）
 
 - 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（41028152017）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。鎖用 `openssl rand` 產生 run_id。
 - **D-223**（NEXT 第 61 輪的 (c)）：MCP connector 被拒絕認證時，失敗的工具呼叫附一張「重新連線「X」」連結卡（`ConnectorToolSource.ReconnectCard`，`/connectors?connector=<id>`）。規則改成失敗的呼叫**只能帶本站路徑的連結卡**（伺服器 `ClientToolRunner.WayForwardOf`＋`ToolCardGuard.IsSiteLink`，前端 `wayForwardCard`）。順帶發現：Jira 的 `ConnectCard` 與 `update_holding` 失敗時的卡片原本寫了卻一直被「失敗不送卡片」吃掉，現在會出現。/connectors 讀 `?connector=` 打開該 connector 的詳情一次（`connectorToOpen`），Studio 抽屜讓開；等待授權時「重新授權」是主要按鈕。
 - **D-224**：API key／bearer token 的 connector 原本只能移除重加 → `PUT installations/{id}/credentials`（`UpdateCredentialsAsync`，ConnectorProbe 頻率限制）＋詳情抽屜「更新認證」→ `CredentialsForm`「儲存並測試」。
+- **D-225**：原生 connector（Google 日曆、Outlook、Jira）的「先連線」卡片改連 `/connectors#accounts`（`ConnectorProviders.AccountsPath`），頁面讀到後捲到帳號連線一次（`ACCOUNTS_ANCHOR`），Studio 抽屜讓開。
 - 截圖：新腳本 `.loop/shots/reconnect.cjs`（Studio 的失敗卡片 → 按下去 → /connectors 詳情；bearer 的更新認證），6 張新截圖放進 SHOWCASE 第 6 步。
-- 驗證：cscheck 兩次都 0 個新診斷；前端 lint、全套測試（186 檔 1934 個）、build 全過；CI 41037377396（c360d50d，D-223 後端＋前端）、41037911711（c3fbe3b0）第一次就綠，41039615668（e1c04e29，D-224）見下方 NEXT 1。
+- 驗證：cscheck 兩次都 0 個新診斷；前端 lint、全套測試（186 檔 1934 個）、build 全過；CI 41037377396（c360d50d，D-223 後端＋前端）、41037911711（c3fbe3b0）第一次就綠，41039615668（e1c04e29，D-224）綠；41041520459（ad67e606，D-225）第一次就綠。
 
 ## 2026-10-30 15:43 – 第 61 輪（對照 design/05 補齊落差：訪客的 Studio AI、工具耗時、標題列的頁面、我能用的工具、connector 的最後測試時間、抽屜拉寬）
 
