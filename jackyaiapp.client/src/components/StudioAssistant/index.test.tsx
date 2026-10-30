@@ -213,6 +213,18 @@ describe('StudioAssistant', () => {
     expect(button()).not.toBeNull();
   });
 
+  it('steps aside too when its card sends the reader to reconnect a connector (D-223)', async () => {
+    await render('/');
+    await act(async () => button()!.click());
+    await settle();
+    expect(mocks.panel!.active).toBe(true);
+
+    await act(async () => router.navigate!('/connectors?connector=i-1'));
+    await settle();
+
+    expect(mocks.panel!.active).toBe(false);
+  });
+
   it('opens on ⌘K / Ctrl+K', async () => {
     await render('/');
     await act(async () =>

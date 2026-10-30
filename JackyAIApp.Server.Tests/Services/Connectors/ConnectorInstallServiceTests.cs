@@ -450,7 +450,14 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
             Assert.True(result.IsError);
             Assert.Contains("重新連線", result.Content);
-            Assert.Equal("NeedsAuth", _db.ConnectorInstallations.AsNoTracking().Single().LastStatus);
+            var row = _db.ConnectorInstallations.AsNoTracking().Single();
+            Assert.Equal("NeedsAuth", row.LastStatus);
+            // The way back: a link to this connector on the connectors page, which a failed call may show (D-223).
+            var card = JsonSerializer.SerializeToElement(result.Card);
+            Assert.Equal("link", card.GetProperty("kind").GetString());
+            Assert.Equal($"/connectors?connector={row.Id}", card.GetProperty("href").GetString());
+            Assert.Equal("前往重新連線", card.GetProperty("actionLabel").GetString());
+            Assert.True(JackyAIApp.Server.Services.Chatbot.ToolCardGuard.IsSiteLink(card));
         }
     }
 }

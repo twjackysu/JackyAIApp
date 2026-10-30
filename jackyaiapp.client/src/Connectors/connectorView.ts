@@ -165,3 +165,19 @@ export function lastTestedText(lastTestedAt: string | null, now: Date = new Date
   if (minutes < 24 * 60) return `${Math.floor(minutes / 60)} 小時前測試`;
   return `${TAIPEI_DAY.format(at)} 測試`;
 }
+
+/** The query parameter /connectors opens one of the reader's connectors with (a failed call's 「前往重新連線」 card, D-223). */
+export const CONNECTOR_PARAM = 'connector';
+
+/**
+ * Which connector a /connectors address asks to open (`?connector=<installation id>`): `undefined` when it asks for
+ * none, `null` when the one it names is not among the reader's (removed since the card was shown).
+ */
+export function connectorToOpen(
+  params: URLSearchParams,
+  installed: readonly InstalledConnector[],
+): InstalledConnector | null | undefined {
+  const id = params.get(CONNECTOR_PARAM);
+  if (id === null) return undefined;
+  return installed.find((c) => c.id !== null && c.id === id) ?? null;
+}

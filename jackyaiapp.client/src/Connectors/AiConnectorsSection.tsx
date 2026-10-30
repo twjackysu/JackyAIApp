@@ -7,7 +7,12 @@ import AddMcpServerDialog from './AddMcpServerDialog';
 import { REGISTRY_PARAM, registrySearchOf } from './AddMcpServerDialog/registryView';
 import CatalogSection from './CatalogSection';
 import ConnectorDetailDrawer from './ConnectorDetailDrawer';
-import { connectAction, installedServerUrls } from './connectorView';
+import {
+  CONNECTOR_PARAM,
+  connectAction,
+  connectorToOpen,
+  installedServerUrls,
+} from './connectorView';
 import InstalledSection from './InstalledSection';
 
 import type { CatalogEntry, InstalledConnector } from '@/apis/connectorsApis/types';
@@ -83,6 +88,22 @@ export default function AiConnectorsSection({
       { replace: true },
     );
   }, [askedSearch, catalog, setSearchParams, notify]);
+
+  // Sent here to reconnect one connector (`?connector=<id>`, a failed call's card, D-223): its details open, once, and
+  // the address drops it so a reload does not open them again.
+  const asked = catalog ? connectorToOpen(searchParams, catalog.installed) : undefined;
+  useEffect(() => {
+    if (asked === undefined) return;
+    if (asked) setSelectedKey(keyOf(asked));
+    else notify('找不到這個 connector，可能已經移除了。', 'error');
+    setSearchParams(
+      (params) => {
+        params.delete(CONNECTOR_PARAM);
+        return params;
+      },
+      { replace: true },
+    );
+  }, [asked, setSearchParams, notify]);
 
   // The drawer shows the catalog's copy, so a change saved from it shows at once.
   const selected = catalog?.installed.find((c) => keyOf(c) === selectedKey) ?? null;

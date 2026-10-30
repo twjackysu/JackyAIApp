@@ -32,6 +32,7 @@ import SelectionBar from '@/components/aiChat/selection/SelectionBar';
 import { handoffState } from '@/components/aiChat/utils/handoff';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { registrySearchOf } from '@/Connectors/AddMcpServerDialog/registryView';
+import { CONNECTOR_PARAM } from '@/Connectors/connectorView';
 import { useAppDispatch } from '@/redux/hooks';
 
 const AiAssistantPanel = lazy(() => import('@/components/aiChat'));
@@ -235,13 +236,16 @@ export default function StudioAssistant() {
     if (!shown) setOpen(false);
   }, [shown]);
 
-  // Sent to /connectors to add a server Studio AI found (the `mcp-servers` card's 加入, D-124): adding it is done on the
-  // page, so the drawer steps aside (on a phone it is the whole screen) and the conversation waits for the reader.
-  const addingFromRegistry =
-    pathname === '/connectors' && registrySearchOf(new URLSearchParams(search)) !== null;
+  // Sent to /connectors to add a server Studio AI found (the `mcp-servers` card's 加入, D-124), or to reconnect one a
+  // call was refused for (the failed call's card, D-223): that is done on the page, so the drawer steps aside (on a
+  // phone it is the whole screen) and the conversation waits for the reader.
+  const handledOnConnectorsPage =
+    pathname === '/connectors' &&
+    (registrySearchOf(new URLSearchParams(search)) !== null ||
+      new URLSearchParams(search).has(CONNECTOR_PARAM));
   useEffect(() => {
-    if (addingFromRegistry) setOpen(false);
-  }, [addingFromRegistry]);
+    if (handledOnConnectorsPage) setOpen(false);
+  }, [handledOnConnectorsPage]);
 
   // Signed out, the button says what Studio AI does and how to sign in (nothing is kept, nothing asked of the AI);
   // nothing while it is not known yet, so a signed-in reader's button never starts as the visitor's.

@@ -11,6 +11,7 @@ import {
   serverUrlKey,
   toolCounts,
   lastTestedText,
+  connectorToOpen,
 } from './connectorView';
 import { entry, installed } from './testData';
 
@@ -164,5 +165,23 @@ describe('lastTestedText', () => {
   it('says nothing for one never tested or a time it cannot read', () => {
     expect(lastTestedText(null, now)).toBeNull();
     expect(lastTestedText('not a time', now)).toBeNull();
+  });
+});
+
+describe('connectorToOpen', () => {
+  const params = (q: string) => new URLSearchParams(q);
+  const mine = [installed({ id: 'i-1' }), installed({ id: null, definitionKey: 'site' })];
+
+  it('asks for none without the parameter', () => {
+    expect(connectorToOpen(params('x=1'), mine)).toBeUndefined();
+  });
+
+  it("finds the reader's connector by its id", () => {
+    expect(connectorToOpen(params('connector=i-1'), mine)?.id).toBe('i-1');
+  });
+
+  it('is null for one that is not theirs, or that names no id', () => {
+    expect(connectorToOpen(params('connector=i-2'), mine)).toBeNull();
+    expect(connectorToOpen(params('connector='), mine)).toBeNull();
   });
 });

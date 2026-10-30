@@ -135,3 +135,13 @@ export function parseToolCard(raw: unknown): ToolCard | null {
   if (!/^[a-z][a-z0-9-]*$/.test(kind) || !isRecord(raw.data)) return null;
   return { kind, title: text(raw.title, 200), data: raw.data };
 }
+
+/**
+ * The card a failed call may show: only a link to a page of this site, its way forward (reconnect a connector, the page
+ * to do it on; D-223). Anything else a failed call returned is not a result, so it is not drawn.
+ */
+export function wayForwardCard(raw: unknown): LinkCard | null {
+  const card = parseToolCard(raw);
+  if (card?.kind !== 'link' || !('href' in card)) return null;
+  return sitePathOf(card.href) ? card : null;
+}

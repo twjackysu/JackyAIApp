@@ -116,7 +116,11 @@ namespace JackyAIApp.Server.Services.Chatbot
                     : await RunOneAsync(call, ct);
                 var durationMs = (long)_time.GetElapsedTime(started).TotalMilliseconds;
 
-                var card = result.IsError || result.Card == null ? null : CardOf(call.Name, result.Card);
+                // A failed call's card is only its way forward, a link to a page of this site (reconnect, the page to do it on;
+                // D-223): what else it returned is not a result.
+                var card = result.Card == null ? null
+                    : result.IsError ? WayForwardOf(call.Name, result.Card)
+                    : CardOf(call.Name, result.Card);
                 if (card != null) Cards.Add(card.Value);
                 var navigate = NavigateOf(call.Name, result);
                 await _sse.WriteAsync(new
@@ -209,6 +213,10 @@ namespace JackyAIApp.Server.Services.Chatbot
                     toolName, _context.ConversationId);
             return checkedCard;
         }
+
+        /// <summary>A failed call's card as the reader may be sent it: only a link to a page of this site, else null.</summary>
+        private JsonElement? WayForwardOf(string toolName, object card) =>
+            CardOf(toolName, card) is { } checkedCard && ToolCardGuard.IsSiteLink(checkedCard) ? checkedCard : null;
 
         /// <summary>The longest summary on the card.</summary>
         internal const int MaxSummary = 2200;

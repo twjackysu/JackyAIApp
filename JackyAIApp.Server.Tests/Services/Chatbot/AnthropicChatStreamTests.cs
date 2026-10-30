@@ -581,6 +581,51 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         [Fact]
+        public async Task AFailedCall_ShowsItsLinkToAPageOfThisSite_AsItsWayForward()
+        {
+            _toolProfile.Lookup.Result = _ => new AiToolResult("需要重新連線", IsError: true,
+                Card: new { kind = "link", title = "重新連線「Notes」", href = "/connectors?connector=c1", actionLabel = "前往重新連線" });
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "lookup_word", "{\"word\":\"x\"}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("請重新連線。"), Sse.End("end_turn"));
+
+            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+
+            var result = turn.Events.Single(e => Type(e) == "tool_result");
+            Assert.False(result.GetProperty("ok").GetBoolean());
+            Assert.Equal("/connectors?connector=c1", result.GetProperty("card").GetProperty("href").GetString());
+            // Kept with the answer like any card, so reopening the conversation still shows the way back.
+            var cards = JsonDocument.Parse(Messages()[1].CardsJson!).RootElement;
+            Assert.Equal("link", Assert.Single(cards.EnumerateArray()).GetProperty("kind").GetString());
+            var toolResult = JsonDocument.Parse(_anthropic.Requests[1]).RootElement.GetProperty("messages")[2].GetProperty("content")[0];
+            Assert.True(toolResult.GetProperty("is_error").GetBoolean());
+        }
+
+        [Theory]
+        [InlineData("outside")]
+        [InlineData("protocol-relative")]
+        [InlineData("table")]
+        [InlineData("chart")]
+        public async Task AFailedCall_ShowsNoOtherCard(string which)
+        {
+            object card = which switch
+            {
+                "outside" => new { kind = "link", title = "x", href = "https://example.com/reconnect" },
+                "protocol-relative" => new { kind = "link", title = "x", href = "//evil.example/connectors" },
+                "table" => new { kind = "table", columns = new[] { "a" }, rows = new[] { new[] { "1" } } },
+                _ => new { kind = "chart", data = new { rows = Array.Empty<object>() } },
+            };
+            _toolProfile.Lookup.Result = _ => new AiToolResult("失敗", IsError: true, Card: card);
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "lookup_word", "{\"word\":\"x\"}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("沒查到。"), Sse.End("end_turn"));
+
+            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+
+            var result = turn.Events.Single(e => Type(e) == "tool_result");
+            Assert.Equal(JsonValueKind.Null, result.GetProperty("card").ValueKind);
+            Assert.Null(Messages()[1].CardsJson);
+        }
+
+        [Fact]
         public async Task ATurnWithTools_TellsTheModelTheirResultsAreData()
         {
             _anthropic.Reply(Sse.Start(), Sse.Text("好"), Sse.End("end_turn"));

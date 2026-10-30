@@ -71,12 +71,23 @@ describe('applyToolEvent', () => {
     expect(steps[0].card).toMatchObject({ kind: 'link', href: '/english/dictionary/x' });
   });
 
-  it('shows no card for a failed call, or one that cannot be drawn safely', () => {
+  it('shows a failed call only its link to a page of this site (its way forward)', () => {
     const use = applyToolEvent([], { type: 'tool_use', name: 'a', id: 't1' });
-    const card = { kind: 'link', title: 'x', href: '/x' };
+    const failed = (card: unknown) =>
+      applyToolEvent(use, { type: 'tool_result', id: 't1', name: 'a', ok: false, card })[0].card;
     expect(
-      applyToolEvent(use, { type: 'tool_result', id: 't1', name: 'a', ok: false, card })[0].card,
+      failed({ kind: 'link', title: '重新連線', href: '/connectors?connector=c1' }),
+    ).toMatchObject({ kind: 'link', href: '/connectors?connector=c1' });
+    expect(failed({ kind: 'link', title: 'x', href: 'https://example.com/x' })).toBeUndefined();
+    expect(failed({ kind: 'link', title: 'x', href: '//evil.example/x' })).toBeUndefined();
+    expect(
+      failed({ kind: 'table', columns: [{ key: 'a', label: 'a' }], rows: [{ a: 1 }] }),
     ).toBeUndefined();
+    expect(failed({ kind: 'chart', data: {} })).toBeUndefined();
+  });
+
+  it('shows no card that cannot be drawn safely', () => {
+    const use = applyToolEvent([], { type: 'tool_use', name: 'a', id: 't1' });
     const unsafe = { kind: 'link', title: 'x', href: 'javascript:alert(1)' };
     expect(
       applyToolEvent(use, { type: 'tool_result', id: 't1', name: 'a', ok: true, card: unsafe })[0]

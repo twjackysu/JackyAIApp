@@ -58,6 +58,12 @@ namespace JackyAIApp.Server.Services.Chatbot
             return true;
         }
 
+        /// <summary>A link card (as <see cref="Check"/> passed it) to a page of this site: the only card a failed call shows.</summary>
+        internal static bool IsSiteLink(JsonElement card) =>
+            card.TryGetProperty("kind", out var kind) && kind.ValueKind == JsonValueKind.String && kind.GetString() == "link" &&
+            card.TryGetProperty("href", out var href) && href.ValueKind == JsonValueKind.String &&
+            IsSitePath(href.GetString()!.Trim());
+
         /// <summary>A path on this site: one slash, then not another or a backslash (<c>//host</c>, <c>/\host</c> leave it), no control characters.</summary>
         internal static bool IsSitePath(string path) =>
             path.Length is > 0 and <= 2000 && path[0] == '/' && !path.StartsWith("//") && !path.StartsWith("/\\") &&

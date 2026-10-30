@@ -277,7 +277,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   that user, that conversation, once; a call left out is a no; NotFound otherwise), then `approval_resolved`.
   A declined or unanswered call is reported to the model as not done; stopping the turn while it waits ends
   it with nothing run. Nothing of the turn is stored while it waits, so reloading the page loses the
-  question (the turn ends with the request; the client asks before the page unloads, D-105). A failing tool is reported to the model as failed, never with its exception's text. A tool's card
+  question (the turn ends with the request; the client asks before the page unloads, D-105). A failing tool is reported to the model as failed, never with its exception's text; a failed call shows only a card that is
+  its way forward, a link to a page of this site (`ClientToolRunner.WayForwardOf`, `ToolCardGuard.IsSiteLink`: an MCP connector
+  refused for its credentials links to `/connectors?connector={id}`, `ConnectorToolSource.ReconnectCard`, D-223), any other
+  card of a failed call is dropped. A tool's card
   is held to what the client draws before it is sent (`ToolCardGuard`: a known shape of kind, a table cut to
   12 columns and 200 rows, a link only to this site or https, 200k characters in all), and the cards a turn's tools showed are kept
   with its answer (`ChatMessages.CardsJson`, a JSON array as streamed) and come back as `ChatMessageDto.Cards`
@@ -435,7 +438,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   and sent to the model each turn huge); the chat gets a reader's connectors' tools from
   `ConnectorToolSource` (named `m1__…` per turn, their connector the installation's id; the reader's permission for one is
   kept and looked up under the server's own name, `AiToolDescriptor.PermissionName`; two that come to one name are offered once). A call the server
-  refuses for its credentials marks the connector NeedsAuth. Probing, adding and testing one (what makes the server reach a
+  refuses for its credentials marks the connector NeedsAuth and answers with a link card to that connector on the connectors page
+  (`ReconnectCard`, 「前往重新連線」, D-223). Probing, adding and testing one (what makes the server reach a
   host a reader named) are held to 20 a minute per reader (`RateLimitPolicies.ConnectorProbe`)
 - The chat is also an MCP Apps host for the reader's own servers (docs/ai-native/design/09, D-201, D-202): a tool whose
   `_meta.ui.resourceUri` names a `ui://` app keeps it (`CachedTool.UiResourceUri`; `AppOnly` when its visibility leaves out

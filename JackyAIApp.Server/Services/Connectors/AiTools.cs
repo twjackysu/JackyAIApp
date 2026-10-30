@@ -72,7 +72,8 @@ namespace JackyAIApp.Server.Services.Connectors
     /// </summary>
     /// <param name="Content">The result as text, for the model.</param>
     /// <param name="IsError">The call failed; <paramref name="Content"/> says why, in words the model can pass on.</param>
-    /// <param name="Card">What the reader is shown, or null for nothing.</param>
+    /// <param name="Card">What the reader is shown, or null for nothing. With <paramref name="IsError"/>, only a link card to a
+    /// page of this site is shown (the way forward: reconnect, the page to do it on); any other is dropped.</param>
     /// <param name="Navigate">A path on this site the reader's page goes to now (Studio AI's <c>open_page</c> when they
     /// asked to be taken there). Sent only for a site tool's call, and only a plain path (<c>ClientToolRunner</c>).</param>
     /// <param name="Handoff">A question for the assistant of the page <paramref name="Navigate"/> goes to (Studio AI's

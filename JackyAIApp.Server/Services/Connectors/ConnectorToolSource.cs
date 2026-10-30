@@ -107,11 +107,28 @@ namespace JackyAIApp.Server.Services.Connectors
             {
                 logger.LogWarning(ex, "MCP tool {Tool} of connector {InstallationId} failed ({Failure})", tool.Name, installation.Id, ex.Failure);
                 if (ex.Failure == McpFailure.NeedsAuth) await tokens.CredentialsRefusedAsync(installation.Id, ex.RequiredScope, CancellationToken.None);
-                return AiToolResult.Error(ex.Failure != McpFailure.NeedsAuth ? $"「{_connectorName}」目前無法使用：{ex.Message}"
-                    : ex.RequiredScope != null ? $"「{_connectorName}」的這個動作需要更多權限：請告訴使用者到 Connectors 頁面重新授權它，再試一次。"
-                    : $"「{_connectorName}」需要重新連線：請告訴使用者到 Connectors 頁面更新它的認證。");
+                if (ex.Failure != McpFailure.NeedsAuth) return AiToolResult.Error($"「{_connectorName}」目前無法使用：{ex.Message}");
+                // The way back is one press away: the card opens this connector on the connectors page (D-223).
+                return new AiToolResult(ex.RequiredScope != null
+                        ? $"「{_connectorName}」的這個動作需要更多權限：請告訴使用者按下方的卡片到 Connectors 頁面重新授權它，再試一次。"
+                        : $"「{_connectorName}」需要重新連線：請告訴使用者按下方的卡片到 Connectors 頁面更新它的認證。",
+                    IsError: true,
+                    Card: ReconnectCard(installation.Id, _connectorName, ex.RequiredScope != null));
             }
         }
+
+        /// <summary>
+        /// The link card a call refused for its credentials shows: to this connector's details on the connectors page
+        /// (<c>/connectors?connector={id}</c>), where it is signed in again. A path on this site, so a failed call may show it.
+        /// </summary>
+        internal static object ReconnectCard(string installationId, string connectorName, bool needsMoreScope) => new
+        {
+            kind = "link",
+            title = needsMoreScope ? $"重新授權「{connectorName}」" : $"重新連線「{connectorName}」",
+            href = $"/connectors?connector={Uri.EscapeDataString(installationId)}",
+            description = needsMoreScope ? "這個動作需要更多權限，授權後再問一次" : "它不接受目前的認證，更新後再問一次",
+            actionLabel = "前往重新連線",
+        };
 
         /// <summary>The card of a call of a tool with an app, or null for one without (or a result too large to hand it).</summary>
         internal object? AppCardOf(JsonElement input, McpToolOutcome outcome)

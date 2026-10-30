@@ -80,7 +80,9 @@ jackyaiapp.client/src/
   Markdown or links (it may repeat what a tool read); the header says 💭 思考中… and no dots are drawn meanwhile; this session
   only (`Message.thinking`), and a failed turn drops it with its text. The tools
   an answer used are `ToolActivity` (from the stream's `tool_use`/`tool_result`, `utils/toolActivity`; a finished call
-  says how long it took, `toolDurationText` of the result's `durationMs`, nothing under 0.1 s or for a hosted tool, D-218),
+  says how long it took, `toolDurationText` of the result's `durationMs`, nothing under 0.1 s or for a hosted tool, D-218;
+  a failed call shows only a link card to a page of this site, its way forward, `cards/toolCard`'s `wayForwardCard`, D-223:
+  a connector to sign in again, the page to do it on),
   a write waiting for the reader is `ApprovalCard` (`approval_required`, `utils/approval`; several calls are decided one
   by one or together, 全部拒絕 always and 全部允許 only when all are the site's own tools, none destructive, and the conversation read no outside content,
   and 「以後直接執行」 is offered once per tool; MessageArea keys it by `pendingId`, so a later question is a new card; a call the site describes in words,
@@ -285,7 +287,10 @@ sent or stored, so a reopened conversation shows a plain message. A site tool's 
   `/connectors?registry=<search>` (`connectorsRegistryPath`, `registrySearchOf`, D-124) opens that dialog with the search filled in,
   once (a second one while it is open starts the dialog over with it: the form is keyed by the search), and drops the parameter (at the custom-server limit it says so instead): Studio AI's `find_mcp_server` answers with an
   `mcp-servers` card (`McpServersCardView`, `mcpServersCard.parseMcpServersCard`, Studio's own renderer beside `quiz`) whose rows'
-  加入 go there with the server's name, and Studio AI's drawer steps aside on such an address, keeping the conversation. A server the reader has
+  加入 go there with the server's name, and Studio AI's drawer steps aside on such an address, keeping the conversation.
+  `/connectors?connector=<installation id>` (`CONNECTOR_PARAM`, `connectorToOpen`, D-223: the card a connector's refused call shows,
+  「前往重新連線」) opens that connector's drawer once and drops the parameter (one no longer there is said so); Studio AI's drawer
+  steps aside there too. A server the reader has
   already added (its address, `connectorView.serverUrlKey`, among `installedServerUrls`) shows as added there and in the dialog's registry
   search, not offered again (D-127). A connector the reader has added, working and with a tool the AI may see (`connectorView.canTryInStudio`), offers
   「在 Studio AI 試試看」 on the dialog's last step and in its detail drawer (D-126): the dialog or drawer closes, then

@@ -147,6 +147,25 @@ describe('AiConnectorsSection', () => {
     expect(where.path).toBe('/connectors');
   });
 
+  it('opens the connector a reconnect card names (?connector=), once, and drops it from the address', () => {
+    render(
+      catalog({ installed: [installed({ health: 'needsAuth' })] }),
+      0,
+      '/connectors?connector=i-1&x=1',
+    );
+    // Its drawer is open: the drawer's own buttons are there.
+    expect(button('測試連線')).toBeDefined();
+    expect(where.path).toBe('/connectors?x=1');
+    expect(notify).not.toHaveBeenCalled();
+  });
+
+  it('says so when the connector a link names is no longer there', () => {
+    render(catalog({ installed: [installed()] }), 0, '/connectors?connector=gone');
+    expect(button('測試連線')).toBeUndefined();
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('找不到這個 connector'), 'error');
+    expect(where.path).toBe('/connectors');
+  });
+
   it('says what to do when nothing is connected yet', () => {
     render();
     expect(text()).toContain('還沒有連線的 connector');
