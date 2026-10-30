@@ -1,10 +1,11 @@
-import { Box } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useMemo } from 'react';
 
 import { useAiChatConfig } from '../config';
 import { hairline } from '../style';
 
+import ChartLoadBoundary from './ChartLoadBoundary';
 import LinkCardView from './LinkCardView';
 import { MCP_APP_CARD_KIND } from './mcpApp/mcpAppCard';
 import McpAppCardView from './mcpApp/McpAppCardView';
@@ -87,5 +88,17 @@ function cardView(
   if (card.kind === MCP_APP_CARD_KIND && 'data' in card)
     return <McpAppCardView card={card} saved={saved} />;
   const Renderer = 'data' in card ? renderers?.[card.kind] : undefined;
-  return Renderer && 'data' in card ? <Renderer card={card} saved={saved} /> : null;
+  // An app's card draws a tool's data (a chart), and a renderer that throws on it would take the page down with it —
+  // and again each time the conversation is reopened, as the card is stored with the answer. It says so in its place.
+  return Renderer && 'data' in card ? (
+    <ChartLoadBoundary
+      fallback={
+        <Typography variant="caption" color="text.secondary" role="status">
+          這張卡片無法顯示
+        </Typography>
+      }
+    >
+      <Renderer card={card} saved={saved} />
+    </ChartLoadBoundary>
+  ) : null;
 }

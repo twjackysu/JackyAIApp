@@ -173,6 +173,22 @@ describe('ToolCards', () => {
     expect(cards().map((c) => c.textContent)).toEqual(['[chart 趨勢]', 'x前往']);
   });
 
+  it("says a card the app's renderer cannot draw cannot be shown, keeping the others", () => {
+    const Broken = (): never => {
+      throw new Error('bad data');
+    };
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(
+      [
+        step('c', { kind: 'chart', title: '趨勢', data: {} }),
+        step('l', { kind: 'link', title: 'x', description: null, href: '/x', actionLabel: null }),
+      ],
+      config({ cardRenderers: { chart: Broken } }),
+    );
+    quiet.mockRestore();
+    expect(cards().map((c) => c.textContent)).toEqual(['這張卡片無法顯示', 'x前往']);
+  });
+
   it("tells the app's renderer whether the card is a saved one, drawn again from a reopened conversation", () => {
     const Quiz = ({ saved }: { card: CustomCard; saved?: boolean }) => (
       <span>{saved ? 'saved' : 'live'}</span>
