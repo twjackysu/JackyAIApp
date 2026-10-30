@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 
 import CategoryIcon from './CategoryIcon';
-import { HEALTH_VIEW, installedOrder, toolCounts } from './connectorView';
+import { HEALTH_VIEW, installedOrder, lastTestedText, toolCounts } from './connectorView';
 import { PERMISSION_LABELS } from './toolPermission';
 
 import type { InstalledConnector } from '@/apis/connectorsApis/types';
@@ -53,6 +53,7 @@ function InstalledCard({
 }) {
   const health = HEALTH_VIEW[connector.health];
   const counts = toolCounts(connector);
+  const tested = connector.alwaysOn ? null : lastTestedText(connector.lastTestedAt);
   return (
     <Card variant="outlined" sx={{ height: '100%' }}>
       <CardActionArea onClick={onOpen} sx={{ height: '100%' }}>
@@ -78,6 +79,7 @@ function InstalledCard({
               .filter((p) => counts[p] > 0)
               .map((p) => `${PERMISSION_LABELS[p]} ${counts[p]}`)
               .join('・') || '尚未讀到工具'}
+            {tested && `・${tested}`}
           </Typography>
         </CardContent>
       </CardActionArea>

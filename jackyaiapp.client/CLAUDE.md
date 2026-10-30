@@ -274,7 +274,8 @@ sent or stored, so a reopened conversation shows a plain message. A site tool's 
   transparent
 - `/connectors` (`Connectors/index.tsx`) keeps the account connections (Google/Microsoft/Atlassian,
   `ConnectorCard`, unchanged) and puts above them what the AI may use, `AiConnectorsSection`: the
-  reader's connectors (`InstalledSection`, each opening `ConnectorDetailDrawer` with the tools'
+  reader's connectors (`InstalledSection`, each card saying when it was last tested, `lastTestedText`: minutes or
+  hours ago, else the Taipei date, D-221; each opening `ConnectorDetailDrawer` with the tools'
   `ToolPermissionToggle`), the catalog (`CatalogSection`) and adding an MCP server of their own
   (`AddMcpServerDialog`: URL → credentials → tools; a reader without a URL searches the official MCP Registry right there,
   `RegistrySearch`, folded until asked or opened from the catalog's last card 找更多 MCP server, D-122: picking one checks its URL as if

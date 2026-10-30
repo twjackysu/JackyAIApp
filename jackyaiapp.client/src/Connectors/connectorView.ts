@@ -144,3 +144,24 @@ export function installedServerUrls(installed: readonly InstalledConnector[]): S
     installed.map((c) => serverUrlKey(c.serverUrl)).filter((k): k is string => k !== null),
   );
 }
+
+const TAIPEI_DAY = new Intl.DateTimeFormat('zh-TW', {
+  timeZone: 'Asia/Taipei',
+  month: 'numeric',
+  day: 'numeric',
+});
+
+/**
+ * When a connector was last tested, as its card says it (design/05 §3: 最後測試時間): minutes or hours ago within a day,
+ * the date in Taipei after that. Nothing for one never tested (the site's own) or a time that cannot be read.
+ */
+export function lastTestedText(lastTestedAt: string | null, now: Date = new Date()): string | null {
+  if (!lastTestedAt) return null;
+  const at = new Date(lastTestedAt);
+  const minutes = Math.floor((now.getTime() - at.getTime()) / 60_000);
+  if (Number.isNaN(minutes)) return null;
+  if (minutes < 1) return '剛剛測試過';
+  if (minutes < 60) return `${minutes} 分鐘前測試`;
+  if (minutes < 24 * 60) return `${Math.floor(minutes / 60)} 小時前測試`;
+  return `${TAIPEI_DAY.format(at)} 測試`;
+}

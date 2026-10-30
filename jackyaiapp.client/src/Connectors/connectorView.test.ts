@@ -10,6 +10,7 @@ import {
   installedServerUrls,
   serverUrlKey,
   toolCounts,
+  lastTestedText,
 } from './connectorView';
 import { entry, installed } from './testData';
 
@@ -146,5 +147,22 @@ describe('installedServerUrls', () => {
       installed({ alwaysOn: true, serverUrl: null }),
     ]);
     expect([...urls]).toEqual(['https://mcp.deepwiki.com/mcp']);
+  });
+});
+
+describe('lastTestedText', () => {
+  const now = new Date('2026-10-30T08:00:00Z');
+
+  it('says minutes or hours ago within a day, the date in Taipei after that', () => {
+    expect(lastTestedText('2026-10-30T07:59:40Z', now)).toBe('剛剛測試過');
+    expect(lastTestedText('2026-10-30T07:35:00Z', now)).toBe('25 分鐘前測試');
+    expect(lastTestedText('2026-10-29T09:00:00Z', now)).toBe('23 小時前測試');
+    // 10/24 20:00 UTC is 10/25 in Taipei.
+    expect(lastTestedText('2026-10-24T20:00:00Z', now)).toBe('10/25 測試');
+  });
+
+  it('says nothing for one never tested or a time it cannot read', () => {
+    expect(lastTestedText(null, now)).toBeNull();
+    expect(lastTestedText('not a time', now)).toBeNull();
   });
 });
