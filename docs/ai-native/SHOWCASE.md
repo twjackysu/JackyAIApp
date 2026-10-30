@@ -1,6 +1,6 @@
 # Studio AI — 成果發表（11/5）
 
-> **初稿（2026-10-24 第 6 輪，第 8 輪補上本站 MCP server）**。功能還在擴充，階段 2（11/4–11/5）定稿並補齊截圖與統計。故事線的來源是 [design/02](design/02-vision-and-showcase.md)。
+> **狀態（2026-10-30 第 58 輪）**：功能大致完成，11/3 功能凍結，11/4–11/5 只修 bug、補最終截圖與統計。故事線的來源是 [design/02](design/02-vision-and-showcase.md)。時間不夠時先走下面的「5 分鐘精華版」。
 
 **一句話：一個在每一頁都叫得出來的 AI 助理，會用本站自己的功能，也能接上你在外面的任何 remote MCP server（含 OAuth 登入），而且會改變東西的動作一定先問你。反過來，網站本身也是一個 MCP server：你的 Claude Desktop、Cursor 也能用本站的功能。**
 
@@ -11,7 +11,7 @@
 | **用別人的 MCP server 自己的介面**：接上的 MCP server 若提供 MCP App，回答裡直接畫出它的互動介面（圖表、預報卡），app 還能向自己的 server 要新資料 | 本站當 MCP Apps host：`mcp-app` 卡片只存呼叫，HTML 畫的時候才向該 server `resources/read`；單層 `sandbox="allow-scripts"` iframe＋開頭寫死的 CSP、JSON-RPC 橋（`appBridge`）、app 自己呼叫唯讀工具、只給 app 的寫入要讀者在卡片上允許、開連結要讀者按 | MCP Apps（SEP-1865）是 2026 MCP 最大的擴充，Claude、ChatGPT、VS Code 都是 host；本站**同時是 server 與 host** |
 | **Studio AI**：任何頁面右下角按鈕或 ⌘K／Ctrl+K 叫出，知道你在哪一頁 | 共用 chat 引擎的 `studio` profile；本站功能都是工具（`ISiteTool`） | 「網站本身就是工具」：同一個 AI 到處都在 |
 | **⌘K 也是指令列**：在 Studio 打「複習」「portfolio」、自己 dashboard 的名稱或一個英文單字，輸入框上方立刻出現「前往『複習』」「查字典：review」，按下直接到（不問 AI、不花用量）；打完整的問題就交給 AI | 前端的 `quickActionsFor`（頁面清單由測試對齊伺服器的 `SitePages`），只認頁面名稱與單一英文單字 | Raycast／Linear 式的指令列與 AI 助理合而為一：簡單的事零延遲，複雜的事交給 agent |
-| **打「/」就有現成指令**：Studio 輸入框打 `/` → 今日簡報、考我單字、用我的單字寫短文、投資組合健檢…一排按鈕，打 `/簡報`、`/quiz` 就篩出來，按下直接送出；/finance（`/外資`、`/景氣`）與 /data-analysis（`/欄位`、`/dashboard`）自己的助理也有各自的一組 | 共用的 `matchSlashCommands`＋`QuickChips`，每個助理的清單在它的 `AiChatConfig.slashCommands`；Studio 的名稱跟本站 MCP server 的 prompts 一樣，名稱跟本站 MCP server 的 prompts 一樣，所以 Claude Code 裡的 `/mcp__jacky-studio__quiz_me` 與本站的 `/quiz` 是同一件事 | 斜線指令是 2026 AI 產品的共通語言（Claude、ChatGPT、Cursor） |
+| **打「/」就有現成指令**：Studio 輸入框打 `/` → 今日簡報、考我單字、用我的單字寫短文、投資組合健檢…一排按鈕，打 `/簡報`、`/quiz` 就篩出來，按下直接送出；/finance（`/外資`、`/景氣`）與 /data-analysis（`/欄位`、`/dashboard`）自己的助理也有各自的一組 | 共用的 `matchSlashCommands`＋`QuickChips`，每個助理的清單在它的 `AiChatConfig.slashCommands`；Studio 的名稱跟本站 MCP server 的 prompts 一樣，所以 Claude Code 裡的 `/mcp__jacky-studio__quiz_me` 與本站的 `/quiz` 是同一件事 | 斜線指令是 2026 AI 產品的共通語言（Claude、ChatGPT、Cursor） |
 | **用說的**：三個助理的輸入框都有麥克風，說「給我今天的簡報」字就出現在框裡 | 瀏覽器內建的 Web Speech API（zh-TW），不經本站伺服器、不花 AI 額度；Firefox 沒有就不顯示 | 語音是 2026 AI 助理的基本互動 |
 | **聽它說、跟它對話**：用麥克風問的問題，**回答一結束就自動念給你聽**（打字問的不念）；首頁今日簡報旁的 **「用聽的」**，早上不用看螢幕就聽完行程、複習與資產；每個回答下方也有「朗讀」，英文段落用英文聲音、中文用中文聲音 | 瀏覽器的 speechSynthesis，`speechText` 把 Markdown 變成字並依語言切段；`SendOptions.readAloud`：只在回答正常結束才念、每則只念一次、念的時候「停止朗讀」一直顯示（D-120）；不經伺服器、不花用量 | 語音進、語音出：ChatGPT／Gemini 的語音對話，在網頁上用瀏覽器內建能力做到 |
 | **看得見 AI 在想什麼**：回答開始前，助理上方出現「💭 思考中… 3 秒」與它正在想的最後一句；回答出來後收成「已思考 8 秒」，按下展開整段推理（先查什麼、為什麼一次叫三個工具、結論怎麼來）；三個助理都有 | Haiku 5.5 本來就會思考，只是預設不回傳；請求改成 `thinking.display: summarized`（計費相同），`ModelTurn` 把思考摘要串流成 SSE `thinking`，前端 `ThinkingTraceView` 摺疊顯示。純文字、不存、不算回答（D-136） | 2026 的 AI 產品都把推理攤開給人看（Claude 的 thinking、ChatGPT 的 reasoning summary）：等待變成看得懂的過程，也看得出 AI 為什麼這樣回答 |
@@ -51,6 +51,20 @@
 ## Demo 腳本（約 10 分鐘）
 
 前置：production（或本機）已有 `Settings:AnthropicApiKey`；用一般帳號登入；Portfolio 有一份快照；/data-analysis 的預設資料源可用（見 FOR_JACKY 2）。
+
+### 5 分鐘精華版（時間不夠就只走這五步）
+
+下面的完整腳本超過 10 分鐘。只有 5 分鐘時，照這五步走，每一步各代表一個 2026 的 AI 趨勢；細節與截圖在完整腳本對應的那一步。
+
+| # | 做什麼 | 觀眾看到的「哇」 | 趨勢 | 完整腳本 |
+|---|---|---|---|---|
+| 1 | 首頁按「AI 今日簡報」 | 「思考中…」→ 一次叫三個工具 → 行程表格、待複習的字、資產重點；按「已思考 N 秒」展開推理 | agent 跨 app 組合、看得見的推理 | 第 1 步 |
+| 2 | ⌘K：「serendipity 是什麼？幫我加入單字庫」；再到 /english 按 ⌘K 的第一個建議「考我今天該複習的單字」 | 確認卡（先問才動手）→ 回答裡長出能作答的測驗卡，答完記進複習排程 | human-in-the-loop、generative UI | 第 3 步 |
+| 3 | 首頁 ⌘K：「幫我做一個業績總覽 dashboard，存完打開」 | Studio 交棒 → 頁面自己切到 /data-analysis，那裡的助理接手畫三張圖 → 「全部允許（3）」→ 切到做好的 dashboard | 多 agent 交棒、一次做完「一件事」 | 第 5 步 |
+| 4 | /connectors 按 ⌘K：「幫我找一個能查天氣的 MCP server」→ 加入 → 「在 Studio AI 試試看」 | AI 在 MCP 官方目錄找工具，裝不裝由你按；接上就用；有 MCP App 的 server（例如官方範例）直接在回答裡畫出它自己的介面 | MCP Registry、MCP Apps | 第 6 步 |
+| 5 | /connectors「讓其他 AI 使用本站」→ 產生 token → 貼到 Claude Code，打 `/mcp__jacky-studio__daily_briefing` | 別家的 AI 用本站的功能做出同一份今日簡報 | 網站本身就是 MCP server（tools＋prompts＋apps） | 第 8 步 |
+
+收尾一句：「每個寫入都先問你、讀過外部內容就更小心」（第 7 步的安全設計），再指架構圖。
 
 1. **開場：AI 今日簡報（1 分鐘）**：首頁最上方「AI 今日簡報」→ 右側滑出 Studio AI，一次呼叫 Google 日曆（與 Outlook 行事曆）、學習進度、投資組合（回答上方三個工具 chip）→ 行程表格、「12 個單字待複習」卡片、三段重點與「建議先做的事」。之後任何頁面按 ⌘K 都叫得出它，建議問題依目前頁面變化；按輸入框的麥克風可以用說的。
    ![首頁的 AI 今日簡報](screenshots/home-briefing-card-desktop.png)
@@ -153,7 +167,9 @@
    ![Studio 裡畫出 MCP server 自己的介面](screenshots/studio-mcp-app-desktop.png)
    ![app 要開連結時要讀者按（手機）](screenshots/studio-mcp-app-link-phone.png)
    ![app 向自己的 server 要新資料](screenshots/studio-mcp-app-refreshed-desktop.png)
-7. **安全（1 分鐘）**：在 connector 詳情把某個工具設成「停用」→ AI 說它沒有這個能力；「需確認」的工具一律出確認卡；按「停止」整輪什麼都不執行。
+7. **安全（1 分鐘）**：在 connector 詳情把某個工具設成「停用」→ AI 說它沒有這個能力；「需確認」的工具一律出確認卡；標「無法復原」的工具沒有「自動」可選；按「停止」整輪什麼都不執行。讀過外部內容（connector、行事曆、Jira）的對話，之後的寫入一律先問（即使設成「以後直接執行」）；MCP server 把工具說明偷偷改掉時，那個工具自動改回「需確認」。
+   ![connector 詳情：每個工具自動／需確認／停用，無法復原的一定先問](screenshots/connectors-drawer-custom-desktop.png)
+   ![讀過 Jira 之後的留言：確認卡寫出整則留言](screenshots/studio-jira-comment-approval-desktop.png)
 8. **反過來：網站本身就是 MCP server（1 分鐘）**：/connectors 往下捲到「讓其他 AI 使用本站」→「產生 token」（名稱 Claude Code、唯讀）→ 複製「Claude Code」那一行指令貼到終端機 → 在 Claude Code 問「用 jacky-studio 查一下 serendipity，再看我今天要複習幾個字」→ 它呼叫本站的 `look_up_word`、`learning_progress`。再打 `/mcp__jacky-studio__daily_briefing`（產生 token 的對話框會寫出這行）→ Claude Code 一次呼叫行程、學習進度、投資組合三個工具，整理成三段簡報；`/mcp__jacky-studio__quiz_me` 則一次問一題。回到 /connectors 看到 token「最後使用」更新；按「撤銷」後 Claude Code 立刻連不上。
    **或在 Claude.ai**：設定 → Connectors → 新增自訂 connector，只貼 `https://apps.jacky-studio.com/api/mcp` → 跳到本站的同意頁「Claude 想用你的身分使用 Jacky Studio 的工具，完成後會回到 claude.ai」→ 允許 → 回到 Claude.ai，工具出現。
    接著在 Claude.ai 問「我的投資組合現在怎麼樣？」→ 回答下方出現 **Jacky Studio 的持倉表格卡片**（MCP App），問「serendipity 是什麼」→ 單字卡，按「看完整解釋」開到本站字典頁；token 允許寫入時卡片上還有「加入單字庫」，在 Claude 裡按一下就加進本站的單字庫（MCP App 經 host 呼叫 `tools/call`）。
