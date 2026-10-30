@@ -76,7 +76,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                 .AddSource(new MsSqlDataSourceFactory(new MsSqlConfig
                 {
                     SourceKey = MsSqlKey,
-                    ConnectionString = cfg.ConnectionString
+                    // Already validated (ReadValidated); held in bounds here, not stored that way.
+                    ConnectionString = DataSourceConfigValidator.Bounded(cfg.ConnectionString)
                 }))
                 .Build();
         }
@@ -133,6 +134,27 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         /// (<c>Password="a;b"</c>) is masked whole rather than up to its first <c>;</c>. A string the parser refuses (every
         /// stored one passed it when saved) falls back to masking everything after the keyword.
         /// </summary>
+        /// <summary>
+        /// An edited connection string with its masked password (<c>Password=***</c>, as <see cref="MaskPassword"/> showed it)
+        /// put back from the stored one, every other setting as edited: changing the server or database without typing the
+        /// password again keeps the change. A string the parser refuses is returned as it is (the validator refuses it).
+        /// </summary>
+        internal static string WithStoredPassword(string edited, string? stored)
+        {
+            try
+            {
+                var builder = new SqlConnectionStringBuilder(edited);
+                if (builder.Password != "***") return edited;
+                if (stored == null) return edited;
+                builder.Password = new SqlConnectionStringBuilder(stored).Password;
+                return builder.ConnectionString;
+            }
+            catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException or KeyNotFoundException)
+            {
+                return edited;
+            }
+        }
+
         internal static string MaskPassword(string connectionString)
         {
             try
@@ -251,10 +273,10 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                     var n = JsonSerializer.Deserialize<MsSqlSourceConfigDto>(newJson, read);
                     var o = JsonSerializer.Deserialize<MsSqlSourceConfigDto>(existingJson, read);
                     if (n is null) return existingJson;
-                    var connStr = n.ConnectionString.Contains("Password=***")
-                        ? o?.ConnectionString ?? n.ConnectionString
-                        : n.ConnectionString;
-                    return JsonSerializer.Serialize(new MsSqlSourceConfigDto { ConnectionString = connStr }, write);
+                    return JsonSerializer.Serialize(new MsSqlSourceConfigDto
+                    {
+                        ConnectionString = WithStoredPassword(n.ConnectionString, o?.ConnectionString),
+                    }, write);
                 }
             }
             catch { /* fall through */ }

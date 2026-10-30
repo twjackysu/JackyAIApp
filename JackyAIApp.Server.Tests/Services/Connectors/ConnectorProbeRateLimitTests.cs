@@ -43,6 +43,28 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Fact]
+        public void DataQueries_AreHeldPerReader()
+        {
+            var alice = RateLimitPolicies.DataQueryPartition(Reader("alice"));
+            Assert.NotEqual(alice.PartitionKey, RateLimitPolicies.DataQueryPartition(Reader("bob")).PartitionKey);
+            using var limiter = alice.Factory(alice.PartitionKey);
+            for (var i = 0; i < RateLimitPolicies.DataQueryPermitsPerMinuteSignedIn; i++)
+                Assert.True(limiter.AttemptAcquire().IsAcquired, $"query {i + 1}");
+            Assert.False(limiter.AttemptAcquire().IsAcquired);
+        }
+
+        [Fact]
+        public void ConversationNaming_IsHeldPerReader()
+        {
+            var alice = RateLimitPolicies.ChatTitlePartition(Reader("alice"));
+            Assert.NotEqual(alice.PartitionKey, RateLimitPolicies.ChatTitlePartition(Reader("bob")).PartitionKey);
+            using var limiter = alice.Factory(alice.PartitionKey);
+            for (var i = 0; i < RateLimitPolicies.ChatTitlePermitsPerMinute; i++)
+                Assert.True(limiter.AttemptAcquire().IsAcquired, $"title {i + 1}");
+            Assert.False(limiter.AttemptAcquire().IsAcquired);
+        }
+
+        [Fact]
         public void ChatAttachmentUploads_AreHeldPerReader_AndThePdfUnlockerPerAddress()
         {
             var alice = RateLimitPolicies.ChatAttachmentUploadPartition(Reader("alice"));

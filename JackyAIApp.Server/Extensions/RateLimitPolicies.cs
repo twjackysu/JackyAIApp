@@ -69,6 +69,15 @@ namespace JackyAIApp.Server.Extensions
         internal const int ChatSearchPermitsPerMinute = 20;
 
         /// <summary>
+        /// Naming a conversation from its first answer (POST conversations/{id}/title), per reader: uncharged, as part of the
+        /// first message's cost, and each conversation is asked once; the client asks once after a first answer, so only a
+        /// loop comes near the limit.
+        /// </summary>
+        public const string ChatTitle = "chat-title";
+
+        internal const int ChatTitlePermitsPerMinute = 20;
+
+        /// <summary>
         /// A connector's MCP App, per reader (design/09, D-202): reading its HTML and the calls it asks of its server each reach
         /// the reader's MCP server, with nothing cached; a page of a few app cards and an app refreshing now and then stay within.
         /// </summary>
@@ -112,6 +121,17 @@ namespace JackyAIApp.Server.Extensions
 
         internal const int DashboardWidgetDataPermitsPerMinuteAnonymous = 120;
         internal const int DashboardWidgetDataPermitsPerMinuteSignedIn = 600;
+
+        /// <summary>
+        /// The Data Analysis page's queries (schema, latest date, distinct values, summarize, details, export), per reader, or per
+        /// address without a sign-in: uncharged, each runs a query on the site's database or on the reader's own source, which
+        /// for a custom one is a connection from the App Service to a host its owner named, so a loop could keep a database busy
+        /// or use the server as its relay. A page asks a handful when it opens and one or two per change, far inside.
+        /// </summary>
+        public const string DataQuery = "data-query";
+
+        internal const int DataQueryPermitsPerMinuteAnonymous = 120;
+        internal const int DataQueryPermitsPerMinuteSignedIn = 300;
 
         /// <summary>
         /// Text to speech (GET /api/audio/normal, /slow), per reader, or per address without a sign-in: a visitor's clip is
@@ -184,6 +204,12 @@ namespace JackyAIApp.Server.Extensions
                 "user:" + (http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? AnonymousPartition),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = ChatSearchPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
 
+        /// <summary>Each reader their own window (the endpoint takes a sign-in, so there is always one).</summary>
+        internal static RateLimitPartition<string> ChatTitlePartition(HttpContext http) =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                "user:" + (http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? AnonymousPartition),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = ChatTitlePermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+
         /// <summary>Each reader their own window (the endpoints take a sign-in).</summary>
         internal static RateLimitPartition<string> McpAppPartition(HttpContext http) =>
             RateLimitPartition.GetFixedWindowLimiter(
@@ -217,6 +243,17 @@ namespace JackyAIApp.Server.Extensions
                     { PermitLimit = DashboardWidgetDataPermitsPerMinuteAnonymous, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 })
                 : RateLimitPartition.GetFixedWindowLimiter("user:" + userId, _ => new FixedWindowRateLimiterOptions
                     { PermitLimit = DashboardWidgetDataPermitsPerMinuteSignedIn, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+        }
+
+        /// <summary>A signed-in reader their own window; a visitor without a sign-in, their address's.</summary>
+        internal static RateLimitPartition<string> DataQueryPartition(HttpContext http)
+        {
+            var userId = http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return userId is null
+                ? RateLimitPartition.GetFixedWindowLimiter("address:" + ClientAddress(http), _ => new FixedWindowRateLimiterOptions
+                    { PermitLimit = DataQueryPermitsPerMinuteAnonymous, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 })
+                : RateLimitPartition.GetFixedWindowLimiter("user:" + userId, _ => new FixedWindowRateLimiterOptions
+                    { PermitLimit = DataQueryPermitsPerMinuteSignedIn, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
         }
 
         /// <summary>A signed-in reader their own window; a visitor without a sign-in, their address's.</summary>
@@ -272,10 +309,12 @@ namespace JackyAIApp.Server.Extensions
                 options.AddPolicy(ConnectorProbe, ConnectorProbePartition);
                 options.AddPolicy(ChatAttachmentUpload, ChatAttachmentUploadPartition);
                 options.AddPolicy(ChatSearch, ChatSearchPartition);
+                options.AddPolicy(ChatTitle, ChatTitlePartition);
                 options.AddPolicy(McpApp, McpAppPartition);
                 options.AddPolicy(McpAppCall, McpAppCallPartition);
                 options.AddPolicy(PdfUnlock, PdfUnlockPartition);
                 options.AddPolicy(DashboardWidgetData, DashboardWidgetDataPartition);
+                options.AddPolicy(DataQuery, DataQueryPartition);
                 options.AddPolicy(JobSearch, JobSearchPartition);
                 options.AddPolicy(TextToSpeech, TextToSpeechPartition);
             });

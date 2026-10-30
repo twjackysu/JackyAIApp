@@ -40,9 +40,14 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             return ServiceResult.Ok(sources.Select(configService.ToResponseDto).ToList());
         }
 
+        /// <summary>Most sources one user may save: each is a host the server connects to on their behalf.</summary>
+        internal const int MaxSourcesPerUser = 20;
+
         public async Task<ServiceResult<DataSourceConfigResponseDto>> CreateAsync(SaveDataSourceConfigDto request, CancellationToken ct)
         {
             var userId = currentUser.RequireId();
+            if (await dbContext.DataSourceConfigs.CountAsync(s => s.UserId == userId, ct) >= MaxSourcesPerUser)
+                return ServiceResult.Fail(ErrorCodes.BadRequest, $"最多只能存 {MaxSourcesPerUser} 個資料源，請先刪掉不用的。");
             string configJson;
             try
             {

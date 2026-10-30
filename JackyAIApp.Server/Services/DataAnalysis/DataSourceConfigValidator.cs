@@ -156,7 +156,47 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             if (string.IsNullOrWhiteSpace(config.TenantId) || string.IsNullOrWhiteSpace(config.ClientId)
                 || string.IsNullOrWhiteSpace(config.ClientSecret))
                 return "Tenant ID, Client ID and Client Secret are all required.";
+            // The library may build a Kusto connection string from these too, so a ';' or '=' in one could add a
+            // setting of its own (an ambient credential), as in the cluster URI.
+            if (HasSettingSyntax(config.TenantId, allowSpaces: false) || HasSettingSyntax(config.ClientId, allowSpaces: false))
+                return "Tenant ID and Client ID may not contain spaces, ';' or '='.";
+            if (config.Database is { } database && HasSettingSyntax(database, allowSpaces: true))
+                return "The database name may not contain ';', '=' or control characters.";
             return ValidateClusterUri(config.ClusterUri);
+        }
+
+        /// <summary>Whether a value holds what could end it or start another setting in a connection string.</summary>
+        private static bool HasSettingSyntax(string value, bool allowSpaces) =>
+            value.Any(c => c is ';' or '=' or '"' or '\'' || char.IsControl(c) || (!allowSpaces && char.IsWhiteSpace(c)));
+
+        /// <summary>Most connections a custom source's pool may hold: a page asks a few queries at once, never more.</summary>
+        internal const int MaxPoolSize = 5;
+
+        /// <summary>Longest a custom source's query may run, in seconds; 0 (wait forever) becomes this too.</summary>
+        internal const int MaxCommandTimeoutSeconds = 120;
+
+        /// <summary>Most reconnect tries the driver makes for a broken idle connection, and most seconds between them.</summary>
+        internal const int MaxConnectRetryCount = 2;
+        internal const int MaxConnectRetryIntervalSeconds = 10;
+
+        /// <summary>
+        /// A validated SQL Server connection string as it is handed to the driver: the owner's settings, with what the
+        /// server's own resources pay for held in bounds — no connections kept open while idle (<c>Min Pool Size</c> 0),
+        /// at most <see cref="MaxPoolSize"/> in its pool, a query that ends, few reconnect tries. Otherwise a saved source
+        /// could have the App Service open and keep hundreds of connections to a host of its owner's choosing. Bounding
+        /// instead of refusing keeps sources saved before this check working.
+        /// </summary>
+        public static string Bounded(string connectionString)
+        {
+            var builder = new SqlConnectionStringBuilder(connectionString)
+            {
+                MinPoolSize = 0,
+            };
+            if (builder.MaxPoolSize > MaxPoolSize) builder.MaxPoolSize = MaxPoolSize;
+            if (builder.CommandTimeout is <= 0 or > MaxCommandTimeoutSeconds) builder.CommandTimeout = MaxCommandTimeoutSeconds;
+            if (builder.ConnectRetryCount > MaxConnectRetryCount) builder.ConnectRetryCount = MaxConnectRetryCount;
+            if (builder.ConnectRetryInterval > MaxConnectRetryIntervalSeconds) builder.ConnectRetryInterval = MaxConnectRetryIntervalSeconds;
+            return builder.ConnectionString;
         }
 
         /// <summary>

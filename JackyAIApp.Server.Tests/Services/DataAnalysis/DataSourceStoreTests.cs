@@ -46,6 +46,19 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
         };
 
         [Fact]
+        public async Task Create_PastTheLimit_IsRefused_AndOthersStillMaySave()
+        {
+            for (var i = 0; i < DataSourceStore.MaxSourcesPerUser; i++)
+                Assert.True((await As("alice").CreateAsync(Save($"A{i}"), default)).IsSuccess);
+
+            var over = await As("alice").CreateAsync(Save("one more"), default);
+
+            Assert.Equal(ErrorCodes.BadRequest, over.Error);
+            Assert.Equal(DataSourceStore.MaxSourcesPerUser, _db.DataSourceConfigs.Count(s => s.UserId == "alice"));
+            Assert.True((await As("bob").CreateAsync(Save("B1"), default)).IsSuccess);
+        }
+
+        [Fact]
         public async Task List_HasOnlyYourOwnSources_OldestFirst()
         {
             var first = (await As("alice").CreateAsync(Save("A1"), default)).Data!;

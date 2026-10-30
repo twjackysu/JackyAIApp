@@ -70,6 +70,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>The schema of the target table. Pass sourceId + tableName to use a custom source.</summary>
         [HttpGet("schema")]
+        [EnableRateLimiting(RateLimitPolicies.DataQuery)]
         public async Task<IActionResult> GetSchema(
             [FromQuery] Guid?   sourceId  = null,
             [FromQuery] string? tableName = null,
@@ -78,6 +79,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>The MAX value of the date field.</summary>
         [HttpGet("maxdate")]
+        [EnableRateLimiting(RateLimitPolicies.DataQuery)]
         public async Task<IActionResult> GetMaxDate(
             [FromQuery] Guid?   sourceId   = null,
             [FromQuery] string? tableName  = null,
@@ -87,6 +89,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Up to 200 distinct values for a column (the filter LoV picker), in the column's natural order.</summary>
         [HttpGet("distinctvalues")]
+        [EnableRateLimiting(RateLimitPolicies.DataQuery)]
         public async Task<IActionResult> GetDistinctValues(
             [FromQuery] string  field,
             [FromQuery] Guid?   sourceId  = null,
@@ -96,11 +99,13 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>GroupBy + Measures aggregation.</summary>
         [HttpPost("summarize")]
+        [EnableRateLimiting(RateLimitPolicies.DataQuery)]
         public async Task<IActionResult> Summarize([FromBody] SummarizeRequestDto dto, CancellationToken ct = default) =>
             _responseFactory.ToActionResult(await _queries.SummarizeAsync(dto, ct));
 
         /// <summary>Paginated row-level data.</summary>
         [HttpPost("details")]
+        [EnableRateLimiting(RateLimitPolicies.DataQuery)]
         public async Task<IActionResult> Details([FromBody] DetailsRequestDto dto, CancellationToken ct = default) =>
             _responseFactory.ToActionResult(await _queries.DetailsAsync(dto, ct));
 
@@ -109,6 +114,7 @@ namespace JackyAIApp.Server.Controllers
         /// <see cref="IDataAnalysisQueryService.ExportAsync"/>). Skip/Take in the body are ignored.
         /// </summary>
         [HttpPost("details/export")]
+        [EnableRateLimiting(RateLimitPolicies.DataQuery)]
         public async Task<IActionResult> ExportDetails([FromBody] DetailsRequestDto dto, CancellationToken ct = default) =>
             Csv(await _queries.ExportAsync(dto, export => WriteCsvAsync(export, ct), ct));
 

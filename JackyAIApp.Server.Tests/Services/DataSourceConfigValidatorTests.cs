@@ -182,6 +182,54 @@ namespace JackyAIApp.Server.Tests.Services
         public void Adx_ClusterUriOutsideKusto_IsRefused(string clusterUri) =>
             Assert.NotNull(DataSourceConfigValidator.Validate(Adx(clusterUri)));
 
+        [Theory]
+        [InlineData("tenant;Fed=true", "client", "Telemetry")]
+        [InlineData("tenant", "client;AzCli=true", "Telemetry")]
+        [InlineData("ten ant", "client", "Telemetry")]
+        [InlineData("tenant", "client", "db;ManagedServiceIdentity=system")]
+        [InlineData("tenant", "client", "db\"x")]
+        [InlineData("tenant", "client", "db\nx")]
+        public void Adx_AFieldThatCouldAddASetting_IsRefused(string tenantId, string clientId, string database)
+        {
+            var config = Adx() with { TenantId = tenantId, ClientId = clientId, Database = database };
+            Assert.NotNull(DataSourceConfigValidator.Validate(config));
+        }
+
+        [Fact]
+        public void Adx_ADatabaseNameWithSpaces_IsAccepted()
+        {
+            var config = Adx() with { Database = "Sales Data" };
+            Assert.Null(DataSourceConfigValidator.Validate(config));
+        }
+
+        [Fact]
+        public void Bounded_HoldsPoolsTimeoutsAndRetriesInBounds()
+        {
+            var bounded = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(DataSourceConfigValidator.Bounded(
+                Server + Login + "Min Pool Size=200;Max Pool Size=500;Command Timeout=0;Connect Retry Count=200;Connect Retry Interval=60;"));
+
+            Assert.Equal(0, bounded.MinPoolSize);
+            Assert.Equal(DataSourceConfigValidator.MaxPoolSize, bounded.MaxPoolSize);
+            Assert.Equal(DataSourceConfigValidator.MaxCommandTimeoutSeconds, bounded.CommandTimeout);
+            Assert.Equal(DataSourceConfigValidator.MaxConnectRetryCount, bounded.ConnectRetryCount);
+            Assert.Equal(DataSourceConfigValidator.MaxConnectRetryIntervalSeconds, bounded.ConnectRetryInterval);
+            Assert.Equal("u", bounded.UserID);
+            Assert.Equal("p", bounded.Password);
+            Assert.Equal("tcp:demo.database.windows.net,1433", bounded.DataSource);
+        }
+
+        [Fact]
+        public void Bounded_KeepsSettingsAlreadyWithinBounds()
+        {
+            var bounded = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(DataSourceConfigValidator.Bounded(
+                Server + Login + "Max Pool Size=3;Command Timeout=45;Connect Retry Count=1;Connect Retry Interval=5;"));
+
+            Assert.Equal(3, bounded.MaxPoolSize);
+            Assert.Equal(45, bounded.CommandTimeout);
+            Assert.Equal(1, bounded.ConnectRetryCount);
+            Assert.Equal(5, bounded.ConnectRetryInterval);
+        }
+
         // ── Through the service: save, update, and a stored config ──────────
 
         private static DataSourceConfigService Service()
@@ -237,6 +285,20 @@ namespace JackyAIApp.Server.Tests.Services
             var merged = Service().MergeAndEncrypt(Json(new { connectionString = shown }), existing, DataSourceConnectorType.MsSql);
 
             Assert.Contains("re;al", merged);
+        }
+
+        [Fact]
+        public void Update_ChangingTheDatabaseWithTheMaskedPassword_KeepsTheChangeAndThePassword()
+        {
+            var existing = Stored(DataSourceConnectorType.MsSql, new { connectionString = Server + "User ID=u;Password=real;" });
+            var shown = DataSourceConfigService.MaskPassword(Server + "User ID=u;Password=real;").Replace("Sales", "Finance");
+
+            var merged = Service().MergeAndEncrypt(Json(new { connectionString = shown }), existing, DataSourceConnectorType.MsSql);
+
+            var stored = JsonSerializer.Deserialize<MsSqlSourceConfigDto>(merged, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+            var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(stored.ConnectionString);
+            Assert.Equal("Finance", builder.InitialCatalog);
+            Assert.Equal("real", builder.Password);
         }
 
         [Fact]
