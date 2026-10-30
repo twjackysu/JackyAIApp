@@ -42,6 +42,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         private readonly UsageLedger _ledger = new();
         private readonly Mock<IUsageLimitService> _limits = new();
         private bool _budgetLeft = true;
+        private Exception? _chargeFails;
         private readonly RecordingLogger _log = new();
         private string? _apiKey = "test-key";
         private readonly ToolProfile _toolProfile = new();
@@ -52,7 +53,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         {
             var settings = new Mock<IOptionsMonitor<Settings>>();
             _limits.Setup(l => l.TryConsumeAsync(It.IsAny<string>(), It.IsAny<UsageFeature>(), It.IsAny<ulong>()))
-                .ReturnsAsync(() => _budgetLeft);
+                .Returns(() => _chargeFails is { } e ? Task.FromException<bool>(e) : Task.FromResult(_budgetLeft));
             settings.Setup(s => s.CurrentValue).Returns(() => new Settings { Google = new JackyAIApp.Server.Configuration.Google(), AnthropicApiKey = _apiKey });
             var profiles = new ChatProfiles([new FinanceChatProfile(_background.Object, NullLogger<FinanceChatProfile>.Instance), _toolProfile]);
             return new AnthropicChatService(_db, _attachments.Object, _files.Object, _turns, _approvals, _permissions, profiles, _usage.Object,
@@ -1174,6 +1175,23 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             Assert.Equal(UsageCosts.FreeChatToolRounds + 1, _anthropic.Requests.Count);
             VerifyToolRoundsCharged(1);
             Assert.Equal(ChatErrorCodes.NoAnswer, turn.Events[^1].GetProperty("code").GetString());
+        }
+
+        [Fact]
+        public async Task AChargeThatFails_CountsAsNoBudget_AndTheTurnStillAnswers()
+        {
+            _chargeFails = new TimeoutException("DailyUsages timed out");
+            for (var i = 0; i < UsageCosts.FreeChatToolRounds; i++)
+                _anthropic.Reply(Sse.Start(), Sse.ClientToolUse($"toolu_{i}", "lookup_word", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("目前查到的是這些。"), Sse.End("end_turn"));
+
+            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+
+            Assert.Equal(UsageCosts.FreeChatToolRounds + 1, _anthropic.Requests.Count);
+            var last = JsonDocument.Parse(_anthropic.Requests[^1]).RootElement;
+            Assert.Equal("none", last.GetProperty("tool_choice").GetProperty("type").GetString());
+            Assert.Equal("done", Type(turn.Events[^1]));
+            Assert.Equal("目前查到的是這些。", Messages()[^1].Content);
         }
 
         // ── the recorded API ────────────────────────────────────────────────────────────────────

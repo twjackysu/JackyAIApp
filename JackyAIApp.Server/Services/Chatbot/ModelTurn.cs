@@ -113,10 +113,17 @@ namespace JackyAIApp.Server.Services.Chatbot
                     break;
                 }
 
+                // Stopped while the tools ran: no next request, so nothing to charge for it.
+                if (ct.IsCancellationRequested)
+                {
+                    stopped = true;
+                    break;
+                }
+
                 // The next request is a tool round the message does not pay for: charged first, and
                 // without the budget for it, the last one, answering from what was read.
                 var answerNow = round + 1 > UsageCosts.FreeChatToolRounds && chargeToolRound != null &&
-                                !await chargeToolRound();
+                                !await PaidForAsync(chargeToolRound, round + 1);
                 if (answerNow)
                 {
                     logger.LogInformation("Chat turn for conversation {ConversationId} is out of budget for tool round {Round}; answering now",
@@ -150,6 +157,25 @@ namespace JackyAIApp.Server.Services.Chatbot
             return new TurnOutcome(
                 _text.ToString(), _streamingStarted, _stopReason, stopped, errorCode, _tokens, _toolsCalled, _toolSearches,
                 tools is { Cards.Count: > 0 } ? tools.Cards : null);
+        }
+
+        /// <summary>
+        /// Whether the next tool round is paid for. A charge that fails (the usage table busy or out of
+        /// reach) counts as no budget: the turn answers from what it read rather than ending without its
+        /// answer, its cards and its record of having read outside text (D-234).
+        /// </summary>
+        private async Task<bool> PaidForAsync(Func<Task<bool>> charge, int round)
+        {
+            try
+            {
+                return await charge();
+            }
+            catch (Exception e)
+            {
+                logger.LogWarning(e, "Could not charge tool round {Round} of a chat turn for conversation {ConversationId}; answering now",
+                    round, conversationId);
+                return false;
+            }
         }
 
         /// <summary>
