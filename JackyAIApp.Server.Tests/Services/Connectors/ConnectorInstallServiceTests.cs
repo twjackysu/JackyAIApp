@@ -271,6 +271,17 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Fact]
+        public void ATool_IsChanged_WhenItsServerChangesWhoMayCallIt()
+        {
+            var appOnly = new CachedTool("t", null, "d", ToolEffect.Write, JsonDocument.Parse("""{ "type": "object" }""").RootElement,
+                "ui://t/app.html", AppOnly: true);
+
+            Assert.Empty(CachedTools.Changed([appOnly], [appOnly]));
+            Assert.Equal(new[] { "t" }, CachedTools.Changed([appOnly], [appOnly with { AppOnly = false }]));
+            Assert.Equal(new[] { "t" }, CachedTools.Changed([appOnly with { AppOnly = false }], [appOnly with { AppOnly = false, NotForApp = true }]));
+        }
+
+        [Fact]
         public async Task SomeoneElsesServer_CannotBeTested()
         {
             _db.ConnectorInstallations.Add(new SQL.ConnectorInstallation
@@ -455,6 +466,25 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Equal(new McpAuth("X-API-Key", "new"), _secrets.AuthOf(saved));
             Assert.Equal("Ok", saved.LastStatus);
             _mcp.Verify(m => m.ListToolsAsync(Url, new McpAuth("X-API-Key", "new"), It.IsAny<CancellationToken>()));
+        }
+
+        [Fact]
+        public async Task ANewApiKey_ForCredentialsThatCannotBeRead_AsksForItsHeader_AndTakesTheOneNamed()
+        {
+            ServerHas(Search);
+            await Service().CreateAsync(Request("apiKey", "old", "X-API-Key"), default);
+            var row = _db.ConnectorInstallations.Single();
+            row.EncryptedSecret = "enc:not json";
+            await _db.SaveChangesAsync();
+
+            var asked = await Service().UpdateCredentialsAsync(row.Id, new McpCredentialsDto { Value = "new" }, default);
+            Assert.Equal(ErrorCodes.BadRequest, asked.Error);
+            Assert.Equal(ConnectorInstallService.HeaderUnreadableMessage, asked.ErrorMessage);
+
+            var result = await Service().UpdateCredentialsAsync(row.Id, new McpCredentialsDto { HeaderName = "X-API-Key", Value = "new" }, default);
+
+            Assert.True(result.Data!.Ok);
+            Assert.Equal(new McpAuth("X-API-Key", "new"), _secrets.AuthOf(_db.ConnectorInstallations.AsNoTracking().Single()));
         }
 
         [Fact]

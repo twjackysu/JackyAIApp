@@ -425,8 +425,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   leaves out `custom`, an MCP server of their own, which may be many), with its credentials encrypted, on or
   off, the tools it last listed (`ToolsCacheJson`, read leniently by `CachedTools`: it came from an outside
   server) and the reader's permission for each tool (`ToolSettingsJson`, `ToolPermissions.Parse`). When the tools are
-  listed again, one the reader let run on its own whose title, description, schema or effect changed asks first again
-  (`CachedTools.Changed`, `InstallationTools.AskFirstWhereChanged`: a server may change what a tool says once trusted)
+  listed again, one the reader let run on its own whose title, description, schema or effect changed, or who may call it
+  (`AppOnly`/`NotForApp`, D-237), asks first again (`CachedTools.Changed`, `InstallationTools.AskFirstWhereChanged`: a server may change what a tool says once trusted)
 - The site's own tools are a connector that is always there (`SiteConnector`, key `site`). A feature lists
   its tools for the connectors page with `services.AddSingleton(new SiteToolSet(group, [descriptors]))` next
   to its profile (a tool's descriptor is a `static readonly Definition`, so the list and the tool agree); the

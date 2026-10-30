@@ -42,8 +42,8 @@ export interface ConnectorDetailActions {
   onSetEnabled: (enabled: boolean) => void;
   onRemove: () => void;
   onReauthorize: () => void;
-  /** A new API key or bearer token, saved and tested (D-224). */
-  onUpdateCredentials: (value: string) => Promise<void>;
+  /** A new API key or bearer token, saved and tested (D-224); an API key's header only when the reader named one (D-238). */
+  onUpdateCredentials: (value: string, headerName?: string) => Promise<void>;
   onPermission: (toolName: string, permission: ToolPermission) => void;
 }
 
@@ -234,8 +234,8 @@ function DetailBody({
         <CredentialsForm
           authKind={typedAuthKind}
           busy={busy}
-          onSave={async (value) => {
-            await onUpdateCredentials(value);
+          onSave={async (value, headerName) => {
+            await onUpdateCredentials(value, headerName);
             setEditingCredentials(false);
           }}
           onCancel={() => setEditingCredentials(false)}

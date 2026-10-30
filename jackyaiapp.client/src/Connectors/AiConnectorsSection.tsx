@@ -223,11 +223,12 @@ export default function AiConnectorsSection({
           }, `已移除 ${selected.displayName}`)
         }
         onReauthorize={() => selected && authorize(selected)}
-        onUpdateCredentials={async (value) => {
+        onUpdateCredentials={async (value, headerName) => {
           if (!selected?.id) return;
           const id = selected.id;
           await run(async () => {
-            const r = await updateCredentials({ id, credentials: { value } }).unwrap();
+            const credentials = headerName ? { value, headerName } : { value };
+            const r = await updateCredentials({ id, credentials }).unwrap();
             notify(
               r.ok
                 ? `已更新認證，連線正常（${r.connector.tools.length} 個工具）`

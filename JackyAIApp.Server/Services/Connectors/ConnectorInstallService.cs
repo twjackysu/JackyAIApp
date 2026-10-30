@@ -42,6 +42,8 @@ namespace JackyAIApp.Server.Services.Connectors
         TimeProvider time)
         : IConnectorInstallService
     {
+        /// <summary>An API key whose header can no longer be read, sent without one (D-238); the page then asks for it.</summary>
+        public const string HeaderUnreadableMessage = "讀不到原本放 API key 的 header 名稱，請一併填上 header 名稱。";
 
         public async Task<ServiceResult<McpProbeResultDto>> ProbeAsync(string? serverUrl, CancellationToken ct)
         {
@@ -154,9 +156,14 @@ namespace JackyAIApp.Server.Services.Connectors
                     ? "這個 connector 用登入授權，請按「重新授權」。"
                     : "這個 connector 不需要認證。");
 
-            // An API key goes in the header it went in, unless the reader names another.
+            // An API key goes in the header it went in, unless the reader names another. Credentials that can no longer be
+            // read (a changed key) have no header to keep: the reader names it again rather than removing the connector (D-238).
             var header = credentials?.HeaderName;
-            if (kind == "apiKey" && string.IsNullOrWhiteSpace(header)) header = secrets.AuthOf(row).HeaderName;
+            if (kind == "apiKey" && string.IsNullOrWhiteSpace(header))
+            {
+                header = secrets.AuthOf(row).HeaderName;
+                if (string.IsNullOrWhiteSpace(header)) return ServiceResult.Fail(ErrorCodes.BadRequest, HeaderUnreadableMessage);
+            }
             var (auth, _, error) = AuthFrom(new CreateInstallationRequestDto
             {
                 AuthKind = kind,

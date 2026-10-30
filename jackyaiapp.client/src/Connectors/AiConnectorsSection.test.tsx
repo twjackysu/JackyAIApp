@@ -337,6 +337,44 @@ describe('AiConnectorsSection', () => {
     expect(document.body.querySelector('input[type="password"]')).toBeNull();
   });
 
+  it('sends an API key with the header the reader named, and without one when left empty (D-238)', async () => {
+    mocks.updateCredentials.mockReturnValue({
+      ok: true,
+      latencyMs: 80,
+      error: null,
+      connector: installed({ authKind: 'apiKey' }),
+    });
+    render(catalog({ installed: [installed({ health: 'needsAuth', authKind: 'apiKey' })] }));
+    await openFirstCard();
+    const type = async (input: HTMLInputElement, text: string) =>
+      act(async () => {
+        const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+        set.call(input, text);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    const form = () => document.body.querySelector('form')!;
+
+    await click(button('更新認證'));
+    await type(form().querySelector<HTMLInputElement>('input[type="password"]')!, 'k1');
+    await click(button('儲存並測試'));
+    expect(mocks.updateCredentials).toHaveBeenLastCalledWith({
+      id: 'i-1',
+      credentials: { value: 'k1' },
+    });
+
+    await click(button('更新認證'));
+    await type(form().querySelector<HTMLInputElement>('input[type="password"]')!, 'k2');
+    await type(
+      form().querySelector<HTMLInputElement>('input:not([type="password"])')!,
+      ' X-Api-Key ',
+    );
+    await click(button('儲存並測試'));
+    expect(mocks.updateCredentials).toHaveBeenLastCalledWith({
+      id: 'i-1',
+      credentials: { value: 'k2', headerName: 'X-Api-Key' },
+    });
+  });
+
   it('offers no credentials to type for a connector that signs in otherwise', async () => {
     render(catalog({ installed: [installed()] }));
     await openFirstCard();
