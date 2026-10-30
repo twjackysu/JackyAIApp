@@ -187,7 +187,12 @@ function DetailBody({
             測試連線
           </Button>
           {canReauthorize && (
-            <Button variant="outlined" onClick={onReauthorize} disabled={busy}>
+            // What the reader came for when the connector waits for a sign-in (a reconnect card leads here, D-223).
+            <Button
+              variant={connector.health === 'needsAuth' ? 'contained' : 'outlined'}
+              onClick={onReauthorize}
+              disabled={busy}
+            >
               重新授權
             </Button>
           )}

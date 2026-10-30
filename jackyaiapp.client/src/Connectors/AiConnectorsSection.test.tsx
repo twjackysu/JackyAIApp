@@ -149,12 +149,13 @@ describe('AiConnectorsSection', () => {
 
   it('opens the connector a reconnect card names (?connector=), once, and drops it from the address', () => {
     render(
-      catalog({ installed: [installed({ health: 'needsAuth' })] }),
+      catalog({ installed: [installed({ health: 'needsAuth', authKind: 'oauth' })] }),
       0,
       '/connectors?connector=i-1&x=1',
     );
-    // Its drawer is open: the drawer's own buttons are there.
+    // Its drawer is open, the sign-in it waits for first among its buttons.
     expect(button('測試連線')).toBeDefined();
+    expect(button('重新授權').className).toContain('MuiButton-contained');
     expect(where.path).toBe('/connectors?x=1');
     expect(notify).not.toHaveBeenCalled();
   });
