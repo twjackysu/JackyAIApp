@@ -6,6 +6,8 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { ASK_STUDIO_EVENT, askedOf } from './askStudio';
+import DrawerResizeHandle from './DrawerResizeHandle';
+import { useDrawerWidth } from './drawerWidth';
 import { quickActionsFor, type QuickAction } from './quickActions';
 import { refreshAfterTool } from './refreshAfterTool';
 import { isSlashDraft, slashCommandsFor, type SlashCommand } from './slashCommands';
@@ -93,6 +95,8 @@ export default function StudioAssistant() {
   // it, and the drawer, which that page does not show, closes.
   const navigate = useNavigate();
   const fullScreen = useMediaQuery(useTheme().breakpoints.down('sm'));
+  // On a wide screen the drawer's left edge drags it wider (design/05 §1), remembered in this browser.
+  const [drawerWidth, setDrawerWidth] = useDrawerWidth();
   const afterAnswer = useRef<{ close: boolean; path?: string; handoff?: string }>({ close: false });
   // The reader went somewhere with a quick action while an answer was written: the rest of that answer
   // takes them nowhere (cleared when it is done).
@@ -266,8 +270,9 @@ export default function StudioAssistant() {
         open={open}
         onClose={closeByHand}
         keepMounted={opened}
-        slotProps={{ paper: { sx: { width: { xs: '100%', sm: 480 }, maxWidth: '100%' } } }}
+        slotProps={{ paper: { sx: { width: { xs: '100%', sm: drawerWidth }, maxWidth: '100%' } } }}
       >
+        {!fullScreen && <DrawerResizeHandle width={drawerWidth} onChange={setDrawerWidth} />}
         {open && selectionBar}
         {opened && (
           <Box data-ai-assistant sx={{ height: '100%' }}>

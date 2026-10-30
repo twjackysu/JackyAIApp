@@ -142,6 +142,35 @@ describe('StudioAssistant', () => {
     expect(button()).toBeNull();
   });
 
+  it('drags wider from its left edge on a wide screen, and remembers it', async () => {
+    localStorage.removeItem('studio.drawerWidth');
+    await render('/');
+    await act(async () => button()!.click());
+    await settle();
+    const edge = () => document.querySelector<HTMLElement>('[role="separator"]');
+    expect(edge()?.getAttribute('aria-valuenow')).toBe('480');
+
+    await act(async () =>
+      edge()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })),
+    );
+    expect(edge()?.getAttribute('aria-valuenow')).toBe('500');
+    expect(localStorage.getItem('studio.drawerWidth')).toBe('500');
+
+    await act(async () =>
+      edge()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true })),
+    );
+    expect(edge()?.getAttribute('aria-valuenow')).toBe('640');
+    localStorage.removeItem('studio.drawerWidth');
+  });
+
+  it('has no edge to drag on a phone, where it fills the screen', async () => {
+    mocks.narrow = true;
+    await render('/');
+    await act(async () => button()!.click());
+    await settle();
+    expect(document.querySelector('[role="separator"]')).toBeNull();
+  });
+
   it('stays out of the way where the page has its own assistant', async () => {
     await render('/finance');
     expect(button()).toBeNull();

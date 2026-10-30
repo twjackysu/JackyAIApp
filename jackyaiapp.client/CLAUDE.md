@@ -152,7 +152,9 @@ jackyaiapp.client/src/
   is written and before a first question
 - Studio AI (`components/StudioAssistant`, mounted once in `App.tsx`) is the same chat as a sheet: a button
   in the lower right, or ⌘K / Ctrl+K, opens `AiAssistantPanel` with `variant="sheet"` (fills a right-hand
-  drawer, the history behind its button, the header's last action closes) under the `studio` profile, with
+  drawer, the history behind its button, the header's last action closes; on a wide screen its left edge,
+  `DrawerResizeHandle`, drags it 440–640px wide, arrows and Home/End too, a double click back to 480, remembered in this browser
+  by `useDrawerWidth`, never past the window's last 120px, D-222) under the `studio` profile, with
   the path as its page context. A visitor not signed in gets the same button and shortcut, which open `StudioGuest`
   instead: what Studio AI does and a Google sign-in that comes back to the page (with its query), nothing asked of
   the AI, and no button until it is known who the reader is (D-217). Not where a page has an assistant of its own
