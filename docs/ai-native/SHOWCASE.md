@@ -153,6 +153,8 @@
    **或直接問 Studio AI**：在 /connectors 按 ⌘K → 第一個建議「幫我找一個能查天氣的 MCP server」→ 卡片列出 Weather、Open-Meteo（主機、需要 API key）與一兩句推薦 → 按 Weather 的「加入」→ 抽屜收起、新增對話框已搜好 `io.example/weather` → 按「使用」繼續。
    ![Studio AI 找 MCP server](screenshots/studio-find-mcp-desktop.png)
    ![按「加入」：對話框已搜好](screenshots/studio-find-mcp-added-desktop.png)
+   ![接著按「使用 Weather」→「連線」：完成這一步有「在 Studio AI 試試看」](screenshots/mcp-flow-added-desktop.png)
+   ![按下去：Studio AI 開新對話，用剛接上的 Weather 回答](screenshots/mcp-flow-tried-desktop.png)
    **接上就試**：連線成功的最後一步（或之後在 DeepWiki 的詳情裡）按 **「在 Studio AI 試試看」** → 對話框收起、Studio AI 開新對話：「示範一下你能用『DeepWiki』做什麼…」→ 工具 chip「DeepWiki・讀 wiki 目錄」→ 一份 repo 文件目錄，加上三個可以接著問的例子（D-126）。
    ![connector 詳情的在 Studio AI 試試看](screenshots/connector-try-drawer-desktop.png)
    ![Studio AI 示範剛接上的 connector](screenshots/studio-try-connector-desktop.png)
