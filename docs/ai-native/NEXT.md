@@ -12,6 +12,7 @@
 
 ## 1. CI 狀態
 
+- 第 69 輪：只動文件；開工時最新 CI 41122644924 綠（第 68、69 輪都只動 docs，不觸發 CI）。
 - 第 68 輪：只動文件與截圖；開工時最新 CI 41122644924 綠，本輪 push 的 CI 見 PROGRESS。
 - 第 67 輪：只動前端與文件（D-246～D-250）；CI 41120704149（925a72e1）第一次就綠，D-249／D-250 的 CI 41122644924（6d1a53d9）也綠。`ToolCards` 的 app renderer 現在包在 `ChartLoadBoundary` 裡：測試裡 renderer 丟例外不會再讓整個 render 失敗。**`index.test.tsx` 的 fetch 替身多了 `holdMessages`**（讓某個對話的歷史晚點回來）；`SiteMcpSection` 測試的 mutation 替身要有 `reset`（`CreateTokenDialog` 關掉時呼叫）。
 - 第 66 輪：只有後端（D-243～D-245）；cscheck 0 個新診斷（只有已知的 EF `CountAsync`／`Count` 雜訊與測試用的 `Microsoft.Data.SqlClient` 找不到）；CI 41102291021（373fced8）第一次就綠；41104104197（da865578）紅——master 的 `TodayInThePrompt_IsTheUtcDate` 照舊行為釘著 UTC，改成台北後 41105076320（c332cf4a）綠。**新的限流**：`ChatTitle`（取標題每人每分鐘 20）、`DataQuery`（資料分析的查詢端點每人每分鐘 300、未登入 120）——新的整合測試若一個 client 連打很多次這些端點會拿到 429。`DataSourceStore` 每人最多 20 個資料源。
@@ -67,6 +68,7 @@
 
 ## 2. 下一步（依序）
 
+00000000000000000000. **第 69 輪**：合併前安全檢查（不改程式碼）：master 沒有新 commit、merge-base＝master 的 tip（合回去是 fast-forward）；4 個 migration 的 `Up` 只有 `AddColumn`／`CreateTable`（有預設值或 nullable），刪除只在 `Down`；新程式碼沒有啟動時必填的新設定；`.loop/` 只被 `ai-native-ci.yml` 引用，合併時兩者一起刪是安全的。**下一輪建議**同第 68 輪：沒有 bug 回報或紅 CI 就不要動程式碼；11/4–11/5 做 SHOWCASE 定稿（狀態行、開發日誌補到最後一輪、最終統計）。
 0000000000000000000. **第 68 輪**：凍結前的全站截圖巡檢已做（33 支腳本、66 張舊截圖更新，沒有退化；PROGRESS 第 68 輪）。前端與後端的 AI 面都審過、design 文件都對過。**下一輪建議**：(1) 11/3 前若有 bug 回報或 CI 紅才動程式碼；否則不要再加功能（凍結前加的東西沒有時間再審）；(2) 11/3 最後一輪：若之後有前端改動，只重跑受影響的腳本（`compare.py` 0.05%）；(3) 11/4–11/5 照下面 3 做 SHOWCASE 定稿：狀態行改成最終版、開發日誌表補到最後一輪、最終統計（輪數、`git rev-list --count --no-merges origin/master..HEAD`）。
 000000000000000000. **第 67 輪（D-246～D-248）**：前端的 chat 引擎、/connectors、OAuth 同意頁、Studio AI＋選取工具列、/data-analysis 助理都審查完（五份 subagent，沒有高風險，D-246～D-250），三份 CLAUDE.md 對照程式碼修正。**前端與後端的 AI 面都審過了。** 還沒審過的只剩 master 既有、這個 branch 沒動的頁面。**下一輪建議**：(1) 若時間在 11/2 之前，可以照 SHOWCASE 的 5 分鐘精華版用截圖腳本再走一次，確認 D-246～D-250 沒改到畫面（`chat.cjs`、`connectors.cjs`、`selection.cjs`）；(2) 11/2～11/3 凍結前最後一次全站截圖巡檢（照 D-213、`.loop/shots/compare.py`；D-247 的改動不影響畫面）；(3) 11/4 起照 PLAN 只修 bug、補 SHOWCASE 最終統計。
 00000000000000000. **第 66 輪（D-243～D-245）**：照第 65 輪建議 (2) 審查了 /finance 助理＋`ConversationTitler`、data-analysis 自訂資料源、`NlQueryPlanner`（三份 subagent，都沒有高風險），修了中低風險。**後端的審查到此涵蓋所有 AI 相關的面。** 留下（接受，D-245）：`ask_data` 在還沒叫 OpenAI 就失敗時仍收費；group-by 沒有列數上限。**下一輪建議**：(1) 11/2～11/3 凍結前最後一次全站截圖巡檢（照 D-213、`.loop/shots/compare.py`；`connectors.cjs` 的「Header 名稱（選填）」是 D-238）；(2) 11/4 起照 PLAN 只修 bug、補 SHOWCASE 最終統計。

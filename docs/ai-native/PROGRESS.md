@@ -1,5 +1,15 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-31 07:42 – 第 69 輪（合併前安全檢查，不改程式碼）
+
+- 開工：鎖不存在；master 沒有新 commit（merge-base＝`origin/master` 的 tip，合回去是 fast-forward）；最新 CI 41122644924 綠。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。這輪寫鎖時忘了用 `.loop/lock.py`，`run_id` 是空字串（`expires_at` 正確，不影響判斷）——下一輪照 NEXT 0 用 `lock.py write`。
+- 照第 68 輪建議凍結期不加功能，只做合併到 production 前的檢查：
+  - 4 個 migration 的 `Up` 只新增欄位（`Profile` 預設 finance、`ReadOutsideText` 預設 false、`CardsJson` nullable）與新表；`DropColumn`／`DropTable` 只在 `Down`。
+  - 新程式碼沒有新的必填設定（沒有 `ValidateOnStart`／`GetRequiredSection`），SHOWCASE「不需要新的 secret」成立。
+  - `.loop/` 只被 `ai-native-ci.yml` 引用，程式碼與測試都不讀 `.loop/`，合併時一起刪安全；`docs/ai-native/` 被 CLAUDE.md 連結，保留。
+- 統計：`rev-list --count --no-merges origin/master..HEAD` = 548（本輪收尾前）。
+- 只動文件，沒有程式碼改動。
+
 ## 2026-10-31 05:42 – 第 68 輪（凍結前全站截圖巡檢：33 支腳本、更新 66 張）
 
 - 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（41122644924）綠。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`。鎖用 `openssl rand -hex 6`（沒有 `xxd`）。
