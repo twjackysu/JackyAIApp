@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-30 11:42 – 第 59 輪（demo 腳本逐步校對：簡報之後先開新對話；手機標題列；全站截圖巡檢）
+
+- 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（40989760157）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。鎖是手寫的（`xxd` 不存在，改用 `od`；格式正確，`lock.py check` 讀得懂）。
+- **D-215**（NEXT (a)）：`selection.cjs` 的假串流加 `hold`，F／G 交棒在 `done` 前停住、等回答文字出現才拍，再放行等 URL 切換；`studio-handoff-phone`、`studio-holdings-handoff-phone`（原本是 D-200 前的舊首頁）與 desktop 重拍。
+- **D-214**（NEXT (b)）：對照程式逐步走精華版與完整腳本，發現今日簡報一定會呼叫行事曆工具（`OutsideText`，沒連線也算），那個對話之後 `open_page` 的 `go` 不切頁、不交棒——原腳本第 2 步「帶我去複習」與精華版的交棒都接在同一個對話，現場頁面會不動。不改行為（design/06），改腳本：每步先按「新對話」，第 7 步補「也不再自動切頁或交棒」當安全示範；建議按下只放進輸入框，寫明再按 Enter；精華版的測驗改 `/考我`＋Enter。
+- **D-216**（NEXT (c) 巡檢發現）：/finance 與 /data-analysis 助理在手機上的標題列只剩「台股資…」（D-147 加了匯出鈕之後）。拿掉空墊片、文字區 `flexGrow`、三顆按鈕成組且手機上間距縮小；桌面不變。
+- **截圖巡檢**（NEXT (c)）：30 支腳本全跑（`mcp-host-official` 需要執行下載的套件，跳過），以 0.05% 比對、逐張看過，沒有退化；更新 41 張（手機標題列新版面，及 D-127／D-147／D-168 後未換的舊圖），加上 D-215 的 3 張。
+- 驗證：前端 lint、全套測試（183 檔 1903 個）、build 全過；手機標題列以截圖確認「台股資料已連線」「全站助理」完整。CI 41002751763（f421e03a）第一次就綠。只動前端，沒跑 cscheck。
+
 ## 2026-10-30 09:42 – 第 58 輪（SHOWCASE 5 分鐘精華版、FOR_JACKY 回國順序、截圖巡檢更新 45 張、觸控螢幕的首頁說明句）
 
 - 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（40977142905）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，重新 clone `feature/ai-native`（完整歷史）。
