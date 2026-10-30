@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, type ComponentType } from 'react';
 
 import type { CustomCard, TableCard, ToolCardRenderer } from './cards/toolCard';
 import type { FollowUpRule } from './utils/followUps';
@@ -52,6 +52,11 @@ export interface AiChatConfig {
    * hosted tw-stock tools, which Anthropic's MCP connector runs. A tool not listed is shown by its own name.
    */
   toolLabels?: Readonly<Record<string, string>>;
+  /**
+   * Drawn under a new conversation's suggestions: Studio AI's 「我能用的工具」, the connectors it can use now
+   * (design/05 §1). Nothing when not set.
+   */
+  welcomeFooter?: ComponentType;
   /** How this app draws kinds of tool card the chat does not (cards/toolCard), by kind. */
   cardRenderers?: Readonly<Record<string, ToolCardRenderer>>;
   /**

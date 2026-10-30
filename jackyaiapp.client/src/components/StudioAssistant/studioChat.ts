@@ -15,6 +15,7 @@ import { BRIEFING_PROMPT, FIND_MY_WEAK_SPOTS, READ_DASHBOARD_PROMPT } from './as
 import McpServersCardView from './McpServersCardView';
 import { QUICK_PAGES } from './quickActions';
 import QuizCardView from './QuizCardView';
+import StudioToolsRow from './StudioToolsRow';
 
 import type { AiChatConfig, AiChatSuggestion } from '@/components/aiChat/config';
 
@@ -259,6 +260,7 @@ export function studioChatConfig(
     examples: ['這個網站可以做哪些事？', '幫我查一個英文單字', '我的投資組合現在怎麼樣？'],
     suggestions: studioSuggestionsFor(path, dashboards),
     connectedLabel: studioConnectedLabel(path, dashboards),
+    welcomeFooter: StudioToolsRow,
     signedOutPlaceholder: '登入後即可使用 Studio AI',
     inputPlaceholder: {
       narrow: '想做什麼？打 / 看指令',

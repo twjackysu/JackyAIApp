@@ -159,7 +159,9 @@ jackyaiapp.client/src/
   (/finance, /data-analysis) or fills the screen; which pages, the suggestions per page and the shortcut are
   `studioChat`. Its header names the page it is on (`studioPageLabel`, design/05 §1, D-219: 全站助理・在「複習」 — the
   site's name for the page from `QUICK_PAGES`, a word's dictionary page by the word, one of the reader's dashboards by its
-  name once the list is read), so the reader knows what "this page" is to it. It is the site's command bar too: while the reader types, a few words naming a page ("複習",
+  name once the list is read), so the reader knows what "this page" is to it. Under a new conversation's suggestions it lists the connectors it can
+  use now (`StudioToolsRow` through `AiChatConfig.welcomeFooter`, D-220; `usableConnectors`: the site's own first, then those
+  working or not yet tested with a tool not switched off; five named, the rest counted) and links to /connectors. It is the site's command bar too: while the reader types, a few words naming a page ("複習",
   "portfolio", "帶我去 dashboards") or one English word offer to go straight there (`quickActionsFor`, shown over the
   box by `QuickActionChips` through the panel's `inputAccessory`): a press navigates, empties the box and closes the
   drawer, with no AI and no usage; Enter still sends the text to the AI. A draft starting with `/` lists Studio AI's ready-made

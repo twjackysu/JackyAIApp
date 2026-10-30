@@ -62,7 +62,7 @@ interface MessageAreaProps {
 /** An empty conversation: what the assistant does, and a few questions to start from. */
 const Welcome = ({ onSuggest }: { onSuggest?: (question: string) => void }) => {
   const theme = useTheme();
-  const { greetingTitle, greeting, suggestions } = useAiChatConfig();
+  const { greetingTitle, greeting, suggestions, welcomeFooter: Footer } = useAiChatConfig();
   return (
     <Box
       sx={{
@@ -124,6 +124,7 @@ const Welcome = ({ onSuggest }: { onSuggest?: (question: string) => void }) => {
           })}
         </Box>
       )}
+      {Footer && <Footer />}
     </Box>
   );
 };
