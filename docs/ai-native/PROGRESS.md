@@ -1,5 +1,13 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-30 13:42 – 第 60 輪（SHOWCASE 第 7 步的安全截圖；精華版第 4 步一支腳本走完）
+
+- 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（41002751763）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。鎖用 `od` 產生 run_id（`xxd` 不存在）。
+- **NEXT (1)**：新增 `.loop/shots/tainted-go.cjs`：首頁「AI 今日簡報」→ 同一個對話「帶我去複習」，第二次請求照 `ClientToolRunner.NavigateOf` 的行為不帶 `navigate`（對話已 tainted），回答照 `NotMovedNote` 請讀者自己按。桌機與手機都確認網址仍是 `/`、連結卡在；`studio-tainted-go-desktop` 放進 SHOWCASE 第 7 步。
+- **NEXT (2)**：新增 `.loop/shots/mcp-flow.cjs`，把 `find-mcp.cjs`＋`try-connector.cjs` 合成一條連續流程（建議 → 卡片「加入」→ 對話框「使用 Weather」→ probe →「連線」→ 完成步驟的「在 Studio AI 試試看」→ 新對話用 Weather 回答），十張截圖逐張看過、畫面與精華版第 4 步的描述一致；兩張放進第 6 步。第一次跑頁面空白，原因是假資料的 `category`／`health` 不在型別裡，修假資料即可。
+- 順手確認 NEXT 0 的 `MaskMsSql` 已修（`MaskPassword`），從清單刪除。
+- 驗證：沒有改程式碼（只有 `.loop/` 與文件，全部 `[skip ci]`），所以沒有新的 CI；最後一次含程式碼的 CI 41002751763 綠。
+
 ## 2026-10-30 11:42 – 第 59 輪（demo 腳本逐步校對：簡報之後先開新對話；手機標題列；全站截圖巡檢）
 
 - 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（40989760157）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。鎖是手寫的（`xxd` 不存在，改用 `od`；格式正確，`lock.py check` 讀得懂）。
