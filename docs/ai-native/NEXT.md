@@ -12,6 +12,7 @@
 
 ## 1. CI 狀態
 
+- 第 61 輪：只動前端（D-217～D-222）；CI 41023032098、41025166406、41026238162、41027176896 都第一次就綠，最後一次（D-222）見 PROGRESS。**截圖假資料的 `/api/*` 預設回 `{ data: null }`**：新程式若把 API 的 `data` 當陣列傳給有預設參數的函式，要自己 `?? []`（D-219 抓到的）。
 - 第 60 輪：沒有改程式碼，只加截圖腳本、截圖與文件（全部 `[skip ci]`）；最後一次含程式碼的 CI 仍是 41002751763（f421e03a）綠。
 - 第 59 輪：只動前端（D-216）；CI 41002751763（f421e03a）第一次就綠。截圖腳本與文件的 commit 都是 `[skip ci]`。
 - 第 58 輪：只動前端（D-212）；CI 40989760157（0f18e50a）第一次就綠。截圖比對一律用 `.loop/shots/compare.py`（門檻 0.05%，D-213）。
@@ -59,6 +60,7 @@
 
 ## 2. 下一步（依序）
 
+000000000000. **第 61 輪（D-217～D-222）**：對照 design/05 補了訪客的 Studio AI、工具耗時、標題列的頁面、歡迎畫面的「我能用的工具」、connector 卡片的最後測試時間、抽屜拉寬（D-222，原本的 (a)）。design/05 **還沒做的落差**（Explore subagent 的對照，DECISIONS 沒有推翻）：(b) 工具 chip「可展開看參數與結果摘要」與 connector icon——參數要後端在 `tool_result` 帶上（`tool_use` 開始時 input 還沒串完），凍結前不建議動 chat 引擎（中）；(c) connector 需要重新授權時卡片附「前往重新連線」——伺服器要給錯誤碼（小～中）；(d) 沒設定 API key 時的字是「AI 助手暫時無法使用，請聯絡站長」，design 寫「AI 助理尚未設定（管理者需要設定 Anthropic API key）」——對一般使用者現在的字比較好，維持（不做）。**下一輪建議**：(1) 確認本輪最後一次含程式碼的 push（D-222）的 CI 綠；(2) 照第 60 輪的建議：11/3 凍結前最後一次全站截圖巡檢（這輪已重跑 `chat.cjs`、`connectors.cjs`，其他腳本若有 Studio 標題列或工具 chip，會出現 0.1% 左右的差異——那是 D-218／D-219，不是退化）。
 00000000000. **第 60 輪**：NEXT 第 59 輪建議的 (1)(2) 已做：`.loop/shots/tainted-go.cjs`（今日簡報後同一個對話說「帶我去複習」→ 只有連結卡、首頁不動；截圖 `studio-tainted-go-*` 放進 SHOWCASE 第 7 步）、`.loop/shots/mcp-flow.cjs`（精華版第 4 步一支腳本走完：⌘K 建議 → 卡片「加入」→ 對話框「使用 Weather」→「連線」→「在 Studio AI 試試看」→ 新對話用 Weather 回答；截圖 `mcp-flow-*` 放進第 6 步）。兩支腳本都用 `seqChat`（依請求順序送不同串流，包在既有 fakeChat 外面），之後要拍多輪對話可照抄。假的 `InstalledConnector` 的 `category` 必須是 `site|data|dev|productivity|finance`、`health` 是 `ok|needsAuth|error|unknown|disabled`，否則頁面整個空白（`.label` of undefined）——是假資料錯，不是 app 的 bug。順手確認：NEXT 0 裡的 `MaskMsSql` 引號密碼問題早已修好（`MaskPassword` 用 `SqlConnectionStringBuilder`），已從清單刪除。**下一輪建議**：功能面已收手。(1) 11/3（凍結）前最後一次全站截圖巡檢，照 D-213（`python3 .loop/shots/compare.py <目錄>`，0.05%），連同新的 `tainted-go.cjs`、`mcp-flow.cjs`；(2) 11/4 起 NEXT 3 的 SHOWCASE 定稿（統計：第 60 輪時 `rev-list --count --no-merges origin/master..HEAD` 是 486）。
 0000000000. **第 59 輪（D-214～D-216）**：(a) 交棒截圖已改成停在 `done` 前、等回答畫出來再拍（`selection.cjs` 的 `hold`／`window.__release()`，D-215），兩張舊首頁已換。(b) 逐步對精華版與完整腳本：**今日簡報之後的同一個對話不會切頁、交棒**（讀過行事曆＝tainted），腳本已改成每步先按「新對話」（D-214）；歡迎畫面的建議只放進輸入框，腳本寫明再按 Enter。(c) 全站截圖巡檢（30 支腳本，`mcp-host-official` 不能跑）已做；發現並修好手機上助理標題列「台股資…」被切掉（D-216），更新 44 張。**下一輪建議**：(1) 11/3 凍結前若還有時間，`chat.cjs` 或 `selection.cjs` 加一個「今日簡報後說『帶我去複習』→ 只有連結卡、頁面不動」的截圖，給 SHOWCASE 第 7 步（假串流照 `ClientToolRunner` 的行為：`tool_result` 沒有 `navigate`）；(2) 精華版第 4 步（找 MCP server → 加入 → 試試看）仍是 `find-mcp.cjs`＋`try-connector.cjs` 兩支拼起來，可合成一支連續流程（低）；(3) 11/4 起做 NEXT 3 的 SHOWCASE 定稿（統計、migration 清單再對一次）。功能面已收手，不要再開新功能。
 000000000. **第 58 輪**：SHOWCASE 加了「5 分鐘精華版」、第 7 步截圖；FOR_JACKY 加回國順序；截圖巡檢以 0.05% 門檻更新 45 張（D-213，用 `python3 .loop/shots/compare.py <目錄>`）；首頁說明句觸控版（D-212）。**下一輪建議**：(a) `selection.cjs` 的 F／G 情境手機截圖時間不穩（`studio-handoff-phone`、`studio-holdings-handoff-phone` 仍是 D-200 前的舊首頁）：改成等到抽屜裡出現 Studio 的回答文字（`waitForSelector`）再拍，而不是固定 700 ms，然後重拍這兩張；(b) 精華版五步各自實際用截圖腳本走一次，確認描述與畫面一致（第 4 步「找 MCP server → 加入 → 試試看」目前是兩支腳本拼起來的）；(c) 11/3 凍結前最後一次全站截圖巡檢（照 D-213 的門檻）。功能面已收手，不要再開新功能。

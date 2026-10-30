@@ -1,6 +1,6 @@
 # Studio AI — 成果發表（11/5）
 
-> **狀態（2026-10-30 第 59 輪）**：功能大致完成，11/3 功能凍結，11/4–11/5 只修 bug、補最終截圖與統計。故事線的來源是 [design/02](design/02-vision-and-showcase.md)。時間不夠時先走下面的「5 分鐘精華版」。
+> **狀態（2026-10-30 第 61 輪）**：功能大致完成，11/3 功能凍結，11/4–11/5 只修 bug、補最終截圖與統計。故事線的來源是 [design/02](design/02-vision-and-showcase.md)。時間不夠時先走下面的「5 分鐘精華版」。
 
 **一句話：一個在每一頁都叫得出來的 AI 助理，會用本站自己的功能，也能接上你在外面的任何 remote MCP server（含 OAuth 登入），而且會改變東西的動作一定先問你。反過來，網站本身也是一個 MCP server：你的 Claude Desktop、Cursor 也能用本站的功能。**
 
@@ -9,7 +9,7 @@
 | 你看到的 | 背後 | 為什麼跟上 2026 的趨勢 |
 |---|---|---|
 | **用別人的 MCP server 自己的介面**：接上的 MCP server 若提供 MCP App，回答裡直接畫出它的互動介面（圖表、預報卡），app 還能向自己的 server 要新資料 | 本站當 MCP Apps host：`mcp-app` 卡片只存呼叫，HTML 畫的時候才向該 server `resources/read`；單層 `sandbox="allow-scripts"` iframe＋開頭寫死的 CSP、JSON-RPC 橋（`appBridge`）、app 自己呼叫唯讀工具、只給 app 的寫入要讀者在卡片上允許、開連結要讀者按 | MCP Apps（SEP-1865）是 2026 MCP 最大的擴充，Claude、ChatGPT、VS Code 都是 host；本站**同時是 server 與 host** |
-| **Studio AI**：任何頁面右下角按鈕或 ⌘K／Ctrl+K 叫出，知道你在哪一頁 | 共用 chat 引擎的 `studio` profile；本站功能都是工具（`ISiteTool`） | 「網站本身就是工具」：同一個 AI 到處都在 |
+| **Studio AI**：任何頁面右下角按鈕或 ⌘K／Ctrl+K 叫出，知道你在哪一頁（標題列「全站助理・在「複習」」）；新對話先列出「我能用的工具」（本站功能＋你接上的 connector）；每個工具 chip 寫出花了幾秒；沒登入的訪客按下去，看到它能做什麼與「使用 Google 登入」；桌機抽屜左緣可拖寬到 640 | 共用 chat 引擎的 `studio` profile；本站功能都是工具（`ISiteTool`） | 「網站本身就是工具」：同一個 AI 到處都在 |
 | **⌘K 也是指令列**：在 Studio 打「複習」「portfolio」、自己 dashboard 的名稱或一個英文單字，輸入框上方立刻出現「前往『複習』」「查字典：review」，按下直接到（不問 AI、不花用量）；打完整的問題就交給 AI | 前端的 `quickActionsFor`（頁面清單由測試對齊伺服器的 `SitePages`），只認頁面名稱與單一英文單字 | Raycast／Linear 式的指令列與 AI 助理合而為一：簡單的事零延遲，複雜的事交給 agent |
 | **打「/」就有現成指令**：Studio 輸入框打 `/` → 今日簡報、考我單字、用我的單字寫短文、投資組合健檢…一排按鈕，打 `/簡報`、`/quiz` 就篩出來，按下直接送出；/finance（`/外資`、`/景氣`）與 /data-analysis（`/欄位`、`/dashboard`）自己的助理也有各自的一組 | 共用的 `matchSlashCommands`＋`QuickChips`，每個助理的清單在它的 `AiChatConfig.slashCommands`；Studio 的名稱跟本站 MCP server 的 prompts 一樣，所以 Claude Code 裡的 `/mcp__jacky-studio__quiz_me` 與本站的 `/quiz` 是同一件事 | 斜線指令是 2026 AI 產品的共通語言（Claude、ChatGPT、Cursor） |
 | **用說的**：三個助理的輸入框都有麥克風，說「給我今天的簡報」字就出現在框裡 | 瀏覽器內建的 Web Speech API（zh-TW），不經本站伺服器、不花 AI 額度；Firefox 沒有就不顯示 | 語音是 2026 AI 助理的基本互動 |
@@ -75,6 +75,9 @@
    ![思考中](screenshots/thinking-live-phone.png)
    ![展開思考摘要](screenshots/thinking-open-desktop.png)
    ![語音輸入](screenshots/studio-voice-desktop.png)
+   **新對話先說它能用什麼**：歡迎畫面的建議下方是「我能用的工具」，標題列寫出它在哪一頁（D-219、D-220）；沒登入的訪客按同一顆按鈕，看到它能做什麼與登入（D-217）。
+   ![歡迎畫面的我能用的工具](screenshots/studio-welcome-tools-desktop.png)
+   ![訪客按下 Studio AI](screenshots/studio-guest-phone.png)
    **用聽的**：今日簡報卡片右邊的耳機「用聽的」→ 同一份簡報，回答一結束就自動念出來（下方按鈕變成「停止朗讀」）；用麥克風說完送出的問題也一樣自動念（D-120）。
    ![今日簡報的用聽的](screenshots/home-briefing-listen-desktop.png)
    ![用說的問、用聽的答](screenshots/studio-voice-reply-phone.png)
@@ -348,5 +351,6 @@ flowchart LR
 | 10/30 | 58 | 本頁加「5 分鐘精華版」與第 7 步截圖、FOR_JACKY 回國順序；截圖巡檢更新 45 張；觸控螢幕的首頁說明句改說右下角的按鈕（D-212） |
 | 10/30 | 59 | **逐步對 demo 腳本**：發現今日簡報讀過行事曆後，同一個對話不會再切頁或交棒（安全設計）→ 腳本改成每步先開「新對話」，並把它寫進第 7 步當安全示範（D-214）；手機上助理標題列的狀態字不再被切掉（D-216）；交棒截圖改成等回答畫出來再拍（D-215）；全站截圖巡檢（30 支腳本）更新 44 張 |
 | 10/30 | 60 | 第 7 步補上「今日簡報之後說『帶我去複習』：只有連結卡、頁面不動」的截圖；精華版第 4 步（找 MCP server → 加入 → 連線 → 在 Studio AI 試試看）改成一支腳本連續走完並補兩張截圖 |
+| 10/30 | 61 | **對照 design/05 補齊 Studio AI 的落差**：沒登入的訪客也有按鈕（說明＋登入，D-217）、工具 chip 寫出耗時（D-218）、標題列寫出所在頁面（D-219）、新對話列出「我能用的工具」（D-220）、connector 卡片的最後測試時間（D-221）、抽屜可拉寬（D-222） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

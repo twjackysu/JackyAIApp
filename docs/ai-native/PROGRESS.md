@@ -1,5 +1,12 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-30 15:43 – 第 61 輪（對照 design/05 補齊落差：訪客的 Studio AI、工具耗時、標題列的頁面、我能用的工具、connector 的最後測試時間、抽屜拉寬）
+
+- 開工：鎖不存在；master 沒有新 commit（master 是 branch 的祖先，可乾淨合併）；上一輪最後的 CI（41002751763）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。鎖用 python 的 `secrets` 產生 run_id。
+- 功能已收手，這輪先找「設計說了、實作沒做」的落差：發現 design/05 §1 寫訪客按下按鈕要看到「登入後可使用」，實作卻整個不顯示 → **D-217**（`StudioGuest`、`StudioFab`）。再請 Explore subagent 逐條對 design/05，找到 6 個落差，做了其中 4 個：**D-218**（工具 chip 耗時，伺服器早就送 `durationMs`）、**D-219**（標題列「全站助理・在「複習」」，`studioPageLabel`）、**D-220**（歡迎畫面「我能用的工具」，`AiChatConfig.welcomeFooter`＋`StudioToolsRow`＋`usableConnectors`）、**D-221**（/connectors 卡片的最後測試時間，`lastTestedText`）、**D-222**（抽屜左緣拖曳拉寬 440～640，`DrawerResizeHandle`＋`useDrawerWidth`）。
+- 截圖巡檢 `chat.cjs`、`connectors.cjs` 時抓到：dashboard 清單讀到 `data: null` 時 D-219 的新程式讓 dashboard 頁空白（預設參數不接 null）→ 改傳 `boards ?? []`（D-219 內）。只有假資料會這樣，但已修。更新 27＋5 張截圖，新增 `studio-guest-*`、`studio-welcome-tools-*`；新腳本 `.loop/shots/guest.cjs`、`welcome-tools.cjs`。
+- 驗證：前端 lint、全套測試（185 檔 1920 個）、build 全過；CI 41023032098（5ba724cc，D-217）、41025166406（033fe94a，D-218／D-219）、41026238162（699d7f55，D-220）、41027176896（6f91e990，D-221）都第一次就綠；D-222 的 CI 見收尾。新腳本 `.loop/shots/wide.cjs`。只動前端，沒跑 cscheck。
+
 ## 2026-10-30 13:42 – 第 60 輪（SHOWCASE 第 7 步的安全截圖；精華版第 4 步一支腳本走完）
 
 - 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（41002751763）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。鎖用 `od` 產生 run_id（`xxd` 不存在）。
