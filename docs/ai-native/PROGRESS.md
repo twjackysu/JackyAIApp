@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-30 09:42 – 第 58 輪（SHOWCASE 5 分鐘精華版、FOR_JACKY 回國順序、截圖巡檢更新 45 張、觸控螢幕的首頁說明句）
+
+- 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（40977142905）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，重新 clone `feature/ai-native`（完整歷史）。
+- **SHOWCASE**（NEXT 3 的準備）：開頭的「初稿」狀態列改成現況；Demo 前加「5 分鐘精華版」（五步各一個趨勢，指回完整腳本的步驟）；第 7 步「安全」補說明與兩張既有截圖（connector 詳情的權限、讀過 Jira 後的確認卡）；功能表裡重複的半句刪掉。
+- **FOR_JACKY**：最上面加「回國後建議的順序」（合併前要拍板的、合併、部署後依風險實測的順序）。
+- **截圖巡檢**（NEXT 2，D-213）：發現第 56 輪的 1% 門檻漏掉 D-200 改過首頁說明句後的舊圖；以 0.05% 重比 chat＋10 支＋14 支腳本，逐張看過後更新 45 張（全是現在的畫面）。新增 `.loop/shots/compare.py`。
+- **D-212**：首頁說明句在觸控螢幕（`(hover: none) and (pointer: coarse)`）改說「按右下角的按鈕」，不提沒有的 ⌘K；判斷不出來時維持原句。
+- 驗證：前端 lint、全套測試（183 檔 1903 個）、build 全過；新測試在 `Portal.test.tsx`（stub `matchMedia`）。CI 40989760157（0f18e50a）第一次就綠。只動前端，沒跑 cscheck。
+
 ## 2026-10-30 07:42 – 第 57 輪（MCP App：換亮暗不重畫、第二則 ui/message 回 isError；SHOWCASE 校對）
 
 - 開工：鎖不存在（`lock.py check` FREE）；master 沒有新 commit；上一輪最後的 CI（40961309416）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。
