@@ -128,9 +128,9 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
         }
 
         [Fact]
-        public async Task TodayInThePrompt_IsTheUtcDate()
+        public async Task TodayInThePrompt_IsTaipeisDate()
         {
-            // 01:00 on the 23rd in Taipei is still the 22nd in UTC.
+            // 01:00 on the 23rd in Taipei is still the 22nd in UTC: a reader there asking about 「今天」 means the 23rd (D-245).
             var clock = new TestClock(new DateTimeOffset(2026, 10, 22, 17, 0, 0, TimeSpan.Zero));
             var openAI = new Mock<IOpenAIPromptService>();
             string? system = null;
@@ -148,7 +148,7 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
                 [("Region", "String")], "count by region", "RULES", Mock.Of<INlValueSource>(),
                 _ => Task.FromResult<string?>(null), CancellationToken.None);
 
-            Assert.Contains("\nTODAY: 2026-10-22", system);
+            Assert.Contains("\nTODAY: 2026-10-23", system);
         }
     }
 }
