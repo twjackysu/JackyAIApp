@@ -243,10 +243,17 @@ namespace JackyAIApp.Server.Services.Connectors
             row.ToolSettingsJson = ToolPermissions.Serialize(chosen);
         }
 
+        /// <summary>
+        /// A connector's name as kept: what the reader cannot see dropped (a server names itself, and its name is drawn
+        /// on the connectors page and in chat cards; <see cref="McpToolClient.Plain"/>, D-236), line breaks and tabs as
+        /// spaces, cut to <paramref name="max"/> never between the two halves of a character.
+        /// </summary>
         public static string? Trimmed(string? text, int max)
         {
-            var t = text?.Trim();
-            return string.IsNullOrEmpty(t) ? null : t.Length > max ? t[..max] : t;
+            if (text == null) return null;
+            var t = McpToolClient.Plain(text).Replace('\n', ' ').Replace('\t', ' ').Trim();
+            if (t.Length == 0) return null;
+            return t.Length > max ? t[..(char.IsHighSurrogate(t[max - 1]) ? max - 1 : max)] : t;
         }
     }
 }

@@ -440,7 +440,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   through `SafeHttp`, a session per request, each response held to 8 MB, `ResponseSizeLimit`; a tool list read at most 5 pages, each name once,
   a tool whose input schema is over 32k characters left out, 400k of schema in all, so no server can make what is stored
   and sent to the model each turn huge; a tool's title and description kept without what a reader cannot see, control and
-  format characters such as the Unicode tag block, `McpToolClient.Plain`, D-227); the chat gets a reader's connectors' tools from
+  format characters such as the Unicode tag block, `McpToolClient.Plain`, D-227, and so is the connector's name, the server's
+  `serverInfo.name` or the reader's, `InstallationTools.Trimmed`, D-236); the chat gets a reader's connectors' tools from
   `ConnectorToolSource` (named `m1__…` per turn, their connector the installation's id; at most `ConnectorToolSource.MaxTools` (64) a turn, the
   connectors added first keeping theirs, D-228; the reader's permission for one is
   kept and looked up under the server's own name, `AiToolDescriptor.PermissionName`; two that come to one name are offered once). A call the server
