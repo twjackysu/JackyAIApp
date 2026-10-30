@@ -653,6 +653,21 @@ describe('StudioAssistant', () => {
       expect(mocks.panel).toBeNull();
     });
 
+    it('going to a word’s page drops the page an answer still being written would take the reader to', async () => {
+      await render('/english/repository');
+      await act(async () => button()!.click());
+      await settle();
+      await act(async () => mocks.panel!.onActivityChange!({ busy: true, hasConversation: true }));
+      await act(async () => mocks.panel!.onNavigate!('/finance'));
+      await select('Resilient');
+      await press('查字典');
+      await settle();
+
+      await act(async () => mocks.panel!.onActivityChange!({ busy: false, hasConversation: true }));
+      await settle();
+      expect(router.pathname).toBe('/english/dictionary/resilient');
+    });
+
     it('asks about a word of one of its own answers in the conversation on screen', async () => {
       await render('/english/repository');
       await act(async () => button()!.click());

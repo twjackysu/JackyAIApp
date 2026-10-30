@@ -186,6 +186,10 @@ export default function StudioAssistant() {
       const step = selectionStepOf(kind, text, inAssistant);
       if (!step) return;
       if (step.do === 'go') {
+        // The reader went somewhere themselves, as a quick action does: an answer still being written no longer moves
+        // the page (nor hands a task to the page it would have gone to) when it ends.
+        afterAnswer.current = { close: false };
+        tookOver.current = busyRef.current;
         navigate(step.path);
         if (inAssistant && fullScreen) setOpen(false);
         return;

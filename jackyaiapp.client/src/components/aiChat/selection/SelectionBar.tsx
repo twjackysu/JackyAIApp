@@ -91,7 +91,15 @@ export default function SelectionBar({
         return;
       }
       if (e.key !== 'Escape') return;
-      e.stopPropagation();
+      // A dialog or menu opened over the selection (one that does not hold it) still gets its Escape: the bar goes
+      // too, but the key is not kept from the dialog.
+      const modal =
+        document.activeElement instanceof Element
+          ? document.activeElement.closest('.MuiModal-root, .MuiPopover-root, [role="dialog"]')
+          : null;
+      const anchor = window.getSelection()?.anchorNode ?? null;
+      if (!(modal && !barRef.current?.contains(modal) && !(anchor && modal.contains(anchor))))
+        e.stopPropagation();
       if (focusInBar.current) {
         focusInBar.current = false;
         returnFocus.current?.focus();

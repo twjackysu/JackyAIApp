@@ -194,6 +194,45 @@ describe('SelectionBar', () => {
     expect(drawerKeys).toHaveBeenCalledTimes(1);
   });
 
+  it('leaves Escape to a dialog opened over the selection, going too', async () => {
+    await renderBar();
+    await selectAndSettle('The market rallied today.', document.getElementById('text')!);
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.innerHTML = '<button>OK</button>';
+    document.body.appendChild(dialog);
+    const dialogKeys = vi.fn();
+    dialog.addEventListener('keydown', dialogKeys);
+    const ok = dialog.querySelector('button')!;
+    ok.focus();
+    await act(async () =>
+      ok.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })),
+    );
+    expect(bar()).toBeNull();
+    expect(dialogKeys).toHaveBeenCalledTimes(1);
+    dialog.remove();
+  });
+
+  it('still keeps Escape from the drawer that holds the selection and the focus', async () => {
+    // Studio AI's drawer: a modal holding the assistant's conversation, where a selection is asked about.
+    page.classList.add('MuiModal-root');
+    page.setAttribute('data-ai-assistant', '');
+    page.querySelector<HTMLTextAreaElement>('#box')!.focus();
+    await renderBar();
+    const drawerKeys = vi.fn();
+    page.addEventListener('keydown', drawerKeys);
+    await selectAndSettle(
+      'The market rallied today.',
+      document.getElementById('text')!.firstChild!,
+    );
+    expect(bar()).not.toBeNull();
+    await act(async () =>
+      page.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })),
+    );
+    expect(bar()).toBeNull();
+    expect(drawerKeys).not.toHaveBeenCalled();
+  });
+
   it('moves with the selection when something scrolls, and goes once it is gone', async () => {
     await renderBar();
     const text = document.getElementById('text')!;
