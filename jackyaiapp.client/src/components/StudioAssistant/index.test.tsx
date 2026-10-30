@@ -225,6 +225,17 @@ describe('StudioAssistant', () => {
     expect(mocks.panel!.active).toBe(false);
   });
 
+  it('and when its card sends the reader to connect an account (#accounts, D-225)', async () => {
+    await render('/');
+    await act(async () => button()!.click());
+    await settle();
+
+    await act(async () => router.navigate!('/connectors#accounts'));
+    await settle();
+
+    expect(mocks.panel!.active).toBe(false);
+  });
+
   it('opens on ⌘K / Ctrl+K', async () => {
     await render('/');
     await act(async () =>

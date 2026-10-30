@@ -496,7 +496,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   token from `IConnectorService`): an `ISiteTool` in `Services/Connectors/<Service>`. `GoogleCalendarTool`
   (`google_calendar_events`, `Services/Connectors/Google`) reads the primary calendar (today, tomorrow or 7 days,
   whole Taipei days; scope `calendar.readonly`) as a table card; without a Google connection, or one Google refuses,
-  it answers with a link card to /connectors rather than an error. Its results are `OutsideText`. `OutlookCalendarTool`
+  it answers with a link card to the account connections (`ConnectorProviders.AccountsPath`, `/connectors#accounts`, which the
+  page scrolls to, D-225; Outlook's and Jira's the same) rather than an error. Its results are `OutsideText`. `OutlookCalendarTool`
   (`outlook_calendar_events`, `Services/Connectors/Outlook`, D-134) is the same days, events and card from the Microsoft
   connection (scope `Calendars.Read`): Graph's `me/calendarView` for the range's whole Taipei days, with
   `Prefer: outlook.timezone="Taipei Standard Time"` (a time Graph still gives in UTC is converted); `CalendarRange`,

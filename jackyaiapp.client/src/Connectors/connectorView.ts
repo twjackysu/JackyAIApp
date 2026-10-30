@@ -181,3 +181,9 @@ export function connectorToOpen(
   if (id === null) return undefined;
   return installed.find((c) => c.id !== null && c.id === id) ?? null;
 }
+
+/**
+ * The id of /connectors' account connections (Google, Microsoft, Atlassian): a native connector's card links to
+ * `/connectors#accounts` (D-225), and the page scrolls there, below what the AI may use.
+ */
+export const ACCOUNTS_ANCHOR = 'accounts';

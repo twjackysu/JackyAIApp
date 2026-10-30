@@ -87,7 +87,7 @@ namespace JackyAIApp.Server.Services.Connectors.Google
         {
             kind = "link",
             title = "連線 Google 帳號",
-            href = "/connectors",
+            href = ConnectorProviders.AccountsPath,
             description = "到 Connectors 的帳號連線，讓 AI 讀取你的 Google 日曆（唯讀）",
             actionLabel = "前往 Connectors",
         };

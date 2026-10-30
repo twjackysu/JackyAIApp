@@ -94,7 +94,7 @@ namespace JackyAIApp.Server.Services.Connectors.Outlook
         {
             kind = "link",
             title = "連線 Microsoft 帳號",
-            href = "/connectors",
+            href = ConnectorProviders.AccountsPath,
             description = "到 Connectors 的帳號連線，讓 AI 讀取你的 Outlook 行事曆（唯讀）",
             actionLabel = "前往 Connectors",
         };

@@ -131,7 +131,7 @@ namespace JackyAIApp.Server.Services.Connectors.Atlassian
         {
             kind = "link",
             title = "連線 Atlassian 帳號",
-            href = "/connectors",
+            href = ConnectorProviders.AccountsPath,
             description = "到 Connectors 的帳號連線，讓 AI 讀取你的 Jira（唯讀）",
             actionLabel = "前往 Connectors",
         };

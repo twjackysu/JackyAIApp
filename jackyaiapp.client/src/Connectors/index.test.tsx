@@ -113,6 +113,22 @@ describe('Connectors page — the account connections', () => {
     expect(text()).toContain('[AiConnectors 1]');
   });
 
+  it('goes down to the account connections a card links to (#accounts, D-225), once', () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    render('/connectors#accounts');
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    expect(document.getElementById('accounts')?.textContent).toContain('帳號連線');
+    expect(scrolled.mock.contexts[0]).toBe(document.getElementById('accounts'));
+  });
+
+  it('stays at the top without it', () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    render();
+    expect(scrolled).not.toHaveBeenCalled();
+  });
+
   it('lists one card per provider', () => {
     render();
     expect(text()).toContain('[Card Google on]');

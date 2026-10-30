@@ -81,7 +81,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
             Assert.False(result.IsError);
             Assert.Contains("Atlassian", result.Content);
-            Assert.Equal("/connectors", CardJson(result).GetProperty("href").GetString());
+            Assert.Equal("/connectors#accounts", CardJson(result).GetProperty("href").GetString());
             Assert.Empty(_asked);
         }
 
@@ -205,7 +205,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
             Assert.Contains("重新連線", result.Content);
             Assert.DoesNotContain("scope does not match", result.Content);
-            Assert.Equal("/connectors", CardJson(result).GetProperty("href").GetString());
+            Assert.Equal("/connectors#accounts", CardJson(result).GetProperty("href").GetString());
         }
 
         [Fact]

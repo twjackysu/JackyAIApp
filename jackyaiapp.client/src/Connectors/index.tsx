@@ -3,11 +3,12 @@ import { Box, Grid, IconButton, Typography } from '@mui/material';
 import Alert, { AlertProps } from '@mui/material/Alert';
 import Snackbar, { SnackbarCloseReason } from '@mui/material/Snackbar';
 import React, { useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 
 import AiConnectorsSection from './AiConnectorsSection';
 import { callbackNotice } from './callbackNotice';
 import ConnectorCard from './ConnectorCard';
+import { ACCOUNTS_ANCHOR } from './connectorView';
 import MemorySection from './MemorySection';
 import SiteMcpSection from './SiteMcpSection';
 
@@ -30,6 +31,7 @@ interface State {
 
 const Connectors: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const { hash } = useLocation();
   const { data: connectors, isLoading, error, refetch } = useGetConnectorStatusQuery();
   // Read here for the callback's notice only: the names it may show (AiConnectorsSection reads the same cache).
   const { data: catalog, isLoading: catalogLoading } = useGetConnectorCatalogQuery();
@@ -101,6 +103,17 @@ const Connectors: React.FC = () => {
     }
   };
 
+  // Sent to the account connections (`#accounts`, a native connector's card, D-225): they are below what the AI may
+  // use, so the page goes there once they are drawn, once per arrival.
+  const accountsRef = React.useRef<HTMLHeadingElement>(null);
+  const scrolledFor = React.useRef<string | null>(null);
+  useEffect(() => {
+    if (hash !== `#${ACCOUNTS_ANCHOR}` || isLoading || !accountsRef.current) return;
+    if (scrolledFor.current === hash) return;
+    scrolledFor.current = hash;
+    accountsRef.current.scrollIntoView({ block: 'start' });
+  }, [hash, isLoading]);
+
   if (isLoading) {
     return <CenteredSpinner sx={{ alignItems: 'center', minHeight: 400 }} />;
   }
@@ -136,7 +149,14 @@ const Connectors: React.FC = () => {
       />
       <MemorySection notify={(message, severity) => setState({ open: true, message, severity })} />
       <SiteMcpSection notify={(message, severity) => setState({ open: true, message, severity })} />
-      <Typography variant="h6" component="h2" gutterBottom>
+      <Typography
+        variant="h6"
+        component="h2"
+        gutterBottom
+        id={ACCOUNTS_ANCHOR}
+        ref={accountsRef}
+        sx={{ scrollMarginTop: 72 }}
+      >
         帳號連線（Google／Microsoft／Atlassian）
       </Typography>
       <Grid container spacing={3}>

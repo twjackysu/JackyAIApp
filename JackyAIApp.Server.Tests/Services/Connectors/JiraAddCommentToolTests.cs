@@ -103,7 +103,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             var result = await Run(new { issueKey = "WEB-12", comment = "hi" });
 
             Assert.True(result.IsError);
-            Assert.Equal("/connectors", CardJson(result).GetProperty("href").GetString());
+            Assert.Equal("/connectors#accounts", CardJson(result).GetProperty("href").GetString());
             Assert.Empty(_asked);
         }
 
@@ -147,7 +147,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
             Assert.True(result.IsError);
             Assert.Single(_asked);
-            Assert.Equal("/connectors", CardJson(result).GetProperty("href").GetString());
+            Assert.Equal("/connectors#accounts", CardJson(result).GetProperty("href").GetString());
         }
 
         [Fact]
@@ -172,7 +172,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             var result = await Run(new { issueKey = "WEB-12", comment = "hi" });
 
             Assert.True(result.IsError);
-            Assert.Equal("/connectors", CardJson(result).GetProperty("href").GetString());
+            Assert.Equal("/connectors#accounts", CardJson(result).GetProperty("href").GetString());
         }
 
         [Fact]

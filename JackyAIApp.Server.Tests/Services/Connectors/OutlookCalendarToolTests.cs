@@ -75,7 +75,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
             Assert.False(result.IsError);
             Assert.Contains("Microsoft", result.Content);
-            Assert.Equal("/connectors", CardJson(result).GetProperty("href").GetString());
+            Assert.Equal("/connectors#accounts", CardJson(result).GetProperty("href").GetString());
             Assert.Empty(_asked);
         }
 
@@ -153,7 +153,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             var result = await Run(new { });
 
             Assert.False(result.IsError);
-            Assert.Equal("/connectors", CardJson(result).GetProperty("href").GetString());
+            Assert.Equal("/connectors#accounts", CardJson(result).GetProperty("href").GetString());
         }
 
         [Fact]

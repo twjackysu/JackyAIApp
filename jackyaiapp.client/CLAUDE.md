@@ -291,7 +291,9 @@ sent or stored, so a reopened conversation shows a plain message. A site tool's 
   `/connectors?connector=<installation id>` (`CONNECTOR_PARAM`, `connectorToOpen`, D-223: the card a connector's refused call shows,
   「前往重新連線」) opens that connector's drawer once and drops the parameter (one no longer there is said so); Studio AI's drawer
   steps aside there too. The drawer's way back is its main button while the connector waits for a sign-in: 重新授權 for OAuth,
-  更新認證 for an API key or bearer token (`CredentialsForm`: a new one saved and tested in place, `PUT …/credentials`, D-224). A server the reader has
+  更新認證 for an API key or bearer token (`CredentialsForm`: a new one saved and tested in place, `PUT …/credentials`, D-224).
+  `/connectors#accounts` (`ACCOUNTS_ANCHOR`, the account connections' heading; a native connector's "connect first" card, D-225)
+  scrolls down to the account connections once they are drawn; Studio AI's drawer steps aside there as well. A server the reader has
   already added (its address, `connectorView.serverUrlKey`, among `installedServerUrls`) shows as added there and in the dialog's registry
   search, not offered again (D-127). A connector the reader has added, working and with a tool the AI may see (`connectorView.canTryInStudio`), offers
   「在 Studio AI 試試看」 on the dialog's last step and in its detail drawer (D-126): the dialog or drawer closes, then

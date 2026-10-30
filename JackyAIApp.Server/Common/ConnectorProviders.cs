@@ -16,6 +16,12 @@ namespace JackyAIApp.Server.Common
         public const string Atlassian = "Atlassian";
         public const string Google = "Google";
 
+        /// <summary>
+        /// Where a reader connects one: the account connections on the connectors page, below what the AI may use, which the
+        /// page scrolls to (the client's <c>ACCOUNTS_ANCHOR</c>, D-225). A native connector's "connect first" card links here.
+        /// </summary>
+        public const string AccountsPath = "/connectors#accounts";
+
         /// <summary>Every supported provider, in the order shown to callers.</summary>
         public static readonly IReadOnlyList<string> All = [Microsoft, Atlassian, Google];
 
