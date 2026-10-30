@@ -5,6 +5,7 @@ import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
 import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { cloneElement } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -30,6 +31,13 @@ export const APPS_LINE =
  */
 export const STUDIO_LINE =
   '在任何頁面按 ⌘K（Ctrl+K）或右下角的按鈕叫出 Studio AI：一句話查單字、記一筆交易、做一個 dashboard，它會直接帶你過去。';
+
+/** The same on a touch screen (a phone, a tablet without a mouse), where there is no ⌘K to press. */
+export const STUDIO_TOUCH_LINE =
+  '在任何頁面按右下角的按鈕叫出 Studio AI：一句話查單字、記一筆交易、做一個 dashboard，它會直接帶你過去。';
+
+/** Touch only (no hover, a finger): where it cannot be told, the shortcut is named, as before. */
+const TOUCH_ONLY = '(hover: none) and (pointer: coarse)';
 
 function AppCard({ app }: { app: AppDef }) {
   return (
@@ -126,6 +134,7 @@ function Portal() {
   // undefined while the first request is in flight, so neither the guest nor the today block flashes.
   const isLoggedIn = isLoading ? undefined : !!userInfoRes?.data;
   const displayName = userInfoRes?.data?.name || userInfoRes?.data?.email || '';
+  const touchOnly = useMediaQuery(TOUCH_ONLY, { noSsr: true });
 
   return (
     <Box sx={{ maxWidth: 1000, mx: 'auto', py: { xs: 4, md: 8 }, px: 2 }}>
@@ -141,7 +150,7 @@ function Portal() {
           {displayName ? `歡迎回來，${displayName}` : '選擇一個應用程式'}
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 560, mx: 'auto' }}>
-          {isLoggedIn ? STUDIO_LINE : APPS_LINE}
+          {isLoggedIn ? (touchOnly ? STUDIO_TOUCH_LINE : STUDIO_LINE) : APPS_LINE}
         </Typography>
       </Box>
 

@@ -67,6 +67,27 @@ describe('Portal', () => {
     expect(guest).not.toContain('Studio AI');
   });
 
+  it('logged in on a touch screen: the hero names the button, not a shortcut there is no key for', () => {
+    const query = vi.fn((media: string) => ({
+      matches: media === '(hover: none) and (pointer: coarse)',
+      media,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+    vi.stubGlobal('matchMedia', query);
+    try {
+      const html = render();
+      expect(html).toContain('按右下角的按鈕叫出 Studio AI');
+      expect(html).not.toContain('⌘K');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('logged in, nothing due: hides the review item and shows completed challenge', () => {
     mocks.due.mockReturnValue(ok({ dueCount: 0 }));
     mocks.stats.mockReturnValue(stats({ todayCompleted: true, todayScore: 4 }));
