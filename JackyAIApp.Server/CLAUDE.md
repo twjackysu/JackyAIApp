@@ -256,7 +256,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   `ClientToolRunner` runs its calls one by one (30s each; the reader sees `tool_use` with `id`/`displayName`,
   then `tool_result` with `ok`, `card`, `durationMs`), and the next request sends the reply back unchanged
   (thinking signatures included) with the results, at most `ModelTurn.MaxToolRounds` requests a turn (a turn still
-  calling tools at the last one is not an answer, `no_answer`, even after a lead-in line: its calls never ran; D-178). A result
+  calling tools at the last one is not an answer, `no_answer`, even after a lead-in line: its calls never ran; D-178). The message
+  pays for the first `UsageCosts.FreeChatToolRounds` (3) requests; each later one is charged first, one `UsageFeature.ChatToolRound`
+  (`ModelTurn`'s `chargeToolRound`), and a reader without the budget for it gets one last request with the results so far,
+  `tool_choice` none and `ModelTurn.OutOfBudgetNote`, so the answer comes from what was read (D-226). A result
   goes back wrapped as untrusted data (`ClientToolRunner.Wrap`, `<tool_output trust="untrusted">`, which the
   content cannot close), and the request's system prompt says what that means
   (`ChatTurnRequest.UntrustedToolOutputInstruction`). What the AI may do with each tool is the reader's

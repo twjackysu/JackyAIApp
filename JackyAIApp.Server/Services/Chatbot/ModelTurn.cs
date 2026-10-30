@@ -1,6 +1,7 @@
 using Anthropic;
 using Anthropic.Helpers;
 using Anthropic.Models.Beta.Messages;
+using JackyAIApp.Server.Common;
 using System.Text;
 using System.Text.Json;
 
@@ -33,13 +34,26 @@ namespace JackyAIApp.Server.Services.Chatbot
     /// included) with the results, up to <see cref="MaxToolRounds"/> requests. Without tools (Finance)
     /// a turn is one request, read exactly as before.
     /// </para>
+    /// <para>
+    /// The message pays for the turn's first <see cref="UsageCosts.FreeChatToolRounds"/> requests; each
+    /// one after them is charged first (<paramref name="chargeToolRound"/>, one
+    /// <see cref="UsageFeature.ChatToolRound"/>; docs/ai-native/design/06 §6). When the reader's budget
+    /// cannot pay for it, the request still goes, once, with the results so far and no tool allowed
+    /// (tool_choice none, <see cref="OutOfBudgetNote"/>): the reader gets an answer from what was read
+    /// rather than an error, and the calls already paid for are not wasted.
+    /// </para>
     /// </summary>
     internal sealed class ModelTurn(
         AnthropicClient client, SseStream sse, UsageLedger usageLedger, ILogger logger, string conversationId,
-        ClientToolRunner? tools = null)
+        ClientToolRunner? tools = null, Func<Task<bool>>? chargeToolRound = null)
     {
         /// <summary>The most requests one turn makes for its tools; the last one's answer ends the turn.</summary>
         internal const int MaxToolRounds = 8;
+
+        /// <summary>Sent with the results when the reader's budget cannot pay for another tool round.</summary>
+        internal const string OutOfBudgetNote =
+            "[系統：使用者今天的 AI 額度不夠再呼叫工具了。請只用上面已經取得的結果回答，" +
+            "並簡短告訴使用者還沒查完的部分，額度在台灣時間早上 8 點重置。]";
 
         // The MCP connector runs its tool-call loop server-side with an internal 10-iteration
         // cap; hitting it ends the turn with stop_reason=pause_turn before any answer text is
@@ -66,6 +80,7 @@ namespace JackyAIApp.Server.Services.Chatbot
         {
             var stopped = false;
             string? errorCode = null;
+            var lastRound = MaxToolRounds;
             for (var round = 1; ; round++)
             {
                 BetaMessage? reply;
@@ -77,7 +92,7 @@ namespace JackyAIApp.Server.Services.Chatbot
                 foreach (var block in reply.Content)
                     if (block.TryPickToolUse(out var use)) calls.Add(use);
                 if (calls.Count == 0) break;
-                if (round >= MaxToolRounds)
+                if (round >= lastRound)
                 {
                     logger.LogWarning("Chat turn for conversation {ConversationId} still calling tools after {Rounds} requests; ending it",
                         conversationId, round);
@@ -98,6 +113,18 @@ namespace JackyAIApp.Server.Services.Chatbot
                     break;
                 }
 
+                // The next request is a tool round the message does not pay for: charged first, and
+                // without the budget for it, the last one, answering from what was read.
+                var answerNow = round + 1 > UsageCosts.FreeChatToolRounds && chargeToolRound != null &&
+                                !await chargeToolRound();
+                if (answerNow)
+                {
+                    logger.LogInformation("Chat turn for conversation {ConversationId} is out of budget for tool round {Round}; answering now",
+                        conversationId, round + 1);
+                    results = [.. results, new BetaTextBlockParam { Text = OutOfBudgetNote }];
+                    lastRound = round + 1;
+                }
+
                 // Text the next reply writes is a new paragraph, not the end of the last one's sentence.
                 _paragraphBreakDue = _text.Length > 0;
                 request = request with
@@ -116,6 +143,8 @@ namespace JackyAIApp.Server.Services.Chatbot
                         new BetaMessageParam { Role = Role.User, Content = results },
                     ],
                 };
+                // No tool can be asked for, so this reply is the answer.
+                if (answerNow) request = request with { ToolChoice = new BetaToolChoiceNone() };
             }
 
             return new TurnOutcome(

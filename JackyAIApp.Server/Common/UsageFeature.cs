@@ -77,5 +77,9 @@ namespace JackyAIApp.Server.Common
 
         /// <summary>Portfolio AI technical-analysis summary for a single position</summary>
         PortfolioAiSummary,
+
+        /// <summary>One more request of a chat turn for its tools, past the first
+        /// <see cref="UsageCosts.FreeChatToolRounds"/> the message itself pays for (ModelTurn)</summary>
+        ChatToolRound,
     }
 }

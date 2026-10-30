@@ -35,8 +35,14 @@ namespace JackyAIApp.Server.Common
             UsageFeature.TextToSpeech => 1,
             UsageFeature.NlSummarize => 2,
             UsageFeature.PortfolioAiSummary => 2,
+            UsageFeature.ChatToolRound => 1,
             _ => throw new ArgumentOutOfRangeException(nameof(feature), feature, "No usage cost for this feature."),
         };
+
+        /// <summary>How many requests of one chat turn its message pays for; each request after them
+        /// (a tool round: the model asked for tools again) is one <see cref="UsageFeature.ChatToolRound"/>
+        /// (docs/ai-native/design/06 §6). Most turns take one or two.</summary>
+        public const int FreeChatToolRounds = 3;
 
         /// <summary>Each file sent with a chat message, on top of the message: its text is sent to
         /// the model again on every later turn of the conversation.</summary>

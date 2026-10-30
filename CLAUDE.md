@@ -155,7 +155,9 @@ The home portal (`/`) is the only place users switch between apps; the registry 
      `Common/UsageSettlementMiddleware.cs`; no endpoint refunds by hand. Only three endpoints
      charge inline, each for a reason: TTS (cache hits and anonymous use are free), the market AI
      digest (once per user per budget day, the UTC day; the digest itself is new each Taipei day),
-     chat (cost depends on attachments)
+     chat (cost depends on attachments; and a turn's tool rounds past the first
+     `UsageCosts.FreeChatToolRounds` (3) requests cost one `ChatToolRound` each, charged in the loop
+     before the request — without the budget the model answers from what it read, no tool allowed)
    - `UsageLimits:DailyBudget` (default 60) sets the shared default; `User.UsageLimitMultiplier`
      lets the author raise an individual user's effective limit directly in the DB (no admin UI).
      Resetting today's usage is `UPDATE DailyUsages SET Used = 0` for that `UserId` and today's

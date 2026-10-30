@@ -31,6 +31,7 @@ namespace JackyAIApp.Server.Services.Chatbot
         IChatProfiles profiles,
         IAiUsageLogger usageLogger,
         UsageLedger usageLedger,
+        IUsageLimitService usageLimits,
         IOptionsMonitor<Settings> settings,
         IAnthropicClientFactory clientFactory,
         ILogger<AnthropicChatService> logger,
@@ -118,7 +119,8 @@ namespace JackyAIApp.Server.Services.Chatbot
             var tools = setup.Tools is { Count: > 0 }
                 ? new ClientToolRunner(setup.Tools, askFirst, conversation.ReadOutsideText, sse, new AiToolContext(userId, conversation.Id), approvals, _time, logger)
                 : null;
-            var outcome = await new ModelTurn(clientFactory.Create(apiKey), sse, usageLedger, logger, conversation.Id, tools)
+            var outcome = await new ModelTurn(clientFactory.Create(apiKey), sse, usageLedger, logger, conversation.Id, tools,
+                    chargeToolRound: () => usageLimits.TryConsumeAsync(userId, UsageFeature.ChatToolRound))
                 .RunAsync(request, token => RequestFor(reupload: true, token), turnCts.Token);
             var verdict = TurnVerdict.Of(outcome);
             if (tools?.Tainted == true) await RememberOutsideTextAsync(conversation);

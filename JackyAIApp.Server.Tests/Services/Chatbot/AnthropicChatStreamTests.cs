@@ -40,6 +40,8 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         private readonly Mock<IMarketBackground> _background = new();
         private readonly Mock<IAiUsageLogger> _usage = new();
         private readonly UsageLedger _ledger = new();
+        private readonly Mock<IUsageLimitService> _limits = new();
+        private bool _budgetLeft = true;
         private readonly RecordingLogger _log = new();
         private string? _apiKey = "test-key";
         private readonly ToolProfile _toolProfile = new();
@@ -49,10 +51,12 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         private AnthropicChatService Service()
         {
             var settings = new Mock<IOptionsMonitor<Settings>>();
+            _limits.Setup(l => l.TryConsumeAsync(It.IsAny<string>(), It.IsAny<UsageFeature>(), It.IsAny<ulong>()))
+                .ReturnsAsync(() => _budgetLeft);
             settings.Setup(s => s.CurrentValue).Returns(() => new Settings { Google = new JackyAIApp.Server.Configuration.Google(), AnthropicApiKey = _apiKey });
             var profiles = new ChatProfiles([new FinanceChatProfile(_background.Object, NullLogger<FinanceChatProfile>.Instance), _toolProfile]);
             return new AnthropicChatService(_db, _attachments.Object, _files.Object, _turns, _approvals, _permissions, profiles, _usage.Object,
-                _ledger, settings.Object, new TestClientFactory(_anthropic), _log);
+                _ledger, _limits.Object, settings.Object, new TestClientFactory(_anthropic), _log);
         }
 
         /// <summary>Keeps each log entry's named values (the message template's placeholders).</summary>
@@ -1100,6 +1104,76 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             Assert.Single(_anthropic.Requests);
             Assert.DoesNotContain(turn.Events, e => Type(e) is "tool_use" or "tool_result");
             Assert.Equal("error", Type(turn.Events[^1]));
+        }
+
+        // ── tool rounds past the ones the message pays for ──────────────────────────────────────
+
+        private void VerifyToolRoundsCharged(int times) =>
+            _limits.Verify(l => l.TryConsumeAsync(User, UsageFeature.ChatToolRound, UsageCosts.Of(UsageFeature.ChatToolRound)),
+                Times.Exactly(times));
+
+        [Fact]
+        public async Task TheFirstToolRounds_ArePaidForByTheMessage()
+        {
+            for (var i = 1; i < UsageCosts.FreeChatToolRounds; i++)
+                _anthropic.Reply(Sse.Start(), Sse.ClientToolUse($"toolu_{i}", "lookup_word", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("查好了"), Sse.End("end_turn"));
+
+            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+
+            Assert.Equal(UsageCosts.FreeChatToolRounds, _anthropic.Requests.Count);
+            Assert.Equal("done", Type(turn.Events[^1]));
+            _limits.Verify(l => l.TryConsumeAsync(It.IsAny<string>(), It.IsAny<UsageFeature>(), It.IsAny<ulong>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task EachToolRoundAfterThem_IsChargedBeforeItIsAsked()
+        {
+            for (var i = 0; i < ModelTurn.MaxToolRounds; i++)
+                _anthropic.Reply(Sse.Start(), Sse.ClientToolUse($"toolu_{i}", "lookup_word", "{}"), Sse.End("tool_use"));
+
+            await AskAsync(profile: ToolProfile.ProfileKey);
+
+            Assert.Equal(ModelTurn.MaxToolRounds, _anthropic.Requests.Count);
+            VerifyToolRoundsCharged(ModelTurn.MaxToolRounds - UsageCosts.FreeChatToolRounds);
+            Assert.All(_anthropic.Requests, r => Assert.False(JsonDocument.Parse(r).RootElement.TryGetProperty("tool_choice", out _)));
+        }
+
+        [Fact]
+        public async Task WithoutTheBudgetForAnotherRound_TheModelAnswersFromWhatItRead_WithNoToolAllowed()
+        {
+            _budgetLeft = false;
+            for (var i = 0; i < UsageCosts.FreeChatToolRounds; i++)
+                _anthropic.Reply(Sse.Start(), Sse.ClientToolUse($"toolu_{i}", "lookup_word", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("目前查到的是這些。"), Sse.End("end_turn"));
+
+            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+
+            Assert.Equal(UsageCosts.FreeChatToolRounds + 1, _anthropic.Requests.Count);
+            Assert.Equal(UsageCosts.FreeChatToolRounds, _toolProfile.Lookup.Calls.Count);
+            VerifyToolRoundsCharged(1);
+            var last = JsonDocument.Parse(_anthropic.Requests[^1]).RootElement;
+            Assert.Equal("none", last.GetProperty("tool_choice").GetProperty("type").GetString());
+            var messages = last.GetProperty("messages");
+            var results = messages[messages.GetArrayLength() - 1].GetProperty("content");
+            Assert.Equal("tool_result", results[0].GetProperty("type").GetString());
+            Assert.Equal(ModelTurn.OutOfBudgetNote, results[results.GetArrayLength() - 1].GetProperty("text").GetString());
+            Assert.Equal("done", Type(turn.Events[^1]));
+            Assert.Equal("目前查到的是這些。", Messages()[^1].Content);
+        }
+
+        [Fact]
+        public async Task OutOfBudget_AReplyThatStillCallsTools_IsNotAnAnswer_AndNothingMoreIsAsked()
+        {
+            _budgetLeft = false;
+            for (var i = 0; i <= UsageCosts.FreeChatToolRounds; i++)
+                _anthropic.Reply(Sse.Start(), Sse.ClientToolUse($"toolu_{i}", "lookup_word", "{}"), Sse.End("tool_use"));
+
+            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+
+            Assert.Equal(UsageCosts.FreeChatToolRounds + 1, _anthropic.Requests.Count);
+            VerifyToolRoundsCharged(1);
+            Assert.Equal(ChatErrorCodes.NoAnswer, turn.Events[^1].GetProperty("code").GetString());
         }
 
         // ── the recorded API ────────────────────────────────────────────────────────────────────
