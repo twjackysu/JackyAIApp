@@ -102,9 +102,43 @@ describe('StudioAssistant', () => {
     expect(button()).not.toBeNull();
   });
 
-  it('is not there for a visitor who is not signed in', async () => {
+  it('offers a visitor who is not signed in what it does and a sign-in back to this page, not the assistant', async () => {
     mocks.user = { data: undefined };
+    await render('/english/repository?tab=1');
+    await act(async () => button()!.click());
+    await settle();
+
+    expect(mocks.panel).toBeNull();
+    expect(document.body.textContent).toContain('登入後可使用 Studio AI');
+    const signIn = [...document.querySelectorAll<HTMLAnchorElement>('a')].find((a) =>
+      a.textContent?.includes('使用 Google 登入'),
+    );
+    expect(signIn?.getAttribute('href')).toBe(
+      `/api/account/login/Google?ReturnUrl=${encodeURIComponent('/english/repository?tab=1')}`,
+    );
+  });
+
+  it('opens the sign-in for a visitor with the shortcut too', async () => {
+    mocks.user = { data: undefined };
+    await render('/');
+    await act(async () =>
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true })),
+    );
+    await settle();
+
+    expect(document.body.textContent).toContain('登入後可使用 Studio AI');
+    expect(mocks.panel).toBeNull();
+  });
+
+  it('shows no button while it is not yet known who the reader is', async () => {
+    mocks.user = { data: undefined, isLoading: true } as { data: unknown };
     await render('/english');
+    expect(button()).toBeNull();
+  });
+
+  it('gives a visitor no button where the page has an assistant of its own', async () => {
+    mocks.user = { data: undefined };
+    await render('/finance');
     expect(button()).toBeNull();
   });
 

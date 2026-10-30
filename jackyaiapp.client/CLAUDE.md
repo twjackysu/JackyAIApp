@@ -152,7 +152,9 @@ jackyaiapp.client/src/
 - Studio AI (`components/StudioAssistant`, mounted once in `App.tsx`) is the same chat as a sheet: a button
   in the lower right, or ⌘K / Ctrl+K, opens `AiAssistantPanel` with `variant="sheet"` (fills a right-hand
   drawer, the history behind its button, the header's last action closes) under the `studio` profile, with
-  the path as its page context. Only for a signed-in reader, and not where a page has an assistant of its own
+  the path as its page context. A visitor not signed in gets the same button and shortcut, which open `StudioGuest`
+  instead: what Studio AI does and a Google sign-in that comes back to the page (with its query), nothing asked of
+  the AI, and no button until it is known who the reader is (D-217). Not where a page has an assistant of its own
   (/finance, /data-analysis) or fills the screen; which pages, the suggestions per page and the shortcut are
   `studioChat`. It is the site's command bar too: while the reader types, a few words naming a page ("複習",
   "portfolio", "帶我去 dashboards") or one English word offer to go straight there (`quickActionsFor`, shown over the

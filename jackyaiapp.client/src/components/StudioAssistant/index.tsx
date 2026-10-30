@@ -1,7 +1,5 @@
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
-import Fab from '@mui/material/Fab';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -12,6 +10,8 @@ import { quickActionsFor, type QuickAction } from './quickActions';
 import { refreshAfterTool } from './refreshAfterTool';
 import { isSlashDraft, slashCommandsFor, type SlashCommand } from './slashCommands';
 import { isStudioShortcut, studioChatConfig, studioShownOn } from './studioChat';
+import StudioFab from './StudioFab';
+import StudioGuest from './StudioGuest';
 
 import type { AssistantActivity } from '@/components/aiChat';
 
@@ -27,10 +27,8 @@ import {
   type SelectionActionKind,
 } from '@/components/aiChat/selection/selectionActions';
 import SelectionBar from '@/components/aiChat/selection/SelectionBar';
-import { ACCENT_GRADIENT } from '@/components/aiChat/style';
 import { handoffState } from '@/components/aiChat/utils/handoff';
 import CenteredSpinner from '@/components/CenteredSpinner';
-import { ActionTooltip } from '@/components/hints';
 import { registrySearchOf } from '@/Connectors/AddMcpServerDialog/registryView';
 import { useAppDispatch } from '@/redux/hooks';
 
@@ -41,14 +39,15 @@ type QuickChip = QuickAction | SlashCommand;
 
 /**
  * Studio AI on every page (docs/ai-native/design/05 §1): a button in the lower right corner, or ⌘K /
- * Ctrl+K, opens the assistant in a drawer on the right (the whole screen on a phone). Only for a
- * signed-in reader, and not on pages that have an assistant of their own. The conversation stays
+ * Ctrl+K, opens the assistant in a drawer on the right (the whole screen on a phone); a visitor not signed in gets the
+ * same button, which says what it does and offers to sign in (`StudioGuest`). Not on pages that have an assistant of
+ * their own. The conversation stays
  * while the drawer is closed, a reply still being written included. A page can also open it with a
  * message sent (`askStudio`, the home page's briefing).
  */
 export default function StudioAssistant() {
   const { pathname, search } = useLocation();
-  const { data: user } = useGetUserInfoQuery();
+  const { data: user, isLoading: userLoading } = useGetUserInfoQuery();
   const signedIn = !!user?.data;
   const shown = signedIn && studioShownOn(pathname);
 
@@ -240,9 +239,12 @@ export default function StudioAssistant() {
     if (addingFromRegistry) setOpen(false);
   }, [addingFromRegistry]);
 
-  // Signed out, there is nothing to keep. On a page without the button (one of Studio's own links goes to
+  // Signed out, the button says what Studio AI does and how to sign in (nothing is kept, nothing asked of the AI);
+  // nothing while it is not known yet, so a signed-in reader's button never starts as the visitor's.
+  if (!signedIn) return !userLoading && studioShownOn(pathname) ? <StudioGuest /> : null;
+  // On a page without the button (one of Studio's own links goes to
   // /finance) only the button goes: unmounting the panel would drop the conversation mid-reply.
-  if (!signedIn || (!shown && !opened)) return null;
+  if (!shown && !opened) return null;
   const selectionBar = <SelectionBar enabled={shown} onAction={onSelection} />;
 
   return (
@@ -251,26 +253,13 @@ export default function StudioAssistant() {
           Alt+A moves into the bar (D-188). Page text cannot be selected behind the open drawer anyway. */}
       {!open && selectionBar}
       {shown && (
-        <ActionTooltip title="Studio AI（⌘K）">
-          <Fab
-            aria-label="開啟 Studio AI"
-            onClick={() => {
-              setOpened(true);
-              setOpen(true);
-            }}
-            sx={{
-              position: 'fixed',
-              right: { xs: 16, sm: 24 },
-              bottom: { xs: 'calc(16px + env(safe-area-inset-bottom))', sm: 24 },
-              zIndex: (theme) => theme.zIndex.speedDial,
-              color: '#fff',
-              backgroundImage: ACCENT_GRADIENT,
-              display: open ? 'none' : undefined,
-            }}
-          >
-            <AutoAwesomeIcon />
-          </Fab>
-        </ActionTooltip>
+        <StudioFab
+          onClick={() => {
+            setOpened(true);
+            setOpen(true);
+          }}
+          hidden={open}
+        />
       )}
       <Drawer
         anchor="right"
