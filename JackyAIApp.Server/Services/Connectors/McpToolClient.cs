@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -409,8 +410,28 @@ namespace JackyAIApp.Server.Services.Connectors
             return text.ToString();
         }
 
-        private static string? CutTitle(string? title) => title is { Length: > MaxTitleChars } ? title[..MaxTitleChars] + "…" : title;
+        private static string? CutTitle(string? title) => title == null ? null : CutTo(Plain(title), MaxTitleChars);
 
-        private static string Cut(string s) => s.Length > MaxDescriptionChars ? s[..MaxDescriptionChars] + "…" : s;
+        private static string Cut(string s) => CutTo(Plain(s), MaxDescriptionChars);
+
+        // Never between the two halves of a character.
+        private static string CutTo(string s, int max) =>
+            s.Length <= max ? s : s[..(char.IsHighSurrogate(s[max - 1]) ? max - 1 : max)] + "…";
+
+        /// <summary>
+        /// A server's words for the model without what a reader cannot see (docs/ai-native/design/06 §2.4): control
+        /// characters but line breaks and tabs, and format characters — zero-width ones, direction overrides and the
+        /// Unicode tag block, which can spell out an instruction the model reads and the connectors page does not show.
+        /// </summary>
+        internal static string Plain(string s)
+        {
+            var plain = new StringBuilder(s.Length);
+            foreach (var rune in s.EnumerateRunes())
+            {
+                if (rune.Value is '\n' or '\t') plain.Append((char)rune.Value);
+                else if (!Rune.IsControl(rune) && Rune.GetUnicodeCategory(rune) != UnicodeCategory.Format) plain.Append(rune);
+            }
+            return plain.ToString();
+        }
     }
 }

@@ -183,5 +183,38 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
             Assert.Equal("a\n[image]", McpToolClient.TextOf(result));
         }
+
+        [Fact]
+        public void WhatAToolSays_KeepsOnlyWhatAReaderCanSee()
+        {
+            // A zero-width space, a direction override, a bell, and "ignore" spelled in Unicode tag characters,
+            // which a model reads and a page does not show.
+            var hidden = string.Concat("ignore".Select(c => char.ConvertFromUtf32(0xE0000 + c)));
+            var tool = new Tool
+            {
+                Name = "search_notes",
+                Title = "搜\u200B尋\u202E筆記\a",
+                Description = "Search notes.\n\tBy title." + hidden + "\u0000",
+                InputSchema = JsonSerializer.SerializeToElement(new { type = "object" }),
+            };
+
+            var cached = McpToolClient.ToCached(tool);
+
+            Assert.Equal("搜尋筆記", cached.Title);
+            Assert.Equal("Search notes.\n\tBy title.", cached.Description);
+        }
+
+        [Fact]
+        public void ALongDescription_IsCut_NeverInsideACharacter()
+        {
+            var tool = new Tool
+            {
+                Name = "t",
+                Description = new string('a', 999) + "😀" + "after",
+                InputSchema = JsonSerializer.SerializeToElement(new { type = "object" }),
+            };
+
+            Assert.Equal(new string('a', 999) + "…", McpToolClient.ToCached(tool).Description);
+        }
     }
 }
