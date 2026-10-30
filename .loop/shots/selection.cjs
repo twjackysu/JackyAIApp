@@ -227,7 +227,12 @@ const studioWriting = [
 
 // 頁面內的 fetch 替身：/api/chatbot/chat 回一個照順序送出事件的串流。
 // events 可以是一段串流，或是一串串流（第 n 次送出拿第 n 段，情境 F 的交棒用）。
+// `hold` 不送出：串流停在那裡，直到頁面裡呼叫 `window.__release()`（第 59 輪：F／G 在 done 之前停住，等回答真的
+// 畫出來再拍，不再靠固定的 700 ms——done 之後手機的抽屜就收起、頁面就切走了）。
+const hold = { type: '__hold' };
 const fakeChat = (scripts) => {
+  let release = null;
+  window.__release = () => { release?.(); release = null; };
   const realFetch = window.fetch.bind(window);
   let calls = 0;
   window.fetch = (input, init) => {
@@ -240,6 +245,7 @@ const fakeChat = (scripts) => {
       async start(controller) {
         for (const e of events) {
           await new Promise((r) => setTimeout(r, 120));
+          if (e.type === '__hold') { await new Promise((r) => { release = r; }); continue; }
           controller.enqueue(enc.encode(`data: ${JSON.stringify(e)}\n\n`));
         }
         if (events[events.length - 1].type === 'done') controller.close();
@@ -381,6 +387,7 @@ const studioHandoff = [
     card: { kind: 'link', title: '資料分析', href: '/data-analysis', description: '查詢與彙總表格資料，有自己的資料分析 AI 助理', actionLabel: '前往' },
   },
   delta('做 dashboard 要用資料分析的資料工具，我把這件事**交給資料分析的 AI 助理**了——它會先看欄位、畫三四張互補的圖，再請你確認存檔。'),
+  hold,
   done,
 ];
 // 持股的市場面：Studio 先讀投資組合，再把代號交給 /finance 的助理（D-097）。
@@ -399,6 +406,7 @@ const holdingsHandoff = [
     card: { kind: 'link', title: 'Stock Intelligence 台股分析', href: '/finance', description: '會查即時台股資料的 AI 助理', actionLabel: '前往' },
   },
   delta('你的台股持股是台積電、元大台灣50 與聯發科。外資買賣超要查即時的市場資料，我把這三檔**交給 Stock Intelligence 的 AI 助理**了。'),
+  hold,
   done,
 ];
 const financeFlows = [
@@ -498,8 +506,11 @@ const only = (k) => !process.env.ONLY || process.env.ONLY === k;
       await page.waitForTimeout(800);
       await page.getByRole('textbox').last().fill('幫我做一個業績總覽 dashboard，存完打開');
       await page.getByRole('textbox').last().press('Enter');
-      await page.waitForTimeout(700);
+      await page.getByText('交給資料分析的 AI 助理').last().waitFor();
+      await page.waitForTimeout(300); // 卡片與步驟的進場動畫
       await page.screenshot({ path: `${out}/studio-handoff-${name}.png` });
+      await page.evaluate(() => window.__release());
+      await page.waitForURL('**/data-analysis');
       await page.waitForTimeout(6000);
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({ path: `${out}/studio-handoff-data-${name}.png` });
@@ -521,8 +532,11 @@ const only = (k) => !process.env.ONLY || process.env.ONLY === k;
       await page.screenshot({ path: `${out}/studio-holdings-welcome-${name}.png` });
       await page.getByText('我的持股最近外資在買還是賣？').first().click();
       await page.getByRole('textbox').last().press('Enter'); // 建議只放進輸入框
-      await page.waitForTimeout(750);
+      await page.getByText('交給 Stock Intelligence 的 AI 助理').last().waitFor();
+      await page.waitForTimeout(300);
       await page.screenshot({ path: `${out}/studio-holdings-handoff-${name}.png` });
+      await page.evaluate(() => window.__release());
+      await page.waitForURL('**/finance');
       await page.waitForTimeout(6000);
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({ path: `${out}/studio-holdings-finance-${name}.png` });
