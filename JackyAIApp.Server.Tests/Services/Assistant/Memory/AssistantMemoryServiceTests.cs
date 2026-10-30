@@ -53,6 +53,15 @@ namespace JackyAIApp.Server.Tests.Services.Assistant.Memory
         }
 
         [Fact]
+        public async Task WhatTheReaderCannotSee_IsNotKept_SoTheCardShowsTheWholeNote()
+        {
+            var hidden = "\U000E0049\U000E0067\U000E006E\U000E006F\U000E0072\U000E0065";
+            var kept = await Service().AddAsync(User, "短文用\u200B商務\u202E情境" + hidden + "\uE000\r\n好", CancellationToken.None);
+
+            Assert.Equal("短文用商務情境 好", kept.Memory!.Text);
+        }
+
+        [Fact]
         public async Task TheSameWords_AreNotKeptTwice()
         {
             var kept = await Service().AddAsync(User, "I prefer British spelling", CancellationToken.None);

@@ -322,7 +322,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   cost needs its `price`, or the total `cost` paid, which is the only one taken when the cost is kept in another currency than
   the price, and is refused without one; a second change on a day replaces that day's snapshot, and the reply says so); the prompt has a trade confirmation the reader attached
   (a broker's screenshot) read out trade by trade and each one put to them as its own `update_holding` call; a new holding, or a name that matches two, is refused with a link to
-  /portfolio, never guessed: `Services/Portfolio/Assistant`; Data Analysis's `read_dashboard`, below; Connectors' `google_calendar_events`, `outlook_calendar_events`, `jira_issues` and `jira_add_comment`)
+  /portfolio, never guessed, and so is a number past a trillion (`HoldingChange.MaxNumber`); its card says what was paid whenever it may
+  go into the cost, a new `quantity` included (D-241): `Services/Portfolio/Assistant`; Data Analysis's `read_dashboard`, below; Connectors' `google_calendar_events`, `outlook_calendar_events`, `jira_issues` and `jira_add_comment`)
   and the reader's connectors' tools. No tw-stock: /finance has its own assistant for the market. Its prompt also says
   what the morning briefing is (the home page's 「給我今天的簡報」: the calendar, `learning_progress` and
   `portfolio_summary` in one reply, three short parts, and with words due, an offer of a `review_quiz`; `StudioChatProfileTests` pins the tool names it uses). On a
@@ -340,7 +341,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   `McpServerUrl.Key`), is told to the model as added, so it does not send them to add it again (D-198)
 - Studio AI remembers what the reader asked it to (docs/ai-native/design/08, `Services/Assistant/Memory`): short notes in
   their words, `AssistantMemories` (module Assistant), one line each, at most 200 characters and 30 a reader, the same words
-  kept once (`AssistantMemoryService`). Every note is in each Studio prompt (`StudioChatProfile.MemoryPrompt`), inside
+  kept once, without what a reader cannot see (control, format and private-use characters, so the card shows the whole note, D-241)
+  (`AssistantMemoryService`). Every note is in each Studio prompt (`StudioChatProfile.MemoryPrompt`), inside
   `<user_memories>` with `<`/`>` made full-width so no note can close it, and called the reader's notes, not instructions:
   a note lasts into every later conversation, so one slipped in by someone else's words would too (an attachment does not taint
   a conversation). Hence `remember` is a write that `AlwaysAsks` (`AiToolDescriptor.AlwaysAsks`: `ToolPermissions.For(descriptor, …)`

@@ -152,6 +152,8 @@ namespace JackyAIApp.Server.Services.Portfolio.Assistant
     internal sealed record HoldingChange(string Symbol, decimal? Quantity, decimal? Change, decimal? Price, decimal? Cost)
     {
         internal const int MaxSymbolLength = 40;
+        /// <summary>The largest quantity, change, price or cost taken: a trillion.</summary>
+        internal const decimal MaxNumber = 1_000_000_000_000m;
 
         public static HoldingChange? Of(JsonElement input)
         {
@@ -165,6 +167,8 @@ namespace JackyAIApp.Server.Services.Portfolio.Assistant
             var cost = NumberOf(input, "cost");
             // Exactly one of the two; a change of nothing is not a change.
             if ((quantity is null) == (change is null) || quantity < 0 || change == 0 || price <= 0 || cost <= 0) return null;
+            // Beyond what a holding can be (the column is decimal(18,6)), and before `before + change` could overflow (D-241).
+            if (new[] { quantity, change, price, cost }.Any(n => n is { } v && Math.Abs(v) > MaxNumber)) return null;
             return new HoldingChange(symbol, quantity, change, price, cost);
         }
 
@@ -173,14 +177,20 @@ namespace JackyAIApp.Server.Services.Portfolio.Assistant
             string.Equals(p.Symbol?.Trim(), Symbol, StringComparison.OrdinalIgnoreCase) ||
             string.Equals(p.Name?.Trim(), Symbol, StringComparison.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// The card's words. What was paid is said wherever it may be added to the cost: a new quantity that turns out larger
+        /// adds it too (D-241), so the reader never allows an amount the card did not show.
+        /// </summary>
         public string Describe() => (Quantity, Change) switch
         {
             (0m, _) => $"把「{Symbol}」從你的投資組合移除",
-            ({ } q, _) => $"把「{Symbol}」的數量改成 {UpdateHoldingTool.Amount(q)}",
-            (_, > 0m) => $"「{Symbol}」加 {UpdateHoldingTool.Amount(Change!.Value)}" +
-                          (Cost is { } c ? $"（共付 {UpdateHoldingTool.Amount(c)}）" : Price is { } p ? $"（成交價 {UpdateHoldingTool.Amount(p)}）" : ""),
+            ({ } q, _) => $"把「{Symbol}」的數量改成 {UpdateHoldingTool.Amount(q)}" + Paid(),
+            (_, > 0m) => $"「{Symbol}」加 {UpdateHoldingTool.Amount(Change!.Value)}" + Paid(),
             _ => $"「{Symbol}」減 {UpdateHoldingTool.Amount(-Change!.Value)}",
         };
+
+        private string Paid() =>
+            Cost is { } c ? $"（共付 {UpdateHoldingTool.Amount(c)}）" : Price is { } p ? $"（成交價 {UpdateHoldingTool.Amount(p)}）" : "";
 
         private static decimal? NumberOf(JsonElement input, string name) =>
             input.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetDecimal(out var n) ? n : null;

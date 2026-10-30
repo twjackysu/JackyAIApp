@@ -93,6 +93,10 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
                 return AiToolResult.Error("找不到這張圖：先用 ask_data 查詢並畫出圖表，再用它回傳的 chartId（上傳的檔案畫的圖不能存成 dashboard）。");
             if (string.IsNullOrEmpty(name)) return AiToolResult.Error("請提供 dashboard 的名稱。");
             if (name.Length > MaxNameLength) name = name[..MaxNameLength];
+            // Checked before a new dashboard is made, so a title the widget cannot take leaves no empty dashboard behind (D-241).
+            var title = Text(input, "title")?.Trim() is { Length: > 0 } t ? t : chart.Title;
+            if (title?.Length > DashboardService.MaxWidgetTitleLength)
+                return AiToolResult.Error($"title 最多 {DashboardService.MaxWidgetTitleLength} 個字，請用較短的標題。");
 
             var listed = await dashboards.ListAsync(ct);
             if (!listed.IsSuccess) return AiToolResult.Error("讀不到使用者的 dashboard，請稍後再試。");
@@ -105,14 +109,14 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
                 dashboardId = created.Data!.Id;
             }
 
-            var title = Text(input, "title")?.Trim() is { Length: > 0 } t ? t : chart.Title;
             var added = await dashboards.AddWidgetAsync(dashboardId.Value, new AddWidgetRequest
             {
                 Title = title,
                 VizType = chart.Viz,
                 Plan = JsonSerializer.SerializeToElement(chart.Plan, PlanJson),
             }, ct);
-            if (!added.IsSuccess) return AiToolResult.Error("加入 dashboard 失敗，請稍後再試。");
+            // The service's own words (a full dashboard, say), so the model does not simply try the same call again.
+            if (!added.IsSuccess) return AiToolResult.Error($"加入 dashboard 失敗：{added.ErrorMessage}");
 
             var dashboardName = existing?.Name ?? name;
             var href = $"/dashboards/{dashboardId}";

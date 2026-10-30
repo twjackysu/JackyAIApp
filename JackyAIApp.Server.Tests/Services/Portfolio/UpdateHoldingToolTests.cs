@@ -268,6 +268,9 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [InlineData("""{"symbol":"0050","change":5,"price":0}""")]
         [InlineData("""{"symbol":"0050","change":5,"cost":-1}""")]
         [InlineData("""{"symbol":"","change":5}""")]
+        [InlineData("""{"symbol":"0050","change":70000000000000000000000000000}""")]
+        [InlineData("""{"symbol":"0050","quantity":1000000000001}""")]
+        [InlineData("""{"symbol":"0050","change":5,"price":1000000000001}""")]
         public async Task AnUnclearCall_SavesNothing(string input)
         {
             var h = new Harness(Latest());
@@ -284,6 +287,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [InlineData("""{"symbol":"0050","change":-1000}""", "「0050」減 1,000")]
         [InlineData("""{"symbol":"AAPL","change":10,"cost":64000}""", "「AAPL」加 10（共付 64,000）")]
         [InlineData("""{"symbol":"0050","quantity":3000}""", "把「0050」的數量改成 3,000")]
+        [InlineData("""{"symbol":"0050","quantity":3000,"price":185}""", "把「0050」的數量改成 3,000（成交價 185）")]
         [InlineData("""{"symbol":"0050","quantity":0}""", "把「0050」從你的投資組合移除")]
         public void TheConfirmationCard_SaysTheChangeInWords(string input, string expected)
         {

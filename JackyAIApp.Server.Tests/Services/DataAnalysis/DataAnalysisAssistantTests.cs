@@ -365,6 +365,36 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
         }
 
         [Fact]
+        public async Task ATitleTheWidgetCannotTake_IsRefused_BeforeAnyDashboardIsMade()
+        {
+            var chartId = await ChartIdAsync();
+            Dashboards();
+            var (_, save) = await SetupAsync(Page(), SaveToDashboardTool.Name);
+            var title = new string('營', DashboardService.MaxWidgetTitleLength + 1);
+
+            var result = await save.RunAsync(Input(new { chartId, dashboard = "業績", title }), Ctx, CancellationToken.None);
+
+            Assert.True(result.IsError);
+            Assert.Contains($"最多 {DashboardService.MaxWidgetTitleLength} 個字", result.Content);
+            _dashboards.Verify(d => d.CreateAsync(It.IsAny<CreateDashboardRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task ASaveTheDashboardRefuses_TellsTheModelWhy()
+        {
+            var chartId = await ChartIdAsync();
+            Dashboards(new DashboardSummaryDto { Id = Board, Name = "業績", Visibility = default, IsOwner = true });
+            _dashboards.Setup(d => d.AddWidgetAsync(It.IsAny<Guid>(), It.IsAny<AddWidgetRequest>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((ServiceResult<DashboardWidgetDto>)ServiceResult.Fail(ErrorCodes.BadRequest, "A dashboard holds at most 50 widgets."));
+            var (_, save) = await SetupAsync(Page(), SaveToDashboardTool.Name);
+
+            var result = await save.RunAsync(Input(new { chartId, dashboard = "業績" }), Ctx, CancellationToken.None);
+
+            Assert.True(result.IsError);
+            Assert.Contains("A dashboard holds at most 50 widgets.", result.Content);
+        }
+
+        [Fact]
         public async Task SeveralChartsSavedInTurn_ToANewDashboard_CreateItOnce_AndAllGoInIt()
         {
             // "幫我做一個業績總覽 dashboard": the reply's saves run one after another (ClientToolRunner), so the

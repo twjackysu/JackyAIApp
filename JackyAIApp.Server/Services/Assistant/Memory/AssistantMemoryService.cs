@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
 using Microsoft.EntityFrameworkCore;
@@ -113,11 +115,22 @@ namespace JackyAIApp.Server.Services.Assistant.Memory
         /// <summary>
         /// A note as it is kept: trimmed, its line breaks and runs of white space made one space, so each memory is one
         /// line of the prompt's list, and <c>&lt;</c>/<c>&gt;</c> full-width, as the prompt shows them (so the words the
-        /// model copies to forget one are the words kept).
+        /// model copies to forget one are the words kept). What a reader cannot see is dropped — control and format characters
+        /// (zero-width, direction overrides, the Unicode tag block) and private-use ones — so the confirmation card shows the
+        /// whole note and no hidden words reach every later prompt (D-241).
         /// </summary>
-        internal static string Normalize(string? text) =>
-            string.Join(' ', (text ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+        internal static string Normalize(string? text)
+        {
+            var seen = new StringBuilder((text ?? "").Length);
+            foreach (var rune in (text ?? "").EnumerateRunes())
+            {
+                if (Rune.IsWhiteSpace(rune)) seen.Append(' ');
+                else if (!Rune.IsControl(rune) && Rune.GetUnicodeCategory(rune) is not (UnicodeCategory.Format or UnicodeCategory.PrivateUse))
+                    seen.Append(rune);
+            }
+            return string.Join(' ', seen.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries))
                 .Replace('<', '＜').Replace('>', '＞');
+        }
 
         private static AssistantMemoryDto Dto(SQL.AssistantMemory m) =>
             new(m.Id, m.Text, DateTime.SpecifyKind(m.CreatedAt, DateTimeKind.Utc));
