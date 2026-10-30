@@ -1,6 +1,6 @@
 # Studio AI — 成果發表（11/5）
 
-> **狀態（2026-10-30 第 61 輪）**：功能大致完成，11/3 功能凍結，11/4–11/5 只修 bug、補最終截圖與統計。故事線的來源是 [design/02](design/02-vision-and-showcase.md)。時間不夠時先走下面的「5 分鐘精華版」。
+> **狀態（2026-10-30 第 62 輪）**：功能大致完成，11/3 功能凍結，11/4–11/5 只修 bug、補最終截圖與統計。故事線的來源是 [design/02](design/02-vision-and-showcase.md)。時間不夠時先走下面的「5 分鐘精華版」。
 
 **一句話：一個在每一頁都叫得出來的 AI 助理，會用本站自己的功能，也能接上你在外面的任何 remote MCP server（含 OAuth 登入），而且會改變東西的動作一定先問你。反過來，網站本身也是一個 MCP server：你的 Claude Desktop、Cursor 也能用本站的功能。**
 
@@ -161,6 +161,11 @@
    **接上就試**：連線成功的最後一步（或之後在 DeepWiki 的詳情裡）按 **「在 Studio AI 試試看」** → 對話框收起、Studio AI 開新對話：「示範一下你能用『DeepWiki』做什麼…」→ 工具 chip「DeepWiki・讀 wiki 目錄」→ 一份 repo 文件目錄，加上三個可以接著問的例子（D-126）。
    ![connector 詳情的在 Studio AI 試試看](screenshots/connector-try-drawer-desktop.png)
    ![Studio AI 示範剛接上的 connector](screenshots/studio-try-connector-desktop.png)
+   **授權過期也不卡住**（D-223）：connector 的授權失效時（例如 Notion 的登入過期），Studio 問「幫我在 Notion 找上週的會議紀錄」→ 工具 chip 標失敗，下面直接一張「重新連線「Notion」」卡片 → 按「前往重新連線」→ /connectors 自動打開 Notion 的詳情，「重新授權」是主要按鈕，一按就回到登入。
+   ![授權過期：失敗的工具下面直接附上「前往重新連線」](screenshots/studio-reconnect-desktop.png)
+   ![按下去：/connectors 打開那個 connector，重新授權在最前面](screenshots/connectors-reconnect-desktop.png)
+   用 API key 或 bearer token 的 connector（自己加的 MCP server）則是「**更新認證**」→ 貼上新的 → 「儲存並測試」，不用移除重加、工具權限都留著（D-224）。
+   ![API key／token 的 connector：在詳情裡直接更新認證](screenshots/connectors-update-credentials-desktop.png)
    **別人的 server 自己的介面（MCP Apps）**：加一個工具帶 `_meta.ui` 的 MCP server（例如天氣）→ Studio 問「台北這幾天天氣如何？」→ 回答裡直接出現**那個 server 自己畫的互動介面**（五天預報卡），上方一行「「天氣」的介面 · 來自 weather.example.dev」是本站寫的、app 蓋不掉；按 app 裡的「重新整理」，它向自己的 server 要新資料（只允許唯讀、你設成自動的工具）；按「看完整預報」，卡片下方出現「介面想開啟 weather.example.dev　開啟／不用」，要你按才會開。app 在 opaque origin 的 sandbox iframe 裡，CSP 只放行它宣告的主機（截圖腳本裡它偷連 `evil.example.com` 被擋下）。**本站同時是 MCP App 的 server（第 8 步）與 host**（D-201、D-202，design/09）。
    **用 MCP 官方的範例 app 試**（D-203～D-205）：官方 ext-apps 的範例 server 在 npm 上，`npx -y @modelcontextprotocol/server-basic-vanillajs`（另開一個 `cloudflared tunnel --url http://localhost:3001` 拿公開 https 網址，本站不連 localhost）→ /connectors「新增 MCP server」貼 `https://<tunnel>/mcp`（免認證）→ Studio 問「現在 server 那邊幾點？」→ 回答裡出現**官方 app 自己的介面**；按「Get Server Time」它向自己的 server 拿新時間，按「Send Message」卡片下方出現「介面想把這段話放進輸入框」，按「放進輸入框」才進到輸入框（不會自己送出，送出時算外部文字），按「Open Link」要你按「開啟」。本站在 `initialize` 宣告會畫 app（`io.modelcontextprotocol/ui`），照規格「先看 client 能力」的 server 也會給。免裝東西的公開選項：`https://mcpplaygroundonline.com/mcp-app-server`（開發環境連不到，未驗證）。
    **會自己更新的即時圖表**（D-207、D-208）：同樣方式跑 `npx -y @modelcontextprotocol/server-system-monitor`，問「這台機器的 CPU 與記憶體狀況？」→ app 畫出系統資訊後每 2 秒呼叫只給它用的 `poll-system-stats`（沒標唯讀）→ 卡片**上方**問「介面想執行「poll-system-stats」……允許／不用」→ 按「允許」後 CPU 圖表開始即時跳動，下方「已允許介面執行… 停止允許」隨時收回；把卡片捲出畫面或切到別的分頁，圖表就停下（看不到的 app 不跑已允許的工具），捲回來繼續；按過「不用」或「停止允許」的工具在卡片上方留一行「改為允許」（D-209）；不存，重開對話會再問。開發環境不能執行下載的套件，這段只用原始碼與自製的假 app 驗證過（`.loop/shots/mcp-app-allow.cjs`）。
@@ -352,5 +357,6 @@ flowchart LR
 | 10/30 | 59 | **逐步對 demo 腳本**：發現今日簡報讀過行事曆後，同一個對話不會再切頁或交棒（安全設計）→ 腳本改成每步先開「新對話」，並把它寫進第 7 步當安全示範（D-214）；手機上助理標題列的狀態字不再被切掉（D-216）；交棒截圖改成等回答畫出來再拍（D-215）；全站截圖巡檢（30 支腳本）更新 44 張 |
 | 10/30 | 60 | 第 7 步補上「今日簡報之後說『帶我去複習』：只有連結卡、頁面不動」的截圖；精華版第 4 步（找 MCP server → 加入 → 連線 → 在 Studio AI 試試看）改成一支腳本連續走完並補兩張截圖 |
 | 10/30 | 61 | **對照 design/05 補齊 Studio AI 的落差**：沒登入的訪客也有按鈕（說明＋登入，D-217）、工具 chip 寫出耗時（D-218）、標題列寫出所在頁面（D-219）、新對話列出「我能用的工具」（D-220）、connector 卡片的最後測試時間（D-221）、抽屜可拉寬（D-222） |
+| 10/30 | 62 | **授權過期時一鍵回到重新授權**：connector 被拒絕認證時，失敗的工具呼叫附上「前往重新連線」卡片，/connectors 直接打開那個 connector（D-223）；失敗的呼叫只能帶本站連結卡，也讓 Jira、投資組合原本寫好卻被吃掉的提示卡出現；API key／token 的 connector 在詳情裡直接「更新認證」（D-224） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

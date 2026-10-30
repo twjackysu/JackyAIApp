@@ -114,6 +114,19 @@ const fakeChat = (events) => {
     console.log(name, 'url =', new URL(page.url()).pathname + new URL(page.url()).search,
       '| drawer 重新授權 =', await page.getByRole('button', { name: '重新授權' }).isVisible().catch(() => false));
     await page.screenshot({ path: `${out}/connectors-reconnect-${name}.png` });
+
+    // D-224：bearer token 的 connector 被拒絕時，詳情裡「更新認證」→ 密碼欄＋「儲存並測試」。
+    const kb = catalog.installed.find((c) => c.id === 'i-3');
+    Object.assign(kb, { health: 'needsAuth', lastError: '伺服器需要登入，或不接受目前的認證資料。' });
+    await page.goto('http://localhost:5173/connectors?connector=i-3');
+    await page.waitForTimeout(1500);
+    await page.getByRole('button', { name: '更新認證' }).click();
+    await page.waitForTimeout(300);
+    await page.getByLabel('新的 token').fill('sk-live-0123456789');
+    await page.waitForTimeout(300);
+    console.log(name, '儲存並測試 enabled =', await page.getByRole('button', { name: '儲存並測試' }).isEnabled());
+    await page.screenshot({ path: `${out}/connectors-update-credentials-${name}.png` });
+    Object.assign(kb, { health: 'ok', lastError: null });
     await page.close();
   }
   await browser.close();
