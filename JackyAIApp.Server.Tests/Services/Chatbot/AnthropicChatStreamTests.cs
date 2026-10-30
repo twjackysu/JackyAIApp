@@ -940,6 +940,42 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         [Fact]
+        public async Task AWriteAfterAnOutsideRead_InTheSameReply_IsAskedToo()
+        {
+            // The reply's calls are put to the reader before any runs (D-242).
+            _toolProfile.Extra.Add(new RecordingTool("m1__search", "Notion・搜尋", ToolEffect.Read, connector: "inst-1"));
+            _permissions.Site["save_word"] = ToolPermission.Auto;
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "m1__search", "{}"),
+                Sse.ClientToolUse("toolu_2", "save_word", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("好"), Sse.End("end_turn"));
+            var body = new RecordingBody();
+
+            var turn = AskAsync(profile: ToolProfile.ProfileKey, body: body);
+            var (conversationId, pendingId, asked) = await AskedAsync(body);
+            Assert.Equal("toolu_2", Assert.Single(asked.GetProperty("calls").EnumerateArray()).GetProperty("toolUseId").GetString());
+            Assert.True(_approvals.Resolve(User, conversationId, pendingId, [new ChatApprovalDecision("toolu_2", false)]));
+            await turn;
+
+            Assert.Empty(_toolProfile.Save.Calls);
+        }
+
+        [Fact]
+        public async Task ASiteToolWhoseOwnResultIsOutsideText_DoesNotMoveThePage()
+        {
+            _toolProfile.Extra.Add(new RecordingTool("go_there", "開啟頁面", ToolEffect.Read)
+            {
+                Result = _ => new AiToolResult("好", Navigate: "/english/review", OutsideText: true),
+            });
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "go_there", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("好"), Sse.End("end_turn"));
+
+            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+
+            var result = turn.Events.Single(e => Type(e) == "tool_result");
+            Assert.Equal(JsonValueKind.Null, result.GetProperty("navigate").ValueKind);
+        }
+
+        [Fact]
         public async Task AfterASiteToolsResultThatHoldsOtherPeoplesWords_AWriteIsAskedToo()
         {
             _toolProfile.Extra.Add(new RecordingTool("calendar", "Google 日曆", ToolEffect.Read, outsideText: true));

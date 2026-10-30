@@ -100,9 +100,15 @@ namespace JackyAIApp.Server.Services.Chatbot
         public async Task<List<BetaContentBlockParam>> RunAsync(IReadOnlyList<BetaToolUseBlock> calls, CancellationToken ct)
         {
             var asked = new List<(BetaToolUseBlock Call, IAiTool Tool)>();
+            // A call after one that reads outside text in the same reply is asked too: the reply's calls are put to the reader
+            // before any runs, so the taint that read sets would come too late for them (D-242).
+            var outsideAhead = false;
             foreach (var call in calls)
-                if (_byName.TryGetValue(call.Name, out var tool) && AsksFirst(tool))
-                    asked.Add((call, tool));
+            {
+                if (!_byName.TryGetValue(call.Name, out var tool)) continue;
+                if (AsksFirst(tool) || (outsideAhead && tool.Descriptor.Effect != ToolEffect.Read)) asked.Add((call, tool));
+                if (tool.Descriptor.ReadsOutsideText) outsideAhead = true;
+            }
             var (allowed, timedOut) = asked.Count > 0
                 ? await AskAsync(asked, ct)
                 : ((IReadOnlyDictionary<string, bool>)new Dictionary<string, bool>(), false);
@@ -122,6 +128,11 @@ namespace JackyAIApp.Server.Services.Chatbot
                     : result.IsError ? WayForwardOf(call.Name, result.Card)
                     : CardOf(call.Name, result.Card);
                 if (card != null) Cards.Add(card.Value);
+                // What an outside connector (or someone's calendar invite, or a cell of an uploaded file) said may be written
+                // to steer the model; from here on in the turn, nothing that changes anything runs without the reader
+                // (docs/ai-native/design/06). Set before this call's own navigation is read, which outside text stops too (D-242).
+                if (_byName.TryGetValue(call.Name, out var ran) && (ran.Descriptor.ReadsOutsideText || result.OutsideText))
+                    Tainted = true;
                 var navigate = NavigateOf(call.Name, result);
                 await _sse.WriteAsync(new
                 {
@@ -134,11 +145,6 @@ namespace JackyAIApp.Server.Services.Chatbot
                     navigate,
                     handoff = navigate != null ? HandoffOf(result) : null,
                 }, ct);
-                // What an outside connector (or someone's calendar invite, or a cell of an uploaded file) said may be written
-                // to steer the model; from here on in the turn, nothing that changes anything runs without the reader
-                // (docs/ai-native/design/06).
-                if (_byName.TryGetValue(call.Name, out var ran) && (ran.Descriptor.ReadsOutsideText || result.OutsideText))
-                    Tainted = true;
                 results.Add(new BetaToolResultBlockParam
                 {
                     ToolUseID = call.ID,

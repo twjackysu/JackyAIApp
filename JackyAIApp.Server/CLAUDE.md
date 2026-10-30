@@ -269,7 +269,7 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   offered, and a call of one that asks first runs only once the reader allows it (and once a turn has read an
   outside connector's result, or a site tool's marked `OutsideText` because it holds other people's words, a
   calendar invite's, `AiToolDescriptor.ReadsOutsideText`, or a result its tool marks so though the tool's results usually are not, `AiToolResult.OutsideText`, as the data page's tools do over an uploaded file, D-163, every call that is not a read asks first, whatever its
-  permission, in that turn and every later turn of the conversation, `ChatConversations.ReadOutsideText`: its answers may
+  permission, in that turn (a later call of the same reply too, since a reply's calls are asked about before any runs, D-242) and every later turn of the conversation, `ChatConversations.ReadOutsideText`, kept even when the turn throws: its answers may
   repeat that text and are sent again as history; the question then says `tainted`; a message that quotes text the reader
   selected on a page, `ChatRequest.QuotesPageText` from Studio AI's selection bar, marks the conversation so before its turn
   runs, since that text may be someone else's words too): a reply's such calls are put to them together (SSE `approval_required` with `pendingId` and the

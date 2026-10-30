@@ -68,6 +68,7 @@
 
 - 工具清單快取；重新列出時若「既有工具的 schema 或說明變了」→ 該工具權限重設為 Confirm，並在 connector 頁標「已變更」。
 - 新出現的工具預設 Confirm（就算 readOnlyHint）。
+- 讀取／寫入的分類（`readOnlyHint`、`destructiveHint`）是 server 自己說的：惡意 server 可以把寫入標成讀取，讀取不受 taint 規則約束。這是 MCP 的信任模型——加入一個 server 就是信任它對自己工具的標示；本站能做的是標示一變就重新先問（`CachedTools.Changed`，含「誰能呼叫」，D-237），以及讀者可在 /connectors 把任何工具改成先問或關掉（D-242）。
 - 自訂 MCP 每人最多 20 個；每輪最多送給模型 64 個 client 工具（其餘 defer + tool search）。
 
 ## 9. 本站對外的 MCP server（第 8 輪）

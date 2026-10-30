@@ -119,11 +119,19 @@ namespace JackyAIApp.Server.Services.Chatbot
             var tools = setup.Tools is { Count: > 0 }
                 ? new ClientToolRunner(setup.Tools, askFirst, conversation.ReadOutsideText, sse, new AiToolContext(userId, conversation.Id), approvals, _time, logger)
                 : null;
-            var outcome = await new ModelTurn(clientFactory.Create(apiKey), sse, usageLedger, logger, conversation.Id, tools,
-                    chargeToolRound: () => usageLimits.TryConsumeAsync(userId, UsageFeature.ChatToolRound))
-                .RunAsync(request, token => RequestFor(reupload: true, token), turnCts.Token);
+            TurnOutcome outcome;
+            try
+            {
+                outcome = await new ModelTurn(clientFactory.Create(apiKey), sse, usageLedger, logger, conversation.Id, tools,
+                        chargeToolRound: () => usageLimits.TryConsumeAsync(userId, UsageFeature.ChatToolRound))
+                    .RunAsync(request, token => RequestFor(reupload: true, token), turnCts.Token);
+            }
+            finally
+            {
+                // Kept even when the turn throws: the outside text it read is in what later turns are sent (D-242).
+                if (tools?.Tainted == true) await RememberOutsideTextAsync(conversation);
+            }
             var verdict = TurnVerdict.Of(outcome);
-            if (tools?.Tainted == true) await RememberOutsideTextAsync(conversation);
             var answerId = await SaveAnswerAsync(conversation, message, verdict.Saved, outcome.Cards);
             await ReportTurnAsync(userId, profile, conversation.Id, outcome, verdict);
             await EndStreamAsync(sse, conversation.Id, verdict, answerId, ct);
