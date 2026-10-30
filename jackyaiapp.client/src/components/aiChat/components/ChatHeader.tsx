@@ -59,8 +59,8 @@ const ChatHeader = ({
         position: 'relative',
         display: 'flex',
         alignItems: 'center',
-        gap: 1.25,
-        px: { xs: 1.5, sm: 2 },
+        gap: { xs: 0.75, sm: 1.25 },
+        px: { xs: 1.25, sm: 2 },
         minHeight: 56,
         borderBottom: `1px solid ${hairline(theme)}`,
       }}
@@ -80,7 +80,8 @@ const ChatHeader = ({
         </IconButton>
       </ActionTooltip>
       <AssistantMark size={30} />
-      <Box sx={{ minWidth: 0 }}>
+      {/* Takes the room left, so on a phone the status (「台股資料已連線」) is not cut to make way for an empty spacer */}
+      <Box sx={{ minWidth: 0, flexGrow: 1 }}>
         <Typography variant="subtitle2" component="div" sx={{ fontWeight: 700, lineHeight: 1.25 }}>
           {title}
         </Typography>
@@ -100,31 +101,40 @@ const ChatHeader = ({
           </Typography>
         </Box>
       </Box>
-      <Box sx={{ flexGrow: 1 }} />
-      <ExportConversationButton messages={messages} conversationId={conversationId} busy={busy} />
-      <ActionTooltip title="新對話">
-        <span>
+      {/* The actions sit closer together on a phone: three 30px buttons 10px apart left the status a few characters */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: { xs: 0.25, sm: 1.25 },
+          flexShrink: 0,
+        }}
+      >
+        <ExportConversationButton messages={messages} conversationId={conversationId} busy={busy} />
+        <ActionTooltip title="新對話">
+          <span>
+            <IconButton
+              onClick={onNewChat}
+              aria-label="新對話"
+              disabled={busy}
+              size="small"
+              sx={{ color: 'text.secondary' }}
+            >
+              <EditNoteIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </ActionTooltip>
+        <ActionTooltip title={closeLabel}>
           <IconButton
-            onClick={onNewChat}
-            aria-label="新對話"
-            disabled={busy}
+            onClick={onCollapse}
+            aria-label={closeLabel}
             size="small"
             sx={{ color: 'text.secondary' }}
           >
-            <EditNoteIcon fontSize="small" />
+            {sheet ? <CloseIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
           </IconButton>
-        </span>
-      </ActionTooltip>
-      <ActionTooltip title={closeLabel}>
-        <IconButton
-          onClick={onCollapse}
-          aria-label={closeLabel}
-          size="small"
-          sx={{ color: 'text.secondary' }}
-        >
-          {sheet ? <CloseIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-        </IconButton>
-      </ActionTooltip>
+        </ActionTooltip>
+      </Box>
       {busy && (
         <LinearProgress
           aria-label="回覆中"
