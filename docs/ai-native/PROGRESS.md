@@ -1,5 +1,15 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-31 01:42 – 第 66 輪（審查 /finance 助理＋對話標題、自訂資料源、「問 AI」：修 D-243～D-245）
+
+- 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（41088858532）綠。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`。鎖用 `od` 產生 run_id（沒有 `xxd`）。
+- 照 NEXT 第 65 輪建議 (2)，三個 general-purpose subagent 各審一塊（不帶我的結論），都沒有高風險：
+  - **D-243**（/finance 助理、`ConversationTitler`）：新對話一收到 `start` 就停止 → 退費但存了 `（已中斷）`，取標題變成可重複的免費 Haiku 呼叫 → 不取標題、`ChatTitle` 限流；`TitleFrom` 不切半個 emoji；標題與手動改名去掉看不見的字元（`ConversationTitler.Visible`）。
+  - **D-244**（自訂資料源）：`Min Pool Size` 等沒檢查的 keyword 能讓伺服器對任意主機開著數百條連線 → `DataSourceConfigValidator.Bounded` 夾住；ADX 欄位擋 `;`／`=`；編輯時送回 `Password=***` 不再丟掉其他修改（`WithStoredPassword`）；每人 20 個；`DataQuery` 限流。
+  - **D-245**（`NlQueryPlanner`）：值的清單加字數上限、不列長值／多行值的欄位、欄名單行、unmatched 單行限 60 字、缺欄位的 AI 回覆不 500、TODAY 用台北日期。
+- 驗證：每次後端改動 cscheck 0 個新診斷（EF 擴充方法雜訊除外）；前端沒有改動；CI 41102291021（373fced8，D-243／D-244）第一次就綠；41104104197（da865578，D-245）紅：master 既有的 `TodayInThePrompt_IsTheUtcDate` 釘著 UTC 的舊行為，改測台北日期後 41105076320（c332cf4a）綠。
+- 接受不改：`ask_data` 還沒叫 OpenAI 就失敗時仍收費、group-by 沒有列數上限（D-245）；`Server Certificate` 路徑探測（D-244）。
+
 ## 2026-10-31 00:30 – 第 65 輪（合併前最後一輪安全審查：六份 subagent 審查，修 D-237～D-242）
 
 - 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（41077408185）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。鎖用 `.loop/lock.py`。

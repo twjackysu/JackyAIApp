@@ -4,7 +4,7 @@
 
 ## 回國後建議的順序（第 58 輪整理）
 
-下面 19 條大多是「知道就好」或合併後實測。依先後：
+下面 22 條大多是「知道就好」或合併後實測。依先後：
 
 1. **合併前，在本機或看截圖決定 demo 資料**：2（`dbo.Orders` 欄位適不適合 demo）。
 2. **合併前，要你拍板的產品決定**（不決定也能合併，維持現狀）：3（是否拿掉回傳原始 token 的舊端點）、5（Connectors 是否留在首頁）、10（外部 AI 能不能讀 dashboard）、15／18(b)（Whisper 長度計費、匿名查字典產生新字的上限）、17（「限定分享」改邀請制）。
@@ -34,3 +34,4 @@
 19. **MCP Apps 的實測（第 54 輪，D-203～D-205）**：合併後在 production 試一次「別人的 MCP App」：本機 `npx -y @modelcontextprotocol/server-basic-vanillajs` ＋ `cloudflared tunnel --url http://localhost:3001`（免費、免帳號的 quick tunnel），把 `https://<tunnel>/mcp` 加到 /connectors，Studio 問「現在 server 那邊幾點？」。或直接試公開的 `https://mcpplaygroundonline.com/mcp-app-server`（開發環境連不到，沒驗證它的 app 是不是用 `_meta.ui` 宣告）。本站現在會在 `initialize` 宣告 `io.modelcontextprotocol/ui`，若某個 server 因此行為異常，回報給我（`McpAppsCapability` 一行就能拿掉）。
 20. **AI 用量的新規則與兩個之後的建議（第 63 輪，D-226、D-231）**：(a) Studio AI 與資料分析助理的一則訊息若要第 4 次以上的工具請求，每次多收 1 單位（`UsageFeature.ChatToolRound`，一則最多多 5；額度不夠時用已查到的結果回答，不報錯）。若覺得太嚴，改 `UsageCosts.FreeChatToolRounds`。(b) 之後可做：connector 的工具清單目前只在新增、測試連線、OAuth 回來、更新認證時重新讀；別人的 MCP server 加了新工具，讀者要按「測試連線」才看得到（design/03 說每小時，凍結前沒做）。
 21. ~~換 token 加密 key 之前（第 64 輪，D-235）~~ **第 65 輪已處理（D-238）**：「更新認證」表單對 API key 多了選填的 header 名稱欄位，讀不到原本的 header 時伺服器會要求填上，不必移除重加。輪換 key 時仍要提醒使用者：所有 connector 與帳號連線都要重新輸入認證或重新授權。
+22. **Data Analysis 自訂資料源多了上限（第 66 輪，D-244，master 既有功能）**：每人最多 20 個資料源；查詢端點每人每分鐘 300 次（未登入每個位址 120）；SQL Server 連線交給 driver 前夾住 `Min Pool Size` 0、`Max Pool Size` ≤ 5、`Command Timeout` ≤ 120 秒（0 也變 120）、重試 ≤ 2 次——**若你自己的資料源有超過 2 分鐘的查詢會被中斷**，需要的話調 `DataSourceConfigValidator.MaxCommandTimeoutSeconds`。另外修了編輯資料源時「不重打密碼就改伺服器／資料庫」會被默默丟掉的 bug。ADX 的 Tenant ID／Client ID 不能有空白、`;`、`=`、引號。
