@@ -1,5 +1,13 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-31 05:42 – 第 68 輪（凍結前全站截圖巡檢：33 支腳本、更新 66 張）
+
+- 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（41122644924）綠。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`。鎖用 `openssl rand -hex 6`（沒有 `xxd`）。
+- 前端 `npm ci`／lint／test（186 檔、1954 個測試）／build 全過。
+- **全站截圖巡檢**（NEXT 的 (1)＋(2) 一起做）：`.loop/shots/` 33 支腳本全部跑過（`mcp-host-official` 照舊不能跑），`compare.py` 0.05% 門檻比對。超過門檻的逐張並排檢查，**沒有退化**；差異全是已決定的改動：D-216（手機標題列「台股資料已連線」不再截斷）、D-217（工具 chip 的耗時、標題列「在『頁面』」）、D-224（API key／token 的「更新認證」）、匯出按鈕、對話清單依今天日期分組（「昨天」）、進度條動畫的影格。repo 裡 66 張舊截圖換成新的（`NEW` 的不加，照舊）。
+- SHOWCASE 的截圖連結全部存在；migration 清單與 `git diff origin/master -- Data/Migrations` 一致（4 個）；`rev-list --count --no-merges origin/master..HEAD` = 545（本輪前）。
+- 只動文件與截圖，沒有程式碼改動。
+
 ## 2026-10-31 03:42 – 第 67 輪（前端審查：共用 chat 引擎、/connectors＋OAuth 同意頁；CLAUDE.md 對照程式碼：D-246～D-248）
 
 - 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（41105076320）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。鎖用 `od`。

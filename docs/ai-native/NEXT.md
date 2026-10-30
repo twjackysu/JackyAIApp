@@ -12,6 +12,7 @@
 
 ## 1. CI 狀態
 
+- 第 68 輪：只動文件與截圖；開工時最新 CI 41122644924 綠，本輪 push 的 CI 見 PROGRESS。
 - 第 67 輪：只動前端與文件（D-246～D-250）；CI 41120704149（925a72e1）第一次就綠，D-249／D-250 的 CI 41122644924（6d1a53d9）也綠。`ToolCards` 的 app renderer 現在包在 `ChartLoadBoundary` 裡：測試裡 renderer 丟例外不會再讓整個 render 失敗。**`index.test.tsx` 的 fetch 替身多了 `holdMessages`**（讓某個對話的歷史晚點回來）；`SiteMcpSection` 測試的 mutation 替身要有 `reset`（`CreateTokenDialog` 關掉時呼叫）。
 - 第 66 輪：只有後端（D-243～D-245）；cscheck 0 個新診斷（只有已知的 EF `CountAsync`／`Count` 雜訊與測試用的 `Microsoft.Data.SqlClient` 找不到）；CI 41102291021（373fced8）第一次就綠；41104104197（da865578）紅——master 的 `TodayInThePrompt_IsTheUtcDate` 照舊行為釘著 UTC，改成台北後 41105076320（c332cf4a）綠。**新的限流**：`ChatTitle`（取標題每人每分鐘 20）、`DataQuery`（資料分析的查詢端點每人每分鐘 300、未登入 120）——新的整合測試若一個 client 連打很多次這些端點會拿到 429。`DataSourceStore` 每人最多 20 個資料源。
 - 第 65 輪：後端＋前端（D-237～D-242）；cscheck 每次 0 個新診斷；CI 41085554392（5177a8b0）、41087195865（df63afc8）、41088075161（67d5ce57）第一次就綠、41088858532（1f2feddf，D-242）都第一次就綠。**`ClientToolRunner` 現在把同一個回覆中排在 `ReadsOutsideText` 工具後面的非讀取呼叫也放進確認卡**：新的假串流若一個回覆裡先叫 connector 讀取再叫自動的寫入，會出現 `approval_required`。MCP App 卡片同時最多 4 個呼叫（`MAX_CALLS_IN_FLIGHT`）：前端測試若一次送 5 個以上不回應的呼叫，第 5 個會被拒。
@@ -66,6 +67,7 @@
 
 ## 2. 下一步（依序）
 
+0000000000000000000. **第 68 輪**：凍結前的全站截圖巡檢已做（33 支腳本、66 張舊截圖更新，沒有退化；PROGRESS 第 68 輪）。前端與後端的 AI 面都審過、design 文件都對過。**下一輪建議**：(1) 11/3 前若有 bug 回報或 CI 紅才動程式碼；否則不要再加功能（凍結前加的東西沒有時間再審）；(2) 11/3 最後一輪：若之後有前端改動，只重跑受影響的腳本（`compare.py` 0.05%）；(3) 11/4–11/5 照下面 3 做 SHOWCASE 定稿：狀態行改成最終版、開發日誌表補到最後一輪、最終統計（輪數、`git rev-list --count --no-merges origin/master..HEAD`）。
 000000000000000000. **第 67 輪（D-246～D-248）**：前端的 chat 引擎、/connectors、OAuth 同意頁、Studio AI＋選取工具列、/data-analysis 助理都審查完（五份 subagent，沒有高風險，D-246～D-250），三份 CLAUDE.md 對照程式碼修正。**前端與後端的 AI 面都審過了。** 還沒審過的只剩 master 既有、這個 branch 沒動的頁面。**下一輪建議**：(1) 若時間在 11/2 之前，可以照 SHOWCASE 的 5 分鐘精華版用截圖腳本再走一次，確認 D-246～D-250 沒改到畫面（`chat.cjs`、`connectors.cjs`、`selection.cjs`）；(2) 11/2～11/3 凍結前最後一次全站截圖巡檢（照 D-213、`.loop/shots/compare.py`；D-247 的改動不影響畫面）；(3) 11/4 起照 PLAN 只修 bug、補 SHOWCASE 最終統計。
 00000000000000000. **第 66 輪（D-243～D-245）**：照第 65 輪建議 (2) 審查了 /finance 助理＋`ConversationTitler`、data-analysis 自訂資料源、`NlQueryPlanner`（三份 subagent，都沒有高風險），修了中低風險。**後端的審查到此涵蓋所有 AI 相關的面。** 留下（接受，D-245）：`ask_data` 在還沒叫 OpenAI 就失敗時仍收費；group-by 沒有列數上限。**下一輪建議**：(1) 11/2～11/3 凍結前最後一次全站截圖巡檢（照 D-213、`.loop/shots/compare.py`；`connectors.cjs` 的「Header 名稱（選填）」是 D-238）；(2) 11/4 起照 PLAN 只修 bug、補 SHOWCASE 最終統計。
 0000000000000000. **第 65 輪（D-237～D-242）**：六份 subagent 安全審查（MCP app-call、connector 認證與限流、MCP Apps host 前端、本站 MCP server＋OAuth、AI 寫入工具、確認卡與 taint）全部做完，沒有高風險，中低風險都修了或寫進 DECISIONS。**審查已涵蓋 connector、chat 引擎、本站 MCP、寫入工具；功能面收手。** **下一輪建議**：(1) 11/2～11/3 凍結前**最後一次全站截圖巡檢**（照 D-213、`.loop/shots/compare.py`；`connectors.cjs` 若拍到 API key connector 的「更新認證」表單，多了「Header 名稱（選填）」欄位是 D-238 不是退化）；(2) 若還有時間，可再審查一塊沒看過的：/finance 助理（`FinanceChatProfile`、`ConversationTitler`）或 data-analysis 的 `NlQueryPlanner`／`DataSourceResolver`（自訂資料源 SSRF），一次一份、只修真的 bug；(3) 11/4 起照 PLAN 只修 bug、補 SHOWCASE 最終統計。
@@ -107,7 +109,7 @@
    - 「在 Studio AI 試試看」（D-126／D-128）：OAuth 授權回來的 snackbar 沒有按鈕（刻意，詳情裡有）。若要在 Studio 的 `find_mcp_server` 卡片上也直接試，要等使用者加完——目前不做。Studio「/」已有「找 MCP server」（key `find_mcp_server`，不是本站 MCP prompt）。
    - MCP 官方目錄（D-122／D-123）：只列 Streamable HTTP、固定網址的 remote server；SSE-only 與網址有 `{變數}` 的不列。安裝一定要使用者自己在 /connectors 按（D-124 仍守住）。Registry 的圖示刻意不顯示。
    - `approvalTimeLeft` 時間到後按鈕仍可按（D-109 決定不停用）；若實測覺得混淆再改。
-2. **全站截圖巡檢**：第 43 輪 `chat.cjs` 又拍一次、與 repo 比對無 >1% 差異（`finance-collapsed-*` 兩張 repo 裡沒有，沒加）。第 40 輪 `chat.cjs` 又拍一次、無退化（只有持倉卡片多一顆圖示）。第 37 輪 `chat.cjs`、第 38 輪 `selection.cjs`、`memory.cjs`、`connectors.cjs`、`mcp-app.cjs`、`rename.cjs`、第 39 輪 `chat.cjs` 都已重拍、無退化。第 51 輪 `chat.cjs` 又拍一次、與 repo 比對 41 張無 >1% 差異（標題列含匯出按鈕，沒擠）。第 56 輪 `chat.cjs`、`connectors`、`selection`、`search`、`memory`、`slash`、`mcp-app` 重拍，無退化（見 PROGRESS）。凍結前（11/3）最後再拍一次。
+2. **全站截圖巡檢**：**第 68 輪做了凍結前的完整巡檢（33 支腳本，66 張更新，無退化）**；之後只在有前端改動時重跑受影響的腳本。第 43 輪 `chat.cjs` 又拍一次、與 repo 比對無 >1% 差異（`finance-collapsed-*` 兩張 repo 裡沒有，沒加）。第 40 輪 `chat.cjs` 又拍一次、無退化（只有持倉卡片多一顆圖示）。第 37 輪 `chat.cjs`、第 38 輪 `selection.cjs`、`memory.cjs`、`connectors.cjs`、`mcp-app.cjs`、`rename.cjs`、第 39 輪 `chat.cjs` 都已重拍、無退化。第 51 輪 `chat.cjs` 又拍一次、與 repo 比對 41 張無 >1% 差異（標題列含匯出按鈕，沒擠）。第 56 輪 `chat.cjs`、`connectors`、`selection`、`search`、`memory`、`slash`、`mcp-app` 重拍，無退化（見 PROGRESS）。凍結前（11/3）最後再拍一次。
 3. **SHOWCASE 定稿**（11/4–11/5）：最終統計（輪數、commit 數：`git rev-list --count --no-merges origin/master..HEAD`）、demo 腳本走一遍、合併檢查清單再對一次 migration 清單（`git diff --stat origin/master -- JackyAIApp.Server/Data/Migrations`；第 22～27 輪沒有新 migration）。開發日誌表每輪補一列（已補到第 46 輪）。第 24 輪時 `rev-list --count --no-merges origin/master..HEAD` 是 236。
 
 ## 3. 已經做好的零件
