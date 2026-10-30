@@ -1,5 +1,17 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-31 03:42 – 第 67 輪（前端審查：共用 chat 引擎、/connectors＋OAuth 同意頁；CLAUDE.md 對照程式碼：D-246～D-248）
+
+- 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（41105076320）綠；沒有 Jacky 的新 commit。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。鎖用 `od`。
+- 後端審查上一輪已涵蓋全部 AI 面，這輪三個 general-purpose subagent（不帶我的結論）看還沒審過的前端與文件：
+  - **D-246**（共用 chat）：載入中的對話晚到會蓋掉剛送出的訊息（`screenChange` 計數，測試先紅後綠）；`parsedBlocks` 的 effect 只寫進還在串流的泡泡（防禦）。停止的回答沒 `serverId` 接受（不影響取標題次數）。
+  - **D-247**（/connectors、OAuth 同意頁）：換網址重設認證（A 的 token 不送給 B，測試先紅後綠）、同時只一個檢查、`notify` 穩定（未修時測試卡成無限迴圈）、token 對話框回預設並 `reset()`、同意後按鈕停用。
+  - **D-248**（文件）：三份 CLAUDE.md 7 處過時描述修正（模組表與 `ModuleBoundariesTests` 一致）。
+- 第二批兩份 subagent：
+  - **D-249**（Studio AI、選取工具列）：「查字典」後回答結束不再把人拉回排好的頁（測試先紅後綠）；對話框打開時 Escape 交給對話框（測試先紅後綠）。
+  - **D-250**（/data-analysis 助理）：app 卡片 renderer 出錯只影響那張卡片（`ChartLoadBoundary`）；換資料源不自動開新對話（記錄理由）。
+- 驗證：前端 lint、全套測試（186 檔、1953 個＋之後的 ToolCards 1 個）、build 全過；只動前端與文件。CI 41120704149（925a72e1，D-246～D-248）第一次就綠；D-249／D-250 的 CI 見 NEXT。
+
 ## 2026-10-31 01:42 – 第 66 輪（審查 /finance 助理＋對話標題、自訂資料源、「問 AI」：修 D-243～D-245）
 
 - 開工：鎖不存在；master 沒有新 commit；上一輪最後的 CI（41088858532）綠。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`。鎖用 `od` 產生 run_id（沒有 `xxd`）。
