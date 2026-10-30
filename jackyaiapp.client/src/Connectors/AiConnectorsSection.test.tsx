@@ -1,4 +1,4 @@
-import { act, useEffect } from 'react';
+import { act, useEffect, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -160,6 +160,39 @@ describe('AiConnectorsSection', () => {
     expect(button('重新授權').className).toContain('MuiButton-contained');
     expect(where.path).toBe('/connectors?x=1');
     expect(notify).not.toHaveBeenCalled();
+  });
+
+  it('says once that a linked connector is gone, under a page that hands it a new notify each render', () => {
+    mocks.catalog.mockReturnValue({
+      data: catalog({ installed: [installed()] }),
+      isLoading: false,
+      error: undefined,
+      refetch: mocks.refetch,
+    });
+    const said: string[] = [];
+    // The page shows a snackbar for each notice, rendering again with a new function.
+    function Page() {
+      const [, setShown] = useState(0);
+      return (
+        <AiConnectorsSection
+          notify={(message) => {
+            said.push(message);
+            setShown((n) => n + 1);
+          }}
+          refreshSignal={0}
+        />
+      );
+    }
+    act(() =>
+      root.render(
+        <MemoryRouter initialEntries={['/connectors?connector=gone']}>
+          <Page />
+          <Where />
+        </MemoryRouter>,
+      ),
+    );
+    expect(said).toHaveLength(1);
+    expect(where.path).toBe('/connectors');
   });
 
   it('says so when the connector a link names is no longer there', () => {

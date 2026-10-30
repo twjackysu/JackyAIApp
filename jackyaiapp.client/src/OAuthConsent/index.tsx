@@ -71,6 +71,9 @@ function Consent({ request }: { request: ReturnType<typeof authorizeRequestOf> }
   const [decide, { isLoading: deciding }] = useDecideOAuthMutation();
   const [allowWrites, setAllowWrites] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  // Answered: the browser is on its way back to the AI, which can take a while; a second press would issue a second
+  // code, or a denial after the approval.
+  const [leaving, setLeaving] = useState(false);
 
   if (isLoading) return <CenteredSpinner sx={{ minHeight: 120 }} />;
   if (error || !consent) {
@@ -81,6 +84,7 @@ function Consent({ request }: { request: ReturnType<typeof authorizeRequestOf> }
     setFailure(null);
     try {
       const { redirectUrl } = await decide({ request, approve, allowWrites }).unwrap();
+      setLeaving(true);
       window.location.assign(redirectUrl);
     } catch (e) {
       setFailure(getCaughtErrorMessage(e));
@@ -117,14 +121,14 @@ function Consent({ request }: { request: ReturnType<typeof authorizeRequestOf> }
         </Alert>
       )}
       <Stack direction="row" spacing={1.5} sx={{ justifyContent: 'flex-end' }}>
-        <Button onClick={() => answer(false)} disabled={deciding}>
+        <Button onClick={() => answer(false)} disabled={deciding || leaving}>
           拒絕
         </Button>
         <Button
           variant="contained"
           startIcon={<Lock />}
           onClick={() => answer(true)}
-          disabled={deciding}
+          disabled={deciding || leaving}
         >
           允許
         </Button>

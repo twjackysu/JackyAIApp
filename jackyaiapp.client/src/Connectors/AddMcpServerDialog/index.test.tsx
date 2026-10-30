@@ -186,6 +186,32 @@ describe('AddMcpServerDialog', () => {
     expect(button('連線').disabled).toBe(false);
   });
 
+  it('never sends a key typed for one server to another one checked after it', async () => {
+    mocks.probe.mockReturnValue(probe({ auth: 'apiKey' }));
+    render();
+    type(input('MCP server 網址'), 'https://a.example.com/mcp');
+    await click('檢查');
+    type(input('Token'), 'secret-for-a');
+    await click('上一步');
+    type(input('MCP server 網址'), 'https://b.example.com/mcp');
+    await click('檢查');
+
+    expect(input('Token').value).toBe('');
+    expect(button('連線').disabled).toBe(true);
+  });
+
+  it('keeps the key when the same server is checked again', async () => {
+    mocks.probe.mockReturnValue(probe({ auth: 'apiKey' }));
+    render();
+    type(input('MCP server 網址'), 'https://a.example.com/mcp');
+    await click('檢查');
+    type(input('Token'), 'secret-for-a');
+    await click('上一步');
+    await click('檢查');
+
+    expect(input('Token').value).toBe('secret-for-a');
+  });
+
   it('hands an OAuth server to the page to sign in, instead of finishing', async () => {
     mocks.probe.mockReturnValue(probe({ auth: 'oauth', registration: 'cimd' }));
     const added = installed({ authKind: 'oauth' });

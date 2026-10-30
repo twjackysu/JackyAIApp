@@ -39,7 +39,7 @@ const MAX_NAME = 50;
  * lasts. Then the token, once, with the settings for the AIs readers most often use.
  */
 export default function CreateTokenDialog({ open, serverUrl, onClose }: CreateTokenDialogProps) {
-  const [createToken, { isLoading }] = useCreateSiteTokenMutation();
+  const [createToken, { isLoading, reset }] = useCreateSiteTokenMutation();
   const [name, setName] = useState('Claude Desktop');
   const [allowWrites, setAllowWrites] = useState(false);
   const [days, setDays] = useState<number>(90);
@@ -49,10 +49,15 @@ export default function CreateTokenDialog({ open, serverUrl, onClose }: CreateTo
 
   const close = () => {
     onClose();
-    // Forget the token as soon as the dialog goes: it is shown once.
+    // Forget the token as soon as the dialog goes, here and in the store's copy of the answer: it is shown once.
     setCreated(null);
+    reset();
     setError(null);
     setClient(0);
+    // The next token starts from the defaults, never with writes already allowed by the last one.
+    setName('Claude Desktop');
+    setAllowWrites(false);
+    setDays(90);
   };
 
   const trimmed = name.trim();

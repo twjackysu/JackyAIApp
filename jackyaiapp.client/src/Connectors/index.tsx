@@ -47,6 +47,11 @@ const Connectors: React.FC = () => {
     open: false,
     message: '',
   });
+  // One function for the page's life: the sections' effects that notify run once per address, not on each render.
+  const notify = React.useCallback(
+    (message: string, severity: 'success' | 'error') => setState({ open: true, message, severity }),
+    [],
+  );
 
   const handleClose = (
     _event?: React.SyntheticEvent | Event | null,
@@ -143,12 +148,9 @@ const Connectors: React.FC = () => {
           </IconButton>
         </ActionTooltip>
       </Box>
-      <AiConnectorsSection
-        refreshSignal={refreshSignal}
-        notify={(message, severity) => setState({ open: true, message, severity })}
-      />
-      <MemorySection notify={(message, severity) => setState({ open: true, message, severity })} />
-      <SiteMcpSection notify={(message, severity) => setState({ open: true, message, severity })} />
+      <AiConnectorsSection refreshSignal={refreshSignal} notify={notify} />
+      <MemorySection notify={notify} />
+      <SiteMcpSection notify={notify} />
       <Typography
         variant="h6"
         component="h2"

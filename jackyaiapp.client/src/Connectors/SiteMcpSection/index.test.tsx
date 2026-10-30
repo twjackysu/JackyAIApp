@@ -17,7 +17,7 @@ const { mutation } = vi.hoisted(() => ({
   /** An RTK Query mutation hook whose trigger answers with `fn`'s result (or its throw). */
   mutation: (fn: (...args: unknown[]) => unknown) => () => [
     (...args: unknown[]) => ({ unwrap: () => Promise.resolve().then(() => fn(...args)) }),
-    { isLoading: false },
+    { isLoading: false, reset: () => {} },
   ],
 }));
 
@@ -162,6 +162,23 @@ describe('SiteMcpSection', () => {
 
     await click(button('我已經複製好了'));
     expect(text()).not.toContain('jsk_secret123');
+  });
+
+  it('starts the next token from the defaults, writes not allowed', async () => {
+    mocks.create.mockReturnValue({ info: token({ name: 'A' }), token: 'jsk_a' });
+    render();
+    await click(button('產生 token'));
+    await click(document.body.querySelector('input[type="checkbox"]')!);
+    await click(button('產生'));
+    await click(button('我已經複製好了'));
+
+    await click(button('產生 token'));
+    expect(document.body.querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked).toBe(
+      false,
+    );
+    expect(document.body.querySelector<HTMLInputElement>('input[maxlength="50"]')!.value).toBe(
+      'Claude Desktop',
+    );
   });
 
   it('says why a token was not made', async () => {

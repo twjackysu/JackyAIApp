@@ -108,6 +108,9 @@ describe('OAuthConsent', () => {
       expect.objectContaining({ approve: true, allowWrites: true }),
     );
     expect(mocks.assign).toHaveBeenCalledWith('https://claude.ai/cb?code=abc&state=s1');
+    // On its way back: neither answer can be given again meanwhile.
+    expect(button('允許').disabled).toBe(true);
+    expect(button('拒絕').disabled).toBe(true);
   });
 
   it('declines too', async () => {

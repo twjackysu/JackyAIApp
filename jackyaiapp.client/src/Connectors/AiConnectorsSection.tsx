@@ -1,6 +1,6 @@
 import { Add } from '@mui/icons-material';
 import { Alert, Box, Button, Stack, Typography } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import AddMcpServerDialog from './AddMcpServerDialog';
@@ -75,6 +75,12 @@ export default function AiConnectorsSection({
   // Sent here to add a server Studio AI found (`?registry=`, D-124): the registry search opens with it, once,
   // and the address drops it so a reload does not open it again. At the limit there is nothing to add to.
   const [searchParams, setSearchParams] = useSearchParams();
+  // The latest `notify`, outside the effects' dependencies: a new one each render of the page would run them again
+  // before the address change lands (React Router applies it in a transition), notifying over and over.
+  const notifyRef = useRef(notify);
+  useEffect(() => {
+    notifyRef.current = notify;
+  });
   const askedSearch = registrySearchOf(searchParams);
   useEffect(() => {
     if (askedSearch === null || !catalog) return;
@@ -82,7 +88,10 @@ export default function AiConnectorsSection({
     if (custom < catalog.customLimit)
       setDialog({ open: true, preset: null, browseRegistry: true, registrySearch: askedSearch });
     else
-      notify(`自訂 MCP server 最多 ${catalog.customLimit} 個，請先移除用不到的再加入。`, 'error');
+      notifyRef.current(
+        `自訂 MCP server 最多 ${catalog.customLimit} 個，請先移除用不到的再加入。`,
+        'error',
+      );
     setSearchParams(
       (params) => {
         params.delete(REGISTRY_PARAM);
@@ -90,7 +99,7 @@ export default function AiConnectorsSection({
       },
       { replace: true },
     );
-  }, [askedSearch, catalog, setSearchParams, notify]);
+  }, [askedSearch, catalog, setSearchParams]);
 
   // Sent here to reconnect one connector (`?connector=<id>`, a failed call's card, D-223): its details open, once, and
   // the address drops it so a reload does not open them again.
@@ -98,7 +107,7 @@ export default function AiConnectorsSection({
   useEffect(() => {
     if (asked === undefined) return;
     if (asked) setSelectedKey(keyOf(asked));
-    else notify('找不到這個 connector，可能已經移除了。', 'error');
+    else notifyRef.current('找不到這個 connector，可能已經移除了。', 'error');
     setSearchParams(
       (params) => {
         params.delete(CONNECTOR_PARAM);
@@ -106,7 +115,7 @@ export default function AiConnectorsSection({
       },
       { replace: true },
     );
-  }, [asked, setSearchParams, notify]);
+  }, [asked, setSearchParams]);
 
   // The drawer shows the catalog's copy, so a change saved from it shows at once.
   const selected = catalog?.installed.find((c) => keyOf(c) === selectedKey) ?? null;

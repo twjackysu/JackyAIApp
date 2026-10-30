@@ -14,7 +14,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { canTryInStudio } from '../connectorView';
 import CopyField from '../SiteMcpSection/CopyField';
@@ -112,6 +112,9 @@ function AddMcpServerForm({
   const [added, setAdded] = useState<InstalledConnector | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [registryOpen, setRegistryOpen] = useState(browseRegistry);
+  // The server whose credentials the form holds, and whether a check is under way.
+  const probedUrl = useRef<string | null>(null);
+  const checking = useRef(false);
 
   const [probeServer, { isLoading: probing }] = useProbeMcpServerMutation();
   const [createInstallation, { isLoading: creating }] = useCreateInstallationMutation();
@@ -123,19 +126,31 @@ function AddMcpServerForm({
   /** Checks the URL typed, or the one of a server picked from the registry (named by its title). */
   const detect = async (picked?: { url: string; title: string }) => {
     setUrlTouched(true);
+    // One check at a time (Enter in the box is not disabled like the button): a slower earlier reply would
+    // otherwise set the server after the one the reader meant.
+    if (checking.current) return;
     if (!picked && urlError) return;
     setError(null);
+    const serverUrl = (picked?.url ?? url).trim();
+    checking.current = true;
     try {
-      const found = await probeServer({ serverUrl: (picked?.url ?? url).trim() }).unwrap();
+      const found = await probeServer({ serverUrl }).unwrap();
+      // A key typed for one server never goes to another: back to the URL and on to a different one starts the
+      // credentials over (a pick has already set its own).
+      if (!picked && serverUrl !== probedUrl.current) setForm(EMPTY_CREDENTIALS);
+      probedUrl.current = serverUrl;
       setProbe(found);
       setName(picked && !found.serverName?.trim() ? picked.title : suggestedName(found));
       setStep('credentials');
     } catch (e) {
       setError(getCaughtErrorMessage(e));
+    } finally {
+      checking.current = false;
     }
   };
 
   const pick = (server: McpRegistryServer) => {
+    if (checking.current) return;
     setUrl(server.url);
     // Each pick starts from an empty form, so one server's header or key never carries to another.
     setForm({ ...EMPTY_CREDENTIALS, ...registryCredentials(server) });
