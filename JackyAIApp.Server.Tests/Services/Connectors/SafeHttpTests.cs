@@ -89,10 +89,16 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.IsType<BlockedAddressException>(ex.InnerException);
         }
 
-        [Fact]
-        public async Task AHostThatResolvesToAPrivateAddress_IsRefused()
+        [Theory]
+        [InlineData("10.0.0.5")]
+        // AAAA answers: a unique local, a link-local, loopback, and an IPv4-mapped metadata address.
+        [InlineData("fd00::1")]
+        [InlineData("fe80::1")]
+        [InlineData("::1")]
+        [InlineData("::ffff:169.254.169.254")]
+        public async Task AHostThatResolvesToAPrivateAddress_IsRefused(string address)
         {
-            using var client = new HttpClient(SafeHttp.CreateHandler(Resolving("10.0.0.5")));
+            using var client = new HttpClient(SafeHttp.CreateHandler(Resolving(address)));
 
             var ex = await Assert.ThrowsAsync<HttpRequestException>(() => client.GetAsync("https://mcp.example.com/mcp"));
 

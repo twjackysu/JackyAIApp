@@ -28,6 +28,13 @@ namespace JackyAIApp.Server.Services.Connectors
         /// <summary>The most connectors' tools one turn is offered.</summary>
         public const int MaxConnectors = 10;
 
+        /// <summary>
+        /// The most of their tools one turn is offered (docs/ai-native/design/06 §8): each is sent to the model, schema
+        /// and all, with every request of the turn, and a server may list up to <see cref="McpToolClient.MaxTools"/>.
+        /// The connectors added first keep theirs; a reader who wants another's turns some off on the connectors page.
+        /// </summary>
+        public const int MaxTools = 64;
+
         public async Task<IReadOnlySet<string>> ServerUrlsAsync(string userId, CancellationToken ct)
         {
             var urls = await db.ConnectorInstallations.AsNoTracking()
@@ -63,6 +70,12 @@ namespace JackyAIApp.Server.Services.Connectors
                     // A server listing a name twice, or two that read the same once made API-safe ("files.read",
                     // "files_read"): only the first, since the API refuses a request naming a tool twice.
                     if (!names.Add(connectorTool.Descriptor.Name)) continue;
+                    if (tools.Count == MaxTools)
+                    {
+                        logger.LogInformation("Reader's connectors list more than {MaxTools} tools; connector {InstallationId} and those after it are cut",
+                            MaxTools, row.Id);
+                        return tools;
+                    }
                     tools.Add(connectorTool);
                 }
             }
