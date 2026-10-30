@@ -162,7 +162,8 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                 row.LastUsedAt = now;
                 // Two requests at once may both note it; the later write wins, which is as good.
                 try { await db.SaveChangesAsync(ct); }
-                catch (DbUpdateConcurrencyException) { /* revoked meanwhile: the next request is refused */ }
+                // Revoked meanwhile: refused now, not one request later (D-240).
+                catch (DbUpdateConcurrencyException) { return null; }
             }
             return new SiteTokenHolder(row.UserId, row.Id, row.AllowWrites);
         }
