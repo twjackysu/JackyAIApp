@@ -210,6 +210,39 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             Assert.Empty(_anthropic.Requests);
         }
 
+        [Fact]
+        public async Task AnAnswerStoppedBeforeAnythingWasSaid_IsNotNamed()
+        {
+            // Its message was refunded: naming it would be a free model call, again for every stopped turn.
+            var id = await ConversationAsync();
+            var answer = await _db.ChatMessages.SingleAsync(m => m.ConversationId == id && m.Role == "assistant");
+            answer.Content = AnthropicChatService.StoppedContent("");
+            await _db.SaveChangesAsync();
+
+            var result = await As(User).NameAsync(id, default);
+
+            Assert.Equal(AnthropicChatService.TitleFrom(Question), result.Data!.Title);
+            Assert.Empty(_anthropic.Requests);
+        }
+
+        [Fact]
+        public void Clean_DropsCharactersAReaderCannotSee_ButKeepsEmojiSequences()
+        {
+            Assert.Equal("台積電abc外資", ConversationTitler.Clean("台積電\u202Eabc\u200B外資"));
+            Assert.Equal("隱藏", ConversationTitler.Clean("隱\U000E0041\U000E0042藏\uE000"));
+            Assert.Equal("家庭👨\u200D👩\u200D👧", ConversationTitler.Clean("家庭👨\u200D👩\u200D👧"));
+        }
+
+        [Fact]
+        public void TitleFrom_DoesNotSplitAnEmoji()
+        {
+            var question = new string('字', 29) + "😀後面還有";
+
+            Assert.Equal(new string('字', 29) + "…", AnthropicChatService.TitleFrom(question));
+            Assert.Equal(new string('字', 30) + "…", AnthropicChatService.TitleFrom(new string('字', 31)));
+            Assert.Equal("短問題", AnthropicChatService.TitleFrom("短問題"));
+        }
+
         [Theory]
         [InlineData("台積電外資動向", "台積電外資動向")]
         [InlineData("標題：台積電外資動向。", "台積電外資動向")]

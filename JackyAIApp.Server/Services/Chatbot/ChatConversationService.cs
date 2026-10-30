@@ -272,12 +272,15 @@ namespace JackyAIApp.Server.Services.Chatbot
             return ServiceResult.Ok(new ChatTitleResponse(cleaned));
         }
 
-        /// <summary>A typed title on one line: every run of white space or control characters one space, trimmed; null when nothing is left.</summary>
+        /// <summary>
+        /// A typed title on one line: every run of white space or control characters one space, trimmed, without the
+        /// characters a reader cannot see (<see cref="ConversationTitler.Visible"/>); null when nothing is left.
+        /// </summary>
         internal static string? CleanTitle(string? title)
         {
             if (title == null) return null;
             var spaced = new string(title.Select(c => char.IsControl(c) || char.IsWhiteSpace(c) ? ' ' : c).ToArray());
-            var cleaned = string.Join(' ', spaced.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+            var cleaned = string.Join(' ', ConversationTitler.Visible(spaced).Split(' ', StringSplitOptions.RemoveEmptyEntries));
             return cleaned.Length == 0 ? null : cleaned;
         }
 

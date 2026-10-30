@@ -76,7 +76,10 @@ namespace JackyAIApp.Server.Services.Chatbot
                 .ToListAsync(ct);
             // Only a conversation with its first answer, still under the title its first question gave it:
             // one already named (or renamed) keeps its title.
+            // An answer stopped before anything was said is no answer: its message was refunded, so naming it
+            // would be a free model call a reader could repeat (stop, name, again).
             if (firstTwo is not [{ Role: "user" } question, { Role: "assistant" } answer]
+                || answer.Content == AnthropicChatService.StoppedNote
                 || conversation.Title != AnthropicChatService.TitleFrom(question.Content))
                 return ServiceResult.Ok(current);
 
@@ -189,10 +192,28 @@ namespace JackyAIApp.Server.Services.Chatbot
             line = line.TrimStart('#', '*', '-', ' ').Trim();
             foreach (var label in new[] { "標題：", "標題:", "Title:", "title:" })
                 if (line.StartsWith(label, StringComparison.Ordinal)) line = line[label.Length..].Trim();
-            line = line.Replace("**", "").Replace("`", "").Replace("<", "＜").Replace(">", "＞");
+            line = Visible(line).Replace("**", "").Replace("`", "").Replace("<", "＜").Replace(">", "＞");
             line = line.Trim(' ', '"', '\'', '「', '」', '『', '』', '“', '”', '《', '》', '。', '.', '！', '!', '，', ',', '；', ';');
             if (line.Length == 0) return null;
             return Cut(line, MaxTitleLength, ellipsis: false);
+        }
+
+        /// <summary>
+        /// The text without characters a reader cannot see: control, format (a right-to-left override, zero-width
+        /// characters, the tag block) and private-use ones, which could reorder or hide part of a title in the history
+        /// list (the answer may repeat a tool's result). The zero-width joiner stays: emoji sequences need it.
+        /// </summary>
+        internal static string Visible(string text)
+        {
+            var kept = new StringBuilder(text.Length);
+            foreach (var rune in text.EnumerateRunes())
+            {
+                if (rune.Value == 0x200D
+                    || (!Rune.IsControl(rune)
+                        && Rune.GetUnicodeCategory(rune) is not (UnicodeCategory.Format or UnicodeCategory.PrivateUse)))
+                    kept.Append(rune.ToString());
+            }
+            return kept.ToString();
         }
 
         /// <summary>The first <paramref name="max"/> characters (text elements), never splitting an emoji.</summary>

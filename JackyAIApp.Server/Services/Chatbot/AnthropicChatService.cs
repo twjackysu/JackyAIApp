@@ -396,8 +396,15 @@ namespace JackyAIApp.Server.Services.Chatbot
             return conversation;
         }
 
-        /// <summary>A new conversation's title until it is named (<see cref="ConversationTitler"/>): the first question's start.</summary>
-        internal static string TitleFrom(string message) =>
-            message.Length > 30 ? string.Concat(message.AsSpan(0, 30), "…") : message;
+        /// <summary>
+        /// A new conversation's title until it is named (<see cref="ConversationTitler"/>): the first question's first
+        /// 30 UTF-16 units, one fewer when the 30th is the first half of an emoji, so a title never holds half of one.
+        /// </summary>
+        internal static string TitleFrom(string message)
+        {
+            if (message.Length <= 30) return message;
+            var length = char.IsHighSurrogate(message[29]) ? 29 : 30;
+            return string.Concat(message.AsSpan(0, length), "…");
+        }
     }
 }

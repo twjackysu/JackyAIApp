@@ -233,6 +233,7 @@ namespace JackyAIApp.Server.Controllers
         /// naming fails. Not charged: part of the first message's cost.
         /// </summary>
         [HttpPost("conversations/{conversationId}/title")]
+        [EnableRateLimiting(RateLimitPolicies.ChatTitle)]
         public async Task<IActionResult> NameConversation(string conversationId, CancellationToken ct = default) =>
             _responseFactory.ToActionResult(await _titler.NameAsync(conversationId, ct));
 

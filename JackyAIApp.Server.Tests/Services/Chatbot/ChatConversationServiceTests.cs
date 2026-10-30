@@ -274,6 +274,8 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         [InlineData("  a\r\n\tb  ", "a b")]
         [InlineData("a\u3000b", "a b")]
         [InlineData("\n\t ", null)]
+        [InlineData("a\u202Eb\u200B c", "ab c")]
+        [InlineData("\u2066\u200B", null)]
         public void CleanTitle_IsOneLine(string typed, string? expected) =>
             Assert.Equal(expected, ChatConversationService.CleanTitle(typed));
     
