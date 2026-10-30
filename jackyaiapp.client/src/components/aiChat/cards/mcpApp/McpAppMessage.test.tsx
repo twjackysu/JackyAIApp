@@ -95,7 +95,7 @@ describe('an MCP App’s ui/message', () => {
 
   it('keeps the text on screen until the reader decides: a second one does not replace it', () => {
     const putInDraft = vi.fn();
-    const { fromApp } = mount(putInDraft);
+    const { fromApp, replies } = mount(putInDraft);
 
     fromApp(message);
     fromApp({
@@ -103,9 +103,29 @@ describe('an MCP App’s ui/message', () => {
       id: 8,
       params: { role: 'user', content: [{ type: 'text', text: '換掉的字' }] },
     });
+
+    // The app is told the second one was not shown, not that it was (D-211).
+    expect(replies).toContainEqual({ jsonrpc: '2.0', id: 7, result: {} });
+    expect(replies).toContainEqual({ jsonrpc: '2.0', id: 8, result: { isError: true } });
     act(() => button('放進輸入框')!.click());
 
     expect(putInDraft).toHaveBeenCalledWith('幫我把時間換成台北時間');
+  });
+
+  it('takes the next one once the reader has decided on the first', () => {
+    const putInDraft = vi.fn();
+    const { fromApp, replies, html } = mount(putInDraft);
+
+    fromApp(message);
+    act(() => button('不用')!.click());
+    fromApp({
+      ...message,
+      id: 8,
+      params: { role: 'user', content: [{ type: 'text', text: '第二則' }] },
+    });
+
+    expect(replies).toContainEqual({ jsonrpc: '2.0', id: 8, result: {} });
+    expect(html()).toContain('第二則');
   });
 
   it('is dropped on 不用', () => {

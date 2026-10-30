@@ -4,6 +4,7 @@ import {
   appMessageTextOf,
   HOST_CONTEXT_CHANGED,
   initializeResult,
+  messageRefused,
   linkOf,
   MAX_APP_MESSAGE_LENGTH,
   stepsFor,
@@ -257,10 +258,9 @@ describe('the bridge', () => {
         message(9, { role: 'user', content: [{ type: 'text', text: ' 幫我比較這兩天 ' }] }),
         takes,
       ),
-    ).toEqual([
-      { type: 'offerMessage', text: '幫我比較這兩天' },
-      { type: 'reply', message: { jsonrpc: '2.0', id: 9, result: {} } },
-    ]);
+    ).toEqual([{ type: 'offerMessage', id: 9, text: '幫我比較這兩天' }]);
+    // The card answers it; one it does not show is a message the host did not deliver.
+    expect(messageRefused(9)).toEqual({ jsonrpc: '2.0', id: 9, result: { isError: true } });
     expect(appMessageTextOf({ role: 'user', content: { type: 'text', text: '一則' } })).toBe(
       '一則',
     );

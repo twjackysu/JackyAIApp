@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { hairline } from '../../style';
 
-import { hostContextChanged, stepsFor, toolNotifications } from './appBridge';
+import { hostContextChanged, messageRefused, stepsFor, toolNotifications } from './appBridge';
 import { useAppDraft } from './appDraft';
 import { APP_SANDBOX, APP_START_HEIGHT, appCsp, appSrcDoc, frameHeight } from './appFrame';
 import {
@@ -134,7 +134,12 @@ function AppFrame({
   const [height, setHeight] = useState(APP_START_HEIGHT);
   const [offeredLink, setOfferedLink] = useState<string | null>(null);
   // The app asked to put words in the box (ui/message): shown here, in the box only once the reader presses (D-204).
-  const [offeredMessage, setOfferedMessage] = useState<string | null>(null);
+  const [offeredMessage, setOfferedMessageState] = useState<string | null>(null);
+  const offeredMessageRef = useRef<string | null>(null);
+  const setOfferedMessage = useCallback((text: string | null) => {
+    offeredMessageRef.current = text;
+    setOfferedMessageState(text);
+  }, []);
   const putInDraft = useAppDraft();
   const takesMessages = putInDraft !== null;
   const [callTool] = useCallFromMcpAppMutation();
@@ -242,10 +247,15 @@ function AppFrame({
             setHeight(h);
           }
         } else if (step.type === 'offerLink') setOfferedLink(step.url);
-        else if (step.type === 'offerMessage')
-          // One at a time: a new one never replaces the text the reader is reading (they could press on what they did not read).
-          setOfferedMessage((shown) => shown ?? step.text);
-        else if (step.type === 'callTool') {
+        else if (step.type === 'offerMessage') {
+          // One at a time: a new one never replaces the text the reader is reading (they could press on what they did not
+          // read), and the app is told this one was not shown rather than that it was (D-211).
+          if (offeredMessageRef.current !== null) post(messageRefused(step.id));
+          else {
+            setOfferedMessage(step.text);
+            post({ jsonrpc: '2.0', id: step.id, result: {} });
+          }
+        } else if (step.type === 'callTool') {
           const call = { id: step.id, name: step.name, arguments: step.arguments };
           const current = gateRef.current;
           if (isRefused(current, call.name)) fail(call.id, REFUSED_MESSAGE);
@@ -261,7 +271,18 @@ function AppFrame({
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [data, srcDoc, mode, takesMessages, post, fail, runCall, setGate, tellScheme]);
+  }, [
+    data,
+    srcDoc,
+    mode,
+    takesMessages,
+    post,
+    fail,
+    runCall,
+    setGate,
+    tellScheme,
+    setOfferedMessage,
+  ]);
 
   return (
     <Box>

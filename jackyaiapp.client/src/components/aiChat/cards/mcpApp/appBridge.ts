@@ -39,8 +39,11 @@ export type AppStep =
   | { type: 'resize'; height: unknown }
   /** Offer the reader to open this https address; the app cannot open it itself. */
   | { type: 'offerLink'; url: string }
-  /** Offer the reader to put this text in the box (`ui/message`); the app cannot send it itself. */
-  | { type: 'offerMessage'; text: string }
+  /**
+   * Offer the reader to put this text in the box (`ui/message`); the app cannot send it itself. The card answers it:
+   * `{}` once it is shown, `messageRefused` when another one is still waiting for the reader (D-211).
+   */
+  | { type: 'offerMessage'; id: JsonRpcId; text: string }
   /** Ask the server to run one of the connector's tools for the app (only one that reads, the server decides), then reply. */
   | { type: 'callTool'; id: JsonRpcId; name: string; arguments: Record<string, unknown> };
 
@@ -133,7 +136,7 @@ export function stepsFor(data: unknown, state: HostState): AppStep[] {
         return [refuse(id, -32601, 'Method not supported by this host: ui/message')];
       const text = appMessageTextOf(params);
       return text
-        ? [{ type: 'offerMessage', text }, reply(id, {})]
+        ? [{ type: 'offerMessage', id, text }]
         : [
             refuse(
               id,
@@ -170,6 +173,14 @@ export function toolNotifications(
     { jsonrpc: '2.0', method: 'ui/notifications/tool-input', params: { arguments: input } },
     { jsonrpc: '2.0', method: 'ui/notifications/tool-result', params: result },
   ];
+}
+
+/**
+ * The answer to a `ui/message` the card does not show: one is already waiting for the reader, and showing this one would
+ * replace words the reader may be reading (D-204). The extension's result for a message the host did not deliver.
+ */
+export function messageRefused(id: JsonRpcId): JsonRpcReply {
+  return { jsonrpc: '2.0', id, result: { isError: true } };
 }
 
 /** The notification that tells an app the host's light or dark changed (`hostContext.theme`, D-210). */
