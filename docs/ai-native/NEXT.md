@@ -69,6 +69,7 @@
 
 ## 2. 下一步（依序）
 
+0000000000000000000000000. **第 74 輪**：凍結前健康檢查，不動程式碼——前端 lint／test（1954 個）／build 全過、SHOWCASE demo 腳本的按鈕文字都對得上程式碼。**下一輪建議**：同第 73 輪，11/3 凍結前沒有 bug 回報或紅 CI 就**不動程式碼**；11/3 依 NEXT 2 再拍一次全站截圖；11/4–11/5 照下面 3 做 SHOWCASE 定稿。
 000000000000000000000000. **第 73 輪（D-258）**：做了凍結後清單的最後一項「confidential client 依授權伺服器的方式送 client secret」（註冊回應的 `token_endpoint_auth_method`，否則伺服器設定只列 post 不列 basic 才放表單；其他照舊 Basic；`McpOAuthGrant.SecretInBody`）。**凍結後清單已清空。下一輪建議**：11/3 凍結前沒有 bug 回報或紅 CI 就**不動程式碼**；11/4–11/5 照下面 3 做 SHOWCASE 定稿（狀態行改最終版、開發日誌補到最後一輪、`git rev-list --count --no-merges origin/master..HEAD`）。D-258 只動後端，畫面沒變，不用重拍截圖。
 00000000000000000000000. **第 72 輪（D-257）**：做了 D-254 留下的「MCP server 回 401 時先用 refresh token 換新再送一次」（工具呼叫、MCP App 讀取與呼叫；`WithCredentialsAsync`／`RenewRefusedAsync`；「測試連線」不走這條）。**下一輪建議**：照第 68～71 輪，11/3 凍結前沒有 bug 回報或紅 CI 就**不動程式碼**；若想再做一點，凍結後清單只剩 confidential client 依 `token_endpoint_auth_method` 選 basic／post（低，只有手填 secret 會碰到）——建議不做。11/4–11/5 照下面 3 做 SHOWCASE 定稿。
 0000000000000000000000. **第 71 輪（D-255、D-256）**：原生 connector（Google／Outlook／Jira 的 `ISiteTool`）的 API 錯誤處理審完——**所有 AI 相關的面都專門審過了**。修了：帳號連線 token 剩不到 60 秒先更新（`ConnectorService.RefreshAhead`）、Google 403 用量限制改說稍後再試。接受不修：已過期＋provider 暫時沒回應時工具說「還沒有連線（或連線已失效）」（要改 master 的 `IConnectorService` 介面）。**下一輪建議**：凍結（11/3）前沒有 bug 回報或紅 CI 就**不動程式碼**；11/4–11/5 照下面 3 做 SHOWCASE 定稿（狀態行改最終版、開發日誌補到最後一輪、`git rev-list --count --no-merges origin/master..HEAD`）。D-255／D-256 只動後端，畫面沒變，不用重拍截圖。
