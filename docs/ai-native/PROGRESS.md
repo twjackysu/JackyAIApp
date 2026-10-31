@@ -1,5 +1,13 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-31 19:42 – 第 75 輪（核對「合回 master 的檢查清單」，不動程式碼）
+
+- 開工：鎖不存在（`lock.py write`）；master 沒有新 commit（master 是 branch 的祖先，合併會是 fast-forward）；最新 CI 41182170464 綠。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`。
+- 照 NEXT（凍結前沒有 bug 或紅 CI 就不動程式碼），改做 SHOWCASE「合回 master 的檢查清單」對程式碼的核對：
+  - migration：`git diff origin/master...HEAD` 只新增 4 個 migration（＋Designer）與 ModelSnapshot，跟清單列的 4 個完全一致；時間戳都晚於 master 最後一個（`20261022142007_ConvertOtcVolumeToShares`）；`Drop*` 只出現在 `Down()`，`Up()` 沒有 Drop／Alter／Rename。
+  - 設定：branch 沒有改 `appsettings*.json`，新的程式碼只讀既有的 `ConnectorOptions`（`IOptions<ConnectorOptions>`），沒有新的 config section 或 secret——清單「不需要新的 secret」正確。
+- 清單不用改。沒有程式碼 push，CI 不觸發。
+
 ## 2026-10-31 17:42 – 第 74 輪（凍結前健康檢查，不動程式碼）
 
 - 開工：鎖不存在（`od` 產生 run_id，格式正確）；master 沒有新 commit（merge-base＝master 的 tip）；最新 CI 41182170464 綠。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。
