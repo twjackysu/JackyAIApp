@@ -1,5 +1,12 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-31 13:42 – 第 72 輪（MCP server 回 401 先換新 token 再送一次：D-257）
+
+- 開工：鎖不存在；master 沒有新 commit；最新 CI 41165788342 綠。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。`xxd` 不存在，鎖改用 `openssl rand -hex 6` 手寫（格式正確）。
+- 做 D-254 留下、NEXT 4 列為凍結後的那一項（凍結前還有時間、範圍小）：`McpServerException.Unauthorized`（只有 401）、`IMcpOAuthTokens.RenewRefusedAsync`（同一把鎖；別的請求已換過就用新的；有 refresh token 才換；拒絕回 null、沒回應 Unreachable）、`McpOAuthTokensExtensions.WithCredentialsAsync`（只重送一次）。用在 `McpConnectorTool` 與 `McpAppService` 的讀取、呼叫；「測試連線」不走（D-257）。換 token 的程式抽成 `McpOAuthTokens.RefreshAsync`，提前更新與 401 後更新共用。
+- 測試：`McpOAuthFlowTests` +6、`McpToolClientTests` 兩個加斷言。cscheck 0 個新診斷（中途 `McpApps.GetAsync` 的 `appUri` 在 cscheck 裡被 `row` 的錯誤型別打斷流程分析，改成先單獨判斷 `AppUriOf(uri) is not { } appUri`）。
+- CI 41174302287（fa856b8b）第一次就綠。前端沒有改動。統計：`rev-list --count --no-merges origin/master..HEAD` = 561（本輪收尾前）。
+
 ## 2026-10-31 11:42 – 第 71 輪（審查原生 connector 的 API 錯誤處理：修 D-255、D-256）
 
 - 開工：鎖不存在（`lock.py write`）；master 沒有新 commit（merge-base＝master 的 tip）；最新 CI 41157870504 綠。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。

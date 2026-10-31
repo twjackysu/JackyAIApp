@@ -505,7 +505,11 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   `McpOAuthException.Refused`) marks the connector NeedsAuth and keeps the client, while one the authorization server
   did not answer (a timeout, 429, 5xx) keeps the sign-in and fails that call as Unreachable, to try again. A refresh
   once sent is not stopped with the call (a rotated refresh token answered but not saved would be lost), and signing in
-  again keeps no refresh token of the sign-in before. A tool call the server answers with a JSON-RPC error is a failed
+  again keeps no refresh token of the sign-in before. A tool call, or an MCP App's read or call, that the server answers
+  401 (`McpServerException.Unauthorized`; not a 403, not a step-up) is sent once more with a renewed token when the sign-in
+  has a refresh token (`IMcpOAuthTokens.WithCredentialsAsync` → `RenewRefusedAsync`, under the same lock; the token another
+  request renewed meanwhile is taken as it is): a token given without `expires_in` is never refreshed ahead, and a server may
+  end one early. A 401 means the request was not taken, so a write is not run twice; a second 401 stands (D-257). A tool call the server answers with a JSON-RPC error is a failed
   result saying its code and message (the model can fix its arguments), not "unreachable". The redirect URI and the metadata URL come from `Connectors:CallbackBaseUrl` (`McpOAuthUrls`); an
   authorization server's own words never reach the reader, only an OAuth error code
 - A native connector is the site's own code calling a service's API with the reader's account connection (the
