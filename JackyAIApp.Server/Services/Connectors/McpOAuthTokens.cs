@@ -11,7 +11,9 @@ namespace JackyAIApp.Server.Services.Connectors
         /// <summary>
         /// The connector's credentials (<see cref="ConnectorSecrets.AuthOf"/>); for an OAuth sign-in whose access
         /// token expires within <see cref="McpOAuthTokens.RefreshAhead"/>, a new one first. A refresh the
-        /// authorization server refuses marks the connector NeedsAuth and leaves it without credentials.
+        /// authorization server refuses (<see cref="McpOAuthException.Refused"/>) marks the connector NeedsAuth and leaves
+        /// it without credentials; one it does not answer, for a token already expired, throws
+        /// <see cref="McpServerException"/> (<see cref="McpFailure.Unreachable"/>) and keeps the sign-in.
         /// </summary>
         Task<McpAuth> AuthOfAsync(SQL.ConnectorInstallation installation, CancellationToken ct);
 
@@ -63,23 +65,29 @@ namespace JackyAIApp.Server.Services.Connectors
 
                 try
                 {
+                    // Not the call's token from here on: an authorization server that rotates refresh tokens has spent the
+                    // old one once it answers, so a call stopped (or timed out) between its answer and the save would lose
+                    // the sign-in. The request's own timeout (McpOAuthDiscovery.RequestTimeout) still bounds the wait.
                     var tokens = await endpoints.RequestTokenAsync(new Uri(grant.TokenEndpoint), new Dictionary<string, string>
                     {
                         ["grant_type"] = "refresh_token",
                         ["refresh_token"] = grant.RefreshToken,
                         ["resource"] = grant.Resource,
-                    }, grant.ClientId, grant.ClientSecret, ct);
+                    }, grant.ClientId, grant.ClientSecret, CancellationToken.None);
                     grant = McpOAuthFlow.WithTokens(grant, tokens, now);
                     row.EncryptedSecret = secrets.Seal(grant);
                     row.UpdatedAt = now;
-                    await db.SaveChangesAsync(ct);
+                    await db.SaveChangesAsync(CancellationToken.None);
                     return McpAuth.BearerToken(grant.AccessToken!);
                 }
                 catch (McpOAuthException ex)
                 {
-                    logger.LogWarning(ex, "Connector {InstallationId}'s sign-in could not be refreshed", row.Id);
+                    logger.LogWarning(ex, "Connector {InstallationId}'s sign-in could not be refreshed (refused: {Refused})", row.Id, ex.Refused);
                     // Still valid for a few seconds: use it; the next request tries again.
-                    return grant.ExpiresAt > now ? secrets.AuthOf(row) : await SignedOutAsync(db, row, grant, "登入已過期，請重新授權。", ct);
+                    if (grant.ExpiresAt > now) return secrets.AuthOf(row);
+                    if (ex.Refused) return await SignedOutAsync(db, row, grant, "登入已過期，請重新授權。", ct);
+                    // No answer, or one that may pass (a timeout, 503): the sign-in stays, and the next request tries again.
+                    throw new McpServerException(McpFailure.Unreachable, "授權伺服器暫時無法更新登入，請稍後再試。", ex);
                 }
             }
             finally

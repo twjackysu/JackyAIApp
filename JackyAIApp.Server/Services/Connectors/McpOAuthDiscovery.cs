@@ -31,7 +31,15 @@ namespace JackyAIApp.Server.Services.Connectors
         string? Scope);
 
     /// <summary>Why a server's sign-in could not be worked out, in words for the reader.</summary>
-    public sealed class McpOAuthException(string message, Exception? inner = null) : Exception(message, inner);
+    public sealed class McpOAuthException(string message, Exception? inner = null) : Exception(message, inner)
+    {
+        /// <summary>
+        /// The authorization server answered and said no: a 400 or 401 with an OAuth error code (RFC 6749 §5.2, such as
+        /// <c>invalid_grant</c>). Not set when it did not answer, or answered in a way that may pass (a timeout, 429, 5xx,
+        /// a page that is not JSON): a refresh that fails like that keeps the sign-in, to try again.
+        /// </summary>
+        public bool Refused { get; init; }
+    }
 
     public interface IMcpOAuthDiscovery
     {

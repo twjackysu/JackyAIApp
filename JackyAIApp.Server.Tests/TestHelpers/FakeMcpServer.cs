@@ -61,6 +61,9 @@ namespace JackyAIApp.Server.Tests.TestHelpers
         /// <summary>The <c>tools/call</c> result as JSON, in place of the notes tools' own.</summary>
         public string? CallResultJson { get; init; }
 
+        /// <summary>A JSON-RPC error every <c>tools/call</c> is answered with, in place of a result.</summary>
+        public (int Code, string Message)? CallError { get; init; }
+
         /// <summary>
         /// Lists a tool's <c>_meta.ui</c> only to a client whose <c>initialize</c> said it draws MCP Apps
         /// (<c>capabilities.extensions["io.modelcontextprotocol/ui"]</c>), as the extension's server SDK has a server do.
@@ -100,6 +103,17 @@ namespace JackyAIApp.Server.Tests.TestHelpers
             }
             if (message["id"] is not { } id) return new HttpResponseMessage(HttpStatusCode.Accepted);
 
+            if (method == "tools/call" && CallError is var (code, text))
+            {
+                var error = new JsonObject
+                {
+                    ["jsonrpc"] = "2.0", ["id"] = id.DeepClone(), ["error"] = new JsonObject { ["code"] = code, ["message"] = text },
+                };
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(error.ToJsonString(), Encoding.UTF8, "application/json"),
+                };
+            }
             if (method == "initialize") InitializeParams = (JsonObject?)message["params"]?.DeepClone();
             JsonNode result = method switch
             {

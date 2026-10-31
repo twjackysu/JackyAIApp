@@ -304,7 +304,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         {
             var id = Installed(SignedIn(TimeSpan.FromSeconds(-5)));
             _endpoints.Setup(e => e.RequestTokenAsync(It.IsAny<Uri>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
-                .ThrowsAsync(new McpOAuthException("refused"));
+                .ThrowsAsync(new McpOAuthException("refused") { Refused = true });
 
             Assert.Equal(McpAuth.None, await Tokens().AuthOfAsync(Row(id), default));
 
@@ -312,6 +312,41 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Equal("NeedsAuth", row.LastStatus);
             Assert.Equal("dyn-1", _secrets.GrantOf(row)!.ClientId);
             Assert.Null(_secrets.GrantOf(row)!.AccessToken);
+        }
+
+        [Fact]
+        public async Task AnExpiredSignIn_WhoseAuthorizationServerDoesNotAnswer_KeepsTheSignIn_AndTheCallFails()
+        {
+            var id = Installed(SignedIn(TimeSpan.FromSeconds(-5)));
+            var statusBefore = Row(id).LastStatus;
+            _endpoints.Setup(e => e.RequestTokenAsync(It.IsAny<Uri>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new McpOAuthException("授權伺服器沒有發出 token。"));
+
+            var ex = await Assert.ThrowsAsync<McpServerException>(() => Tokens().AuthOfAsync(Row(id), default));
+
+            Assert.Equal(McpFailure.Unreachable, ex.Failure);
+            var row = Row(id);
+            Assert.Equal(statusBefore, row.LastStatus);
+            Assert.Equal("rt-1", _secrets.GrantOf(row)!.RefreshToken);
+        }
+
+        [Fact]
+        public async Task ARefresh_ThatHasBegun_IsNotStoppedWithTheCall()
+        {
+            // A rotated refresh token the server has handed out must be saved, even when the call that asked has stopped.
+            var id = Installed(SignedIn(TimeSpan.FromSeconds(30)));
+            using var stop = new CancellationTokenSource();
+            _endpoints.Setup(e => e.RequestTokenAsync(It.IsAny<Uri>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<string>(), It.IsAny<string?>(),
+                    It.Is<CancellationToken>(t => !t.CanBeCanceled)))
+                .Returns(() =>
+                {
+                    stop.Cancel();
+                    return Task.FromResult(new McpOAuthTokenResponse("at-2", "rt-2", TimeSpan.FromHours(1)));
+                });
+
+            Assert.Equal(McpAuth.BearerToken("at-2"), await Tokens().AuthOfAsync(Row(id), stop.Token));
+
+            Assert.Equal("rt-2", _secrets.GrantOf(Row(id))!.RefreshToken);
         }
 
         [Fact]
@@ -356,7 +391,22 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
             Assert.Contains("invalid_grant", ex.Message);
             Assert.DoesNotContain("ignore", ex.Message);
+            Assert.True(ex.Refused);
             Assert.Contains("client_id=id", web.Posts.Single().Body);
+        }
+
+        [Theory]
+        [InlineData(HttpStatusCode.ServiceUnavailable, """{ "error": "temporarily_unavailable" }""")]
+        [InlineData(HttpStatusCode.TooManyRequests, """{ "error": "slow_down" }""")]
+        [InlineData(HttpStatusCode.BadGateway, """{ "status": "down" }""")]
+        public async Task AnAnswerThatMayPass_IsNotARefusal(HttpStatusCode status, string json)
+        {
+            var web = new FakeWeb().Json("https://auth.example.com/token", json, status);
+
+            var ex = await Assert.ThrowsAsync<McpOAuthException>(() => new McpOAuthEndpoints(web).RequestTokenAsync(
+                new Uri("https://auth.example.com/token"), new Dictionary<string, string>(), "id", null, default));
+
+            Assert.False(ex.Refused);
         }
 
         [Fact]

@@ -55,6 +55,32 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Fact]
+        public async Task ACallTheServerAnswersWithAJsonRpcError_IsAFailedOutcome_SayingWhy()
+        {
+            // Bad arguments are the call's failure, not the server's: the model reads why and can try again.
+            var server = new FakeMcpServer { CallError = (-32602, "missing required argument q") };
+
+            var outcome = await Client(server).CallToolAsync(Server, McpAuth.None, "search_notes",
+                JsonSerializer.SerializeToElement(new { }), CancellationToken.None);
+
+            Assert.True(outcome.IsError);
+            Assert.Contains("-32602", outcome.Text);
+            Assert.Contains("missing required argument q", outcome.Text);
+            Assert.NotNull(outcome.AppResultJson);
+        }
+
+        [Fact]
+        public void AJsonRpcError_OutsideACall_SaysTheServerAnswered_WithoutItsText()
+        {
+            var ex = McpToolClient.Classify(
+                new ModelContextProtocol.McpProtocolException("secret internals", ModelContextProtocol.McpErrorCode.MethodNotFound), timedOut: false);
+
+            Assert.Equal(McpFailure.Unreachable, ex.Failure);
+            Assert.Contains("-32601", ex.Message);
+            Assert.DoesNotContain("secret", ex.Message);
+        }
+
+        [Fact]
         public async Task TheCredentials_GoWithEveryRequest()
         {
             var server = new FakeMcpServer { RequiredHeader = ("X-API-Key", "k1") };

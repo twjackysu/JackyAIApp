@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
@@ -180,7 +181,18 @@ namespace JackyAIApp.Server.Services.Connectors
                 : new Dictionary<string, JsonElement>();
             return await WithClientAsync(server, auth, async (client, token) =>
             {
-                var result = await client.CallToolAsync(new CallToolRequestParams { Name = tool, Arguments = args }, token);
+                CallToolResult result;
+                try
+                {
+                    result = await client.CallToolAsync(new CallToolRequestParams { Name = tool, Arguments = args }, token);
+                }
+                catch (McpProtocolException ex)
+                {
+                    // A JSON-RPC error (bad arguments, a tool the server no longer has): the server answered, so the call
+                    // failed, not the server. The model reads why and can fix its arguments; the text is the server's,
+                    // and a tool's output is untrusted data already (design/06 §2).
+                    result = ProtocolErrorResult(ex);
+                }
                 return new McpToolOutcome(TextOf(result), result.IsError == true, AppResultOf(result));
             }, ct);
         }
@@ -269,6 +281,13 @@ namespace JackyAIApp.Server.Services.Connectors
             return json.Length > MaxAppResultChars ? null : json;
         }
 
+        /// <summary>A tool call the server answered with a JSON-RPC error, as the failed result the model and an app read.</summary>
+        internal static CallToolResult ProtocolErrorResult(McpProtocolException ex) => new()
+        {
+            Content = [new TextContentBlock { Text = $"伺服器拒絕了這次呼叫（JSON-RPC {(int)ex.ErrorCode}）：{Cut(ex.Message)}" }],
+            IsError = true,
+        };
+
         private async Task<T> WithClientAsync<T>(
             Uri server, McpAuth auth, Func<McpClient, CancellationToken, Task<T>> request, CancellationToken ct)
         {
@@ -346,6 +365,9 @@ namespace JackyAIApp.Server.Services.Connectors
                     return new McpServerException(McpFailure.Blocked, "這個網址不是公開的網路位址，基於安全不能連線。", ex);
                 if (e is HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden })
                     return new McpServerException(McpFailure.NeedsAuth, "伺服器需要登入，或不接受目前的認證資料。", ex);
+                // It answered, with a JSON-RPC error: reachable, and the code says why (its message is the server's own text).
+                if (e is McpProtocolException protocol)
+                    return new McpServerException(McpFailure.Unreachable, $"伺服器回報錯誤（JSON-RPC {(int)protocol.ErrorCode}）。", ex);
             }
             return timedOut
                 ? new McpServerException(McpFailure.Unreachable, "伺服器沒有在時限內回應。", ex)

@@ -137,7 +137,18 @@ namespace JackyAIApp.Server.Services.Connectors
             if (row?.ServerUrl == null) return ServiceResult.Fail(ErrorCodes.NotFound, "找不到這個 connector。");
 
             var started = time.GetTimestamp();
-            var (ok, blocked) = await InstallationTools.RefreshAsync(row, await tokens.AuthOfAsync(row, ct), mcp, time, ct);
+            McpAuth auth;
+            try
+            {
+                auth = await tokens.AuthOfAsync(row, ct);
+            }
+            catch (McpServerException ex)
+            {
+                // The sign-in could not be refreshed just now; it is kept, so the connector's status stays as it was.
+                return ServiceResult.Ok(new ConnectionTestResultDto(false, (long)time.GetElapsedTime(started).TotalMilliseconds,
+                    ex.Message, ConnectorCatalogService.InstalledDto(row)));
+            }
+            var (ok, blocked) = await InstallationTools.RefreshAsync(row, auth, mcp, time, ct);
             var latency = (long)time.GetElapsedTime(started).TotalMilliseconds;
             await db.SaveChangesAsync(ct);
             return ServiceResult.Ok(new ConnectionTestResultDto(ok, latency, ok ? null : blocked ?? row.LastError,

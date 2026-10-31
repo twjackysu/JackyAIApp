@@ -149,7 +149,11 @@ namespace JackyAIApp.Server.Services.Connectors
                     if (response.IsSuccessStatusCode && json != null) return json.Value;
                     // The OAuth error code (RFC 6749 §5.2) is a short word of a fixed alphabet; its description is the server's own text.
                     var code = json is { } e ? Text(e, "error") : null;
-                    throw new McpOAuthException(code != null && ErrorCode().IsMatch(code) ? $"{failure}（{code}）" : failure);
+                    var known = code != null && ErrorCode().IsMatch(code);
+                    throw new McpOAuthException(known ? $"{failure}（{code}）" : failure)
+                    {
+                        Refused = known && response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized,
+                    };
                 }
                 catch (Exception ex) when (!ct.IsCancellationRequested && ex is not McpOAuthException)
                 {
