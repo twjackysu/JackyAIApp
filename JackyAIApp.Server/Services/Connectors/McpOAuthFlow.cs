@@ -156,7 +156,8 @@ namespace JackyAIApp.Server.Services.Connectors
                     ["code_verifier"] = pending.Verifier,
                     ["resource"] = grant.Resource,
                 }, grant.ClientId, grant.ClientSecret, ct);
-                grant = WithTokens(grant, tokens, time.GetUtcNow().UtcDateTime);
+                // A new sign-in: none of the one before is kept (its refresh token would bring back its narrower scope).
+                grant = WithTokens(grant with { RefreshToken = null }, tokens, time.GetUtcNow().UtcDateTime);
             }
             catch (McpOAuthException ex)
             {

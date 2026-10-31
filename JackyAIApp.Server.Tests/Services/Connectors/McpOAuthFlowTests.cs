@@ -162,9 +162,9 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Equal(ErrorCodes.BadRequest, (await Flow().StartAsync("plain", default)).Error);
         }
 
-        private async Task<(string Id, string State, string Challenge)> StartedAsync()
+        private async Task<(string Id, string State, string Challenge)> StartedAsync(McpOAuthGrant? signedInBefore = null)
         {
-            var id = Installed(McpOAuthGrant.For(AuthServer, "dyn-1", null));
+            var id = Installed(signedInBefore ?? McpOAuthGrant.For(AuthServer, "dyn-1", null));
             var query = HttpUtility.ParseQueryString(new Uri((await Flow().StartAsync(id, default)).Data!.RedirectUrl).Query);
             return (id, query["state"]!, query["code_challenge"]!);
         }
@@ -230,6 +230,22 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
             Assert.Equal("invalid_request", outcome.Error);
             _endpoints.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task SigningInAgain_KeepsNoRefreshTokenOfTheSignInBefore()
+        {
+            // The old refresh token is of the old sign-in (its scope, before a step-up): refreshing with it would bring that back.
+            var (id, state, _) = await StartedAsync(McpOAuthGrant.For(AuthServer, "dyn-1", null) with { AccessToken = "at-0", RefreshToken = "rt-0" });
+            _endpoints.Setup(e => e.RequestTokenAsync(AuthServer.TokenEndpoint, It.IsAny<IReadOnlyDictionary<string, string>>(), "dyn-1", null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new McpOAuthTokenResponse("at-1", null, TimeSpan.FromHours(1)));
+            _mcp.Setup(m => m.ListToolsAsync(Url, McpAuth.BearerToken("at-1"), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new McpServerTools("Notes", []));
+
+            Assert.True((await Flow().CompleteAsync("code-1", state, "https://auth.example.com", null, default)).Ok);
+
+            var grant = _secrets.GrantOf(Row(id))!;
+            Assert.Equal(("at-1", (string?)null), (grant.AccessToken, grant.RefreshToken));
         }
 
         [Fact]
