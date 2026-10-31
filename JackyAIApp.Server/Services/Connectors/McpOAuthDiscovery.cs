@@ -20,6 +20,11 @@ namespace JackyAIApp.Server.Services.Connectors
     /// <param name="IssParameterSupported">The authorization server always sends <c>iss</c> back.</param>
     /// <param name="ClientIdMetadataDocumentSupported">It takes a URL as client id (Client ID Metadata Documents).</param>
     /// <param name="Scope">What to ask for: the 401's scope, else every scope the server lists; null for none.</param>
+    /// <param name="SecretInBody">
+    /// A client secret goes in the token request's form (<c>client_secret_post</c>), not a Basic header: only when
+    /// the server lists its token endpoint's methods with <c>client_secret_post</c> and without <c>client_secret_basic</c>,
+    /// basic being the default when it lists none (RFC 8414 §2). Only a secret the reader typed meets it (D-258).
+    /// </param>
     public sealed record McpOAuthServer(
         string Resource,
         string Issuer,
@@ -28,7 +33,8 @@ namespace JackyAIApp.Server.Services.Connectors
         Uri? RegistrationEndpoint,
         bool ClientIdMetadataDocumentSupported,
         bool IssParameterSupported,
-        string? Scope);
+        string? Scope,
+        bool SecretInBody = false);
 
     /// <summary>Why a server's sign-in could not be worked out, in words for the reader.</summary>
     public sealed class McpOAuthException(string message, Exception? inner = null) : Exception(message, inner)
@@ -148,8 +154,16 @@ namespace JackyAIApp.Server.Services.Connectors
                 HttpsUri(Text(meta, "registration_endpoint")),
                 Bool(meta, "client_id_metadata_document_supported"),
                 Bool(meta, "authorization_response_iss_parameter_supported"),
-                string.IsNullOrWhiteSpace(scope) ? null : scope.Trim());
+                string.IsNullOrWhiteSpace(scope) ? null : scope.Trim(),
+                SecretInBodyFor(Strings(meta, "token_endpoint_auth_methods_supported")));
         }
+
+        /// <summary>
+        /// Whether a client secret goes in the form (<see cref="McpOAuthServer.SecretInBody"/>): <c>client_secret_post</c>
+        /// listed and <c>client_secret_basic</c> not, as the server lists its methods (registered names are case-sensitive).
+        /// </summary>
+        internal static bool SecretInBodyFor(IReadOnlyCollection<string> methods) =>
+            methods.Contains("client_secret_post") && !methods.Contains("client_secret_basic");
 
         /// <summary>The challenge in a 401's <c>WWW-Authenticate</c>; empty when it names nothing.</summary>
         internal static McpAuthChallenge ChallengeOf(HttpHeaderValueCollection<AuthenticationHeaderValue> headers)

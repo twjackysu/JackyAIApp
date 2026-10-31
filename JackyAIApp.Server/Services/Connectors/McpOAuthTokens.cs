@@ -222,7 +222,7 @@ namespace JackyAIApp.Server.Services.Connectors
                 ["grant_type"] = "refresh_token",
                 ["refresh_token"] = grant.RefreshToken!,
                 ["resource"] = grant.Resource,
-            }, grant.ClientId, grant.ClientSecret, CancellationToken.None);
+            }, grant.ClientId, grant.ClientSecret, grant.SecretInBody, CancellationToken.None);
             grant = McpOAuthFlow.WithTokens(grant, tokens, now);
             row.EncryptedSecret = secrets.Seal(grant);
             row.UpdatedAt = now;

@@ -180,6 +180,29 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Fact]
+        public void ASecretGoesInTheForm_OnlyWhenTheServerTakesPostAndNotBasic()
+        {
+            Assert.False(McpOAuthDiscovery.SecretInBodyFor([]));
+            Assert.False(McpOAuthDiscovery.SecretInBodyFor(["client_secret_basic", "client_secret_post"]));
+            Assert.False(McpOAuthDiscovery.SecretInBodyFor(["none", "private_key_jwt"]));
+            Assert.True(McpOAuthDiscovery.SecretInBodyFor(["none", "client_secret_post"]));
+        }
+
+        [Fact]
+        public async Task TheMetadataSays_WhetherTheSecretGoesInTheForm()
+        {
+            var web = new FakeWeb()
+                .Json("https://mcp.example.com/.well-known/oauth-protected-resource/mcp", Prm)
+                .Json("https://auth.example.com/.well-known/oauth-authorization-server",
+                    AsMetadata.Replace("\"authorization_response_iss_parameter_supported\": true",
+                        "\"authorization_response_iss_parameter_supported\": true, \"token_endpoint_auth_methods_supported\": [\"none\", \"client_secret_post\"]"));
+
+            var found = await new McpOAuthDiscovery(web).DiscoverAsync(Server, new McpAuthChallenge(null, null), default);
+
+            Assert.True(found.SecretInBody);
+        }
+
+        [Fact]
         public void HowWeBecomeAClient_PrefersRegistering_ThenOurMetadataDocument()
         {
             var server = new McpOAuthServer("r", "https://a", new Uri("https://a/x"), new Uri("https://a/t"), new Uri("https://a/r"), true, false, null);

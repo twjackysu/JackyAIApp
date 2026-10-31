@@ -494,7 +494,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   without PKCE S256 it is refused); every fetch is https only, through `SafeHttp`, at most 64KB. `McpOAuthFlow`
   becomes its client when the connector is added (dynamic registration when the server offers it; else our Client
   ID Metadata Document, `GET api/connectors/oauth/client-metadata`, when the server takes one and the site is on a
-  public https address; else the client id the reader typed — the reader's own id wins), sends the reader there (`POST
+  public https address; else the client id the reader typed — the reader's own id wins; a client secret, the reader's or one a
+  registration gave anyway, goes as Basic unless the registration says `client_secret_post` or the server's
+  `token_endpoint_auth_methods_supported` lists post and not basic, `McpOAuthGrant.SecretInBody`, D-258), sends the reader there (`POST
   installations/{id}/authorize`: PKCE S256, `resource`, `scope`, a signed `state`; the verifier stays in
   `IMemoryCache` on the server, 10 minutes, once), and takes them back at `GET api/connectors/callback/mcp` (a
   literal route, matched before the account connections' `callback/{provider}`): the state, then that the reader signed

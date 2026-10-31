@@ -12,7 +12,8 @@ namespace JackyAIApp.Server.Services.Connectors
     /// <summary>
     /// A reader's OAuth sign-in to one MCP server, as stored (encrypted, <see cref="ConnectorSecrets"/>): the
     /// authorization server it was worked out from (<see cref="McpOAuthServer"/>), the client we are there,
-    /// and the tokens once the reader signed in.
+    /// and the tokens once the reader signed in. <paramref name="SecretInBody"/>: our client secret goes in the token
+    /// request's form rather than a Basic header (D-258); false in a grant stored before it, as for nearly every server.
     /// </summary>
     public sealed record McpOAuthGrant(
         string Issuer,
@@ -25,13 +26,25 @@ namespace JackyAIApp.Server.Services.Connectors
         string? ClientSecret,
         string? AccessToken = null,
         string? RefreshToken = null,
-        DateTime? ExpiresAt = null)
+        DateTime? ExpiresAt = null,
+        bool SecretInBody = false)
     {
-        /// <summary>The sign-in, before the reader signed in, for a server and the client we are there.</summary>
-        public static McpOAuthGrant For(McpOAuthServer server, string clientId, string? clientSecret) => new(
+        /// <summary>
+        /// The sign-in, before the reader signed in, for a server and the client we are there: a secret goes where the
+        /// registration said (<paramref name="secretInBody"/>), else where the server's metadata does.
+        /// </summary>
+        public static McpOAuthGrant For(McpOAuthServer server, string clientId, string? clientSecret, bool? secretInBody = null) => new(
             server.Issuer, server.IssParameterSupported, server.AuthorizationEndpoint.ToString(), server.TokenEndpoint.ToString(),
-            server.Resource, server.Scope, clientId, clientSecret);
+            server.Resource, server.Scope, clientId, clientSecret, SecretInBody: secretInBody ?? server.SecretInBody);
     }
+
+    /// <summary>
+    /// The client a dynamic registration made us: its id, a secret when the server gave one anyway, and whether that
+    /// secret goes in the form (the registration's <c>token_endpoint_auth_method</c> is <c>client_secret_post</c>;
+    /// <c>client_secret_basic</c> is its default, RFC 7591 §2). Null when it named no method we know, so the server's
+    /// metadata decides.
+    /// </summary>
+    public sealed record McpOAuthRegistration(string ClientId, string? ClientSecret, bool? SecretInBody = null);
 
     /// <summary>
     /// The site's own addresses in an MCP sign-in: where the authorization server sends the reader back, and
@@ -74,11 +87,14 @@ namespace JackyAIApp.Server.Services.Connectors
     public interface IMcpOAuthEndpoints
     {
         /// <summary>Dynamic client registration (RFC 7591) as a public client. Throws <see cref="McpOAuthException"/>.</summary>
-        Task<(string ClientId, string? ClientSecret)> RegisterAsync(Uri registrationEndpoint, string redirectUri, CancellationToken ct);
+        Task<McpOAuthRegistration> RegisterAsync(Uri registrationEndpoint, string redirectUri, CancellationToken ct);
 
-        /// <summary>A token request (<paramref name="form"/> without the client's credentials, which this adds). Throws <see cref="McpOAuthException"/>.</summary>
+        /// <summary>
+        /// A token request (<paramref name="form"/> without the client's credentials, which this adds: a secret as Basic,
+        /// or in the form when <paramref name="secretInBody"/>). Throws <see cref="McpOAuthException"/>.
+        /// </summary>
         Task<McpOAuthTokenResponse> RequestTokenAsync(
-            Uri tokenEndpoint, IReadOnlyDictionary<string, string> form, string clientId, string? clientSecret, CancellationToken ct);
+            Uri tokenEndpoint, IReadOnlyDictionary<string, string> form, string clientId, string? clientSecret, bool secretInBody, CancellationToken ct);
     }
 
     /// <summary>
@@ -90,7 +106,7 @@ namespace JackyAIApp.Server.Services.Connectors
     {
         public const string ClientName = "Jacky Studio";
 
-        public async Task<(string ClientId, string? ClientSecret)> RegisterAsync(Uri registrationEndpoint, string redirectUri, CancellationToken ct)
+        public async Task<McpOAuthRegistration> RegisterAsync(Uri registrationEndpoint, string redirectUri, CancellationToken ct)
         {
             using var http = Client();
             var body = new Dictionary<string, object>
@@ -105,11 +121,17 @@ namespace JackyAIApp.Server.Services.Connectors
                 "無法向授權伺服器註冊（dynamic client registration）。", ct);
             var clientId = Text(json, "client_id");
             if (string.IsNullOrEmpty(clientId)) throw new McpOAuthException("授權伺服器的註冊回應沒有 client_id。");
-            return (clientId, Text(json, "client_secret"));
+            var secretInBody = Text(json, "token_endpoint_auth_method") switch
+            {
+                "client_secret_post" => true,
+                "client_secret_basic" => false,
+                _ => (bool?)null,
+            };
+            return new McpOAuthRegistration(clientId, Text(json, "client_secret"), secretInBody);
         }
 
         public async Task<McpOAuthTokenResponse> RequestTokenAsync(
-            Uri tokenEndpoint, IReadOnlyDictionary<string, string> form, string clientId, string? clientSecret, CancellationToken ct)
+            Uri tokenEndpoint, IReadOnlyDictionary<string, string> form, string clientId, string? clientSecret, bool secretInBody, CancellationToken ct)
         {
             using var http = Client();
             var fields = new Dictionary<string, string>(form);
@@ -118,9 +140,15 @@ namespace JackyAIApp.Server.Services.Connectors
             {
                 fields["client_id"] = clientId;
             }
+            else if (secretInBody)
+            {
+                // client_secret_post (RFC 6749 §2.3.1), for a server that does not take basic.
+                fields["client_id"] = clientId;
+                fields["client_secret"] = clientSecret;
+            }
             else
             {
-                // client_secret_basic, which every authorization server supports (RFC 6749 §2.3.1).
+                // client_secret_basic, the default every authorization server must support (RFC 6749 §2.3.1).
                 var basic = $"{Uri.EscapeDataString(clientId)}:{Uri.EscapeDataString(clientSecret)}";
                 request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(basic)));
             }

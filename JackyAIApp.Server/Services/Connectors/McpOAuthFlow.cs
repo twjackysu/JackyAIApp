@@ -78,8 +78,8 @@ namespace JackyAIApp.Server.Services.Connectors
                 case "cimd":
                     return McpOAuthGrant.For(found, site.ClientMetadataUrl!, null);
                 case "dcr":
-                    var (clientId, clientSecret) = await endpoints.RegisterAsync(found.RegistrationEndpoint!, site.RedirectUri, ct);
-                    return McpOAuthGrant.For(found, clientId, clientSecret);
+                    var registered = await endpoints.RegisterAsync(found.RegistrationEndpoint!, site.RedirectUri, ct);
+                    return McpOAuthGrant.For(found, registered.ClientId, registered.ClientSecret, registered.SecretInBody);
                 default:
                     throw new McpOAuthException("這個授權伺服器不接受自動註冊，請先在它那邊建立 OAuth app，再填入 client id。");
             }
@@ -155,7 +155,7 @@ namespace JackyAIApp.Server.Services.Connectors
                     ["redirect_uri"] = urls.Urls.RedirectUri,
                     ["code_verifier"] = pending.Verifier,
                     ["resource"] = grant.Resource,
-                }, grant.ClientId, grant.ClientSecret, ct);
+                }, grant.ClientId, grant.ClientSecret, grant.SecretInBody, ct);
                 // A new sign-in: none of the one before is kept (its refresh token would bring back its narrower scope).
                 grant = WithTokens(grant with { RefreshToken = null }, tokens, time.GetUtcNow().UtcDateTime);
             }
