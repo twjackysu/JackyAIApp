@@ -1,5 +1,12 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-31 15:42 – 第 73 輪（client secret 依授權伺服器的方式送出：D-258）
+
+- 開工：鎖不存在（`xxd` 不存在，改用 `od` 產生 run_id，格式正確）；master 沒有新 commit；最新 CI 41174302287 綠。`add_repo` 仍不存在，重新 clone `feature/ai-native`。
+- 做凍結後清單的最後一項（範圍小、只在授權伺服器明確不收 Basic 時才改變行為）：`McpOAuthServer.SecretInBody`（`token_endpoint_auth_methods_supported` 列 post 不列 basic）、`McpOAuthRegistration`（DCR 回應的 `token_endpoint_auth_method`）、`McpOAuthGrant.SecretInBody`（尾端預設 false，舊的登入不變）、`RequestTokenAsync` 多一個 `secretInBody`。server CLAUDE.md 補一句。
+- 測試：`McpOAuthDiscoveryTests` +2、`McpOAuthFlowTests` +4（其中一個 Theory 4 例）；既有 13 個 mock setup 補上新參數。cscheck 0 個新診斷。
+- CI 41182170464（7b26e2a8）第一次就綠。前端沒有改動。統計：`rev-list --count --no-merges origin/master..HEAD` = 566（本輪收尾前，含這次文件 commit）。
+
 ## 2026-10-31 13:42 – 第 72 輪（MCP server 回 401 先換新 token 再送一次：D-257）
 
 - 開工：鎖不存在；master 沒有新 commit；最新 CI 41165788342 綠。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。`xxd` 不存在，鎖改用 `openssl rand -hex 6` 手寫（格式正確）。
