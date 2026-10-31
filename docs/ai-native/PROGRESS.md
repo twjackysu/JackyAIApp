@@ -1,5 +1,16 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-31 09:42 – 第 70 輪（審查 MCP client 協定層與 OAuth token 更新：修 D-251～D-254）
+
+- 開工：鎖不存在（用 `lock.py write`）；master 沒有新 commit；最新 CI 41122644924 綠。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。
+- 一個 general-purpose subagent（不帶我的結論）審 `McpToolClient`、`McpOAuth*`、`ConnectorToolSource`、`CachedTools`、`ResponseSizeLimit`、`SafeHttp` 對照 MCP Streamable HTTP 與 OAuth 2.1。逐條讀程式碼確認後修：
+  - **D-251**（高）：已過期的登入遇上授權伺服器一次逾時／503 就被清掉 refresh token → 只有 400／401 帶錯誤碼才登出，其他保留、這次呼叫 Unreachable；「測試連線」接住這個例外。
+  - **D-252**（中）：換 token 已送出後不再被呼叫的取消打斷（輪替的 refresh token 會遺失）。
+  - **D-253**（中）：工具呼叫的 JSON-RPC 錯誤回失敗結果附代碼與訊息；其他請求說「伺服器回報錯誤（代碼）」。用 SDK v1.3.0 原始碼（GitHub）確認 `McpProtocolException.ErrorCode` 與遠端錯誤的訊息格式。
+  - **D-254**（低）：重新授權不沿用舊 refresh token。其餘低風險記在 D-254（接受）。
+- 測試：新增 6 個（暫時失敗保留登入、更新不被取消、Refused 只在 400/401、JSON-RPC 錯誤經 `FakeMcpServer.CallError` 走真的 SDK、Classify、重新授權）；改 1 個（`Refused = true`）。cscheck 0 個新診斷（SDK 型別身分雜訊除外，見 NEXT 1）。
+- CI 41157482759（bce39d22）、41157870504（c118d518）第一次就綠。前端沒有改動（lint 過）。
+
 ## 2026-10-31 07:42 – 第 69 輪（合併前安全檢查，不改程式碼）
 
 - 開工：鎖不存在；master 沒有新 commit（merge-base＝`origin/master` 的 tip，合回去是 fast-forward）；最新 CI 41122644924 綠。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。這輪寫鎖時忘了用 `.loop/lock.py`，`run_id` 是空字串（`expires_at` 正確，不影響判斷）——下一輪照 NEXT 0 用 `lock.py write`。

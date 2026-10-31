@@ -501,8 +501,12 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   in here is the one who started it (else `wrong_account`: a sign-in URL sent to someone else must not put their account
   into the sender's connector; the account connections' callback checks the same), then `iss` (RFC 9207), then the code for tokens, kept encrypted as a `McpOAuthGrant`. `McpOAuthTokens` gives each call its credentials,
   refreshing a token due within 60s, one refresh at a time per connector (a rotated refresh token spent twice
-  would end the sign-in); a refused refresh of an expired token marks the connector NeedsAuth and keeps the
-  client. The redirect URI and the metadata URL come from `Connectors:CallbackBaseUrl` (`McpOAuthUrls`); an
+  would end the sign-in); a refused refresh of an expired token (a 400/401 with an OAuth error code,
+  `McpOAuthException.Refused`) marks the connector NeedsAuth and keeps the client, while one the authorization server
+  did not answer (a timeout, 429, 5xx) keeps the sign-in and fails that call as Unreachable, to try again. A refresh
+  once sent is not stopped with the call (a rotated refresh token answered but not saved would be lost), and signing in
+  again keeps no refresh token of the sign-in before. A tool call the server answers with a JSON-RPC error is a failed
+  result saying its code and message (the model can fix its arguments), not "unreachable". The redirect URI and the metadata URL come from `Connectors:CallbackBaseUrl` (`McpOAuthUrls`); an
   authorization server's own words never reach the reader, only an OAuth error code
 - A native connector is the site's own code calling a service's API with the reader's account connection (the
   token from `IConnectorService`): an `ISiteTool` in `Services/Connectors/<Service>`. `GoogleCalendarTool`
