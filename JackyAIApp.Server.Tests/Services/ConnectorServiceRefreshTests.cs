@@ -44,7 +44,7 @@ namespace JackyAIApp.Server.Tests.Services
                 NullLogger<ConnectorService>.Instance, user.Object);
         }
 
-        private async Task SeedExpiredAsync()
+        private async Task SeedExpiredAsync(TimeSpan? expiresIn = null)
         {
             using var db = NewContext();
             db.UserConnectors.Add(new UserConnector
@@ -53,7 +53,7 @@ namespace JackyAIApp.Server.Tests.Services
                 ProviderName = ConnectorProviders.Atlassian,
                 EncryptedAccessToken = "enc:a1",
                 EncryptedRefreshToken = "enc:r1",
-                TokenExpiresAt = DateTime.UtcNow.AddMinutes(-1),
+                TokenExpiresAt = DateTime.UtcNow.Add(expiresIn ?? TimeSpan.FromMinutes(-1)),
                 IsActive = true,
             });
             await db.SaveChangesAsync();
@@ -88,6 +88,39 @@ namespace JackyAIApp.Server.Tests.Services
 
             Assert.Null(await Service(db).GetAccessTokenAsync(_userId, ConnectorProviders.Atlassian));
             Assert.Equal(new[] { "r1" }, _endpoint.RefreshTokensSpent);
+        }
+
+        [Fact]
+        public async Task ATokenAboutToExpire_IsRefreshedBeforeItIsHandedOut()
+        {
+            // Seconds left: it would expire on its way to the provider, which then answers 401 (D-255).
+            await SeedExpiredAsync(TimeSpan.FromSeconds(30));
+            _endpoint.Answer.SetResult();
+            using var db = NewContext();
+
+            Assert.Equal("a2", await Service(db).GetAccessTokenAsync(_userId, ConnectorProviders.Atlassian));
+            Assert.Equal(new[] { "r1" }, _endpoint.RefreshTokensSpent);
+        }
+
+        [Fact]
+        public async Task ATokenAboutToExpire_WhoseRefreshFails_IsStillHandedOut()
+        {
+            await SeedExpiredAsync(TimeSpan.FromSeconds(30));
+            _endpoint.Refuse = true;
+            _endpoint.Answer.SetResult();
+            using var db = NewContext();
+
+            Assert.Equal("a1", await Service(db).GetAccessTokenAsync(_userId, ConnectorProviders.Atlassian));
+        }
+
+        [Fact]
+        public async Task ATokenWithTimeLeft_IsNotRefreshed()
+        {
+            await SeedExpiredAsync(TimeSpan.FromMinutes(30));
+            using var db = NewContext();
+
+            Assert.Equal("a1", await Service(db).GetAccessTokenAsync(_userId, ConnectorProviders.Atlassian));
+            Assert.Empty(_endpoint.RefreshTokensSpent);
         }
 
         /// <summary>A token endpoint that rotates refresh tokens and answers only once the test lets it.</summary>

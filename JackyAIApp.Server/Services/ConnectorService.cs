@@ -25,6 +25,12 @@ namespace JackyAIApp.Server.Services
         /// </summary>
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> RefreshLocks = new();
 
+        /// <summary>
+        /// How close to its expiry an access token is refreshed before it is handed out (as <c>McpOAuthTokens</c> does for
+        /// MCP servers): a tool's request takes seconds, and a token that expires on the way is refused (D-255).
+        /// </summary>
+        public static readonly TimeSpan RefreshAhead = TimeSpan.FromSeconds(60);
+
         private readonly AzureSQLDBContext _context;
         private readonly ITokenEncryptionService _tokenEncryption;
         private readonly IStateService _stateService;
@@ -484,12 +490,16 @@ namespace JackyAIApp.Server.Services
                     return null;
                 }
 
-                // Check if token is expired and try to refresh
-                if (userConnector.TokenExpiresAt.HasValue && userConnector.TokenExpiresAt.Value <= DateTime.UtcNow)
+                // Refresh a token expired or about to: one with seconds left would expire on its way to the provider,
+                // whose 401 the tools answer by asking the reader to connect again (D-255).
+                if (userConnector.TokenExpiresAt is { } expiresAt && expiresAt <= DateTime.UtcNow.Add(RefreshAhead))
                 {
+                    var current = userConnector.EncryptedAccessToken;
                     var refreshed = await RefreshTokenIfNeededAsync(userId, provider);
                     if (!refreshed)
                     {
+                        // Not expired yet: the token it has still works for now (no refresh token, or the provider did not answer).
+                        if (expiresAt > DateTime.UtcNow) return _tokenEncryption.DecryptToken(current);
                         _logger.LogWarning("Token expired and refresh failed for user {UserId} and provider {Provider}", userId, provider);
                         return null;
                     }

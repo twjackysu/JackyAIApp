@@ -177,6 +177,35 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Equal("/connectors#accounts", CardJson(result).GetProperty("href").GetString());
         }
 
+        [Theory]
+        [InlineData("""{ "error": { "code": 403, "message": "Rate Limit Exceeded", "errors": [ { "domain": "usageLimits", "reason": "rateLimitExceeded" } ] } }""")]
+        [InlineData("""{ "error": { "code": 403, "errors": [ { "domain": "calendar", "reason": "quotaExceeded" } ] } }""")]
+        [InlineData("""{ "error": { "code": 403, "status": "RESOURCE_EXHAUSTED" } }""")]
+        public async Task A403ForGooglesUsageLimit_IsAFailedCall_NotAReconnect(string body)
+        {
+            // D-256: Google answers its rate limits with 403 too; reconnecting would not help.
+            Connected();
+            _google = _ => Json(body, HttpStatusCode.Forbidden);
+
+            var result = await Run(new { });
+
+            Assert.True(result.IsError);
+            Assert.Contains("稍後再試", result.Content);
+            Assert.DoesNotContain("重新連線", result.Content);
+            Assert.Null(result.Card);
+        }
+
+        [Fact]
+        public async Task A403ThatIsNotJson_StillAsksTheReaderToConnectAgain()
+        {
+            Connected();
+            _google = _ => new HttpResponseMessage(HttpStatusCode.Forbidden) { Content = new StringContent("<html>no</html>") };
+
+            var result = await Run(new { });
+
+            Assert.Contains("重新連線", result.Content);
+        }
+
         [Fact]
         public async Task AnyOtherFailure_IsAFailedCall_WithoutGooglesWords()
         {

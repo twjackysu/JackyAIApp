@@ -63,6 +63,12 @@ namespace JackyAIApp.Server.Services.Connectors.Google
             {
                 var http = httpClientFactory.CreateClient(HttpClientName);
                 using var response = await http.SendAsync(request, ct);
+                if (response.StatusCode == HttpStatusCode.Forbidden && await IsUsageLimitAsync(response, ct))
+                {
+                    // Google says a rate limit with 403 too: a while later it reads again, so not a reason to reconnect (D-256).
+                    logger.LogWarning("Google Calendar answered 403 for a usage limit");
+                    return AiToolResult.Error("Google 日曆暫時讀不到，請告訴使用者稍後再試。");
+                }
                 if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
                     return new AiToolResult(
                         "Google 不接受目前的連線（可能沒有日曆的權限或已過期）。請告訴使用者到 Connectors 頁面中斷再重新連線 Google。",
@@ -80,6 +86,34 @@ namespace JackyAIApp.Server.Services.Connectors.Google
             {
                 logger.LogWarning(ex, "Google Calendar could not be read");
                 return AiToolResult.Error("Google 日曆暫時讀不到，請告訴使用者稍後再試。");
+            }
+        }
+
+        /// <summary>
+        /// Whether a 403 is one of Google's usage limits (<c>rateLimitExceeded</c>, <c>userRateLimitExceeded</c>,
+        /// <c>quotaExceeded</c>: domain <c>usageLimits</c>, or status <c>RESOURCE_EXHAUSTED</c>) rather than a refused
+        /// connection; an answer that cannot be read is not.
+        /// </summary>
+        internal static async Task<bool> IsUsageLimitAsync(HttpResponseMessage response, CancellationToken ct)
+        {
+            try
+            {
+                using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+                if (body.RootElement.ValueKind != JsonValueKind.Object ||
+                    !body.RootElement.TryGetProperty("error", out var error) || error.ValueKind != JsonValueKind.Object)
+                    return false;
+                if (error.TryGetProperty("status", out var status) && status.ValueKind == JsonValueKind.String &&
+                    status.GetString() == "RESOURCE_EXHAUSTED")
+                    return true;
+                return error.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array &&
+                       errors.EnumerateArray().Any(e => e.ValueKind == JsonValueKind.Object &&
+                           ((e.TryGetProperty("domain", out var d) && d.ValueKind == JsonValueKind.String && d.GetString() == "usageLimits") ||
+                            (e.TryGetProperty("reason", out var r) && r.ValueKind == JsonValueKind.String &&
+                             r.GetString() is "rateLimitExceeded" or "userRateLimitExceeded" or "quotaExceeded")));
+            }
+            catch (JsonException)
+            {
+                return false;
             }
         }
 
