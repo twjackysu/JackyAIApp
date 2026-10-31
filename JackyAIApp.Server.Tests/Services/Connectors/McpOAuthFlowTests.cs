@@ -365,6 +365,108 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Equal("rt-2", _secrets.GrantOf(Row(id))!.RefreshToken);
         }
 
+        // ── a token the server refused (401) ──────────────────────────────────────────────────────
+
+        private SQL.ConnectorInstallation WithoutExpiry(string? refreshToken = "rt-1") =>
+            Row(Installed(McpOAuthGrant.For(AuthServer, "dyn-1", null) with { AccessToken = "at-1", RefreshToken = refreshToken }));
+
+        private static McpServerException Refused401() =>
+            new(McpFailure.NeedsAuth, "伺服器需要登入，或不接受目前的認證資料。") { Unauthorized = true };
+
+        [Fact]
+        public async Task ATokenWithoutExpiry_TheServerRefuses_IsRenewed_AndTheRequestSentOnceMore()
+        {
+            // A token endpoint that gives no expires_in: the token is never refreshed ahead, so the 401 is the first sign.
+            var row = WithoutExpiry();
+            _endpoints.Setup(e => e.RequestTokenAsync(AuthServer.TokenEndpoint, It.Is<IReadOnlyDictionary<string, string>>(f =>
+                    f["grant_type"] == "refresh_token" && f["refresh_token"] == "rt-1"), "dyn-1", null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new McpOAuthTokenResponse("at-2", "rt-2", null));
+            var sent = new List<McpAuth>();
+
+            var answer = await Tokens().WithCredentialsAsync(row, auth =>
+            {
+                sent.Add(auth);
+                return auth == McpAuth.BearerToken("at-1") ? Task.FromException<string>(Refused401()) : Task.FromResult("ok");
+            }, default);
+
+            Assert.Equal("ok", answer);
+            Assert.Equal(new[] { McpAuth.BearerToken("at-1"), McpAuth.BearerToken("at-2") }, sent);
+            Assert.Equal(("at-2", "rt-2"), (_secrets.GrantOf(Row(row.Id))!.AccessToken, _secrets.GrantOf(Row(row.Id))!.RefreshToken));
+        }
+
+        [Fact]
+        public async Task ARefusalAfterRenewing_Stands_AndIsNotTriedAThirdTime()
+        {
+            var row = WithoutExpiry();
+            _endpoints.Setup(e => e.RequestTokenAsync(It.IsAny<Uri>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new McpOAuthTokenResponse("at-2", null, null));
+            var calls = 0;
+
+            var ex = await Assert.ThrowsAsync<McpServerException>(() => Tokens().WithCredentialsAsync(row, _ =>
+            {
+                calls++;
+                return Task.FromException<string>(Refused401());
+            }, default));
+
+            Assert.True(ex.Unauthorized);
+            Assert.Equal(2, calls);
+        }
+
+        [Fact]
+        public async Task AForbiddenCall_OrOneWithoutARefreshToken_IsNotTriedAgain()
+        {
+            var forbidden = new McpServerException(McpFailure.NeedsAuth, "伺服器需要登入，或不接受目前的認證資料。");
+            var calls = 0;
+            await Assert.ThrowsAsync<McpServerException>(() => Tokens().WithCredentialsAsync(WithoutExpiry(), _ =>
+            {
+                calls++;
+                return Task.FromException<string>(forbidden);
+            }, default));
+            await Assert.ThrowsAsync<McpServerException>(() => Tokens().WithCredentialsAsync(WithoutExpiry(refreshToken: null), _ =>
+            {
+                calls++;
+                return Task.FromException<string>(Refused401());
+            }, default));
+
+            Assert.Equal(2, calls);
+            _endpoints.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ARenewalTheAuthorizationServerRefuses_LeavesTheRefusal_AndOneItDoesNotAnswer_KeepsTheSignIn()
+        {
+            var row = WithoutExpiry();
+            _endpoints.Setup(e => e.RequestTokenAsync(It.IsAny<Uri>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new McpOAuthException("refused") { Refused = true });
+            Assert.Null(await Tokens().RenewRefusedAsync(row, McpAuth.BearerToken("at-1"), default));
+
+            _endpoints.Setup(e => e.RequestTokenAsync(It.IsAny<Uri>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new McpOAuthException("授權伺服器沒有發出 token。"));
+            var ex = await Assert.ThrowsAsync<McpServerException>(() => Tokens().RenewRefusedAsync(row, McpAuth.BearerToken("at-1"), default));
+
+            Assert.Equal(McpFailure.Unreachable, ex.Failure);
+            Assert.Equal("rt-1", _secrets.GrantOf(Row(row.Id))!.RefreshToken);
+        }
+
+        [Fact]
+        public async Task ATokenAnotherRequestRenewedMeanwhile_IsTried_WithoutRefreshingAgain()
+        {
+            var row = WithoutExpiry();
+            // The stored token is no longer the one refused: another request renewed it.
+            Assert.Equal(McpAuth.BearerToken("at-1"), await Tokens().RenewRefusedAsync(row, McpAuth.BearerToken("at-0"), default));
+            _endpoints.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ACredentialThatIsNotAnOAuthSignIn_HasNothingToRenew()
+        {
+            var id = Installed(McpOAuthGrant.For(AuthServer, "dyn-1", null) with { AccessToken = "at-1" });
+            var row = Row(id);
+            row.EncryptedSecret = null;
+
+            Assert.Null(await Tokens().RenewRefusedAsync(row, McpAuth.None, default));
+        }
+
         [Fact]
         public void AStepUp_AddsTheScopeACallNeeded_OnceEach_AndOnlyScopeTokens()
         {

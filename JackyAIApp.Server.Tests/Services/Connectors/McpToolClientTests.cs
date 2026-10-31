@@ -99,6 +99,8 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
                 Client(server).ListToolsAsync(Server, McpAuth.None, CancellationToken.None));
 
             Assert.Equal(McpFailure.NeedsAuth, ex.Failure);
+            // A 401: a renewed OAuth token may be taken (McpOAuthTokens.RenewRefusedAsync).
+            Assert.True(ex.Unauthorized);
         }
 
         [Fact]
@@ -109,7 +111,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             var ex = await Assert.ThrowsAsync<McpServerException>(() => Client(server).CallToolAsync(Server, McpAuth.None, "add_note",
                 JsonSerializer.SerializeToElement(new { }), CancellationToken.None));
 
-            Assert.Equal((McpFailure.NeedsAuth, "notes:write"), (ex.Failure, ex.RequiredScope));
+            Assert.Equal((McpFailure.NeedsAuth, "notes:write", false), (ex.Failure, ex.RequiredScope, ex.Unauthorized));
         }
 
         [Fact]

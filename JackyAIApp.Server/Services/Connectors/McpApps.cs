@@ -60,8 +60,9 @@ namespace JackyAIApp.Server.Services.Connectors
 
             try
             {
-                var outcome = await mcp.CallToolAsync(new Uri(row.ServerUrl), await tokens.AuthOfAsync(row, ct), called.Name,
-                    arguments.ValueKind == JsonValueKind.Object ? arguments : JsonSerializer.SerializeToElement(new { }), ct);
+                var server = new Uri(row.ServerUrl);
+                var input = arguments.ValueKind == JsonValueKind.Object ? arguments : JsonSerializer.SerializeToElement(new { });
+                var outcome = await tokens.WithCredentialsAsync(row, auth => mcp.CallToolAsync(server, auth, called.Name, input, ct), ct);
                 if (outcome.AppResultJson == null)
                     return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"「{connector}」的回應太大，介面沒有收到。");
                 return ServiceResult.Ok(new McpAppCallResultDto(JsonSerializer.Deserialize<JsonElement>(outcome.AppResultJson)));
@@ -79,10 +80,10 @@ namespace JackyAIApp.Server.Services.Connectors
             var userId = currentUser.RequireId();
             var row = await db.ConnectorInstallations.AsNoTracking()
                 .FirstOrDefaultAsync(c => c.Id == installationId && c.UserId == userId, ct);
-            var appUri = McpToolClient.AppUriOf(uri);
             // Only a connector the reader has on, and a URI among the first few its tools named: the reader's credentials go
             // to read what the chat may draw, nothing else, and no server can make the site read a hundred apps (D-202).
-            if (row?.ServerUrl == null || !row.Enabled || appUri == null || !AppUris(row.ToolsCacheJson).Contains(appUri))
+            if (McpToolClient.AppUriOf(uri) is not { } appUri) return ServiceResult.Fail(ErrorCodes.NotFound, "找不到這個介面。");
+            if (row?.ServerUrl == null || !row.Enabled || !AppUris(row.ToolsCacheJson).Contains(appUri))
                 return ServiceResult.Fail(ErrorCodes.NotFound, "找不到這個介面。");
 
             var server = new Uri(row.ServerUrl);
@@ -90,7 +91,7 @@ namespace JackyAIApp.Server.Services.Connectors
             try
             {
                 // Not cached here (D-202): an app's HTML may be half a megabyte, and the client keeps it for its page.
-                var app = await mcp.ReadAppAsync(server, await tokens.AuthOfAsync(row, ct), appUri, ct);
+                var app = await tokens.WithCredentialsAsync(row, auth => mcp.ReadAppAsync(server, auth, appUri, ct), ct);
                 if (app == null) return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"「{connector}」沒有提供可以顯示的介面。");
                 return ServiceResult.Ok(new McpAppDto(app.Html, app.ConnectDomains, app.ResourceDomains, app.PrefersBorder,
                     connector, server.IdnHost));

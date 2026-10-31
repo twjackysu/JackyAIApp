@@ -110,8 +110,8 @@ namespace JackyAIApp.Server.Services.Connectors
         {
             try
             {
-                var auth = await tokens.AuthOfAsync(installation, ct);
-                var outcome = await mcp.CallToolAsync(new Uri(installation.ServerUrl!), auth, tool.Name, input, ct);
+                var outcome = await tokens.WithCredentialsAsync(installation,
+                    auth => mcp.CallToolAsync(new Uri(installation.ServerUrl!), auth, tool.Name, input, ct), ct);
                 return outcome.IsError
                     ? AiToolResult.Error(string.IsNullOrWhiteSpace(outcome.Text) ? "工具回報失敗。" : outcome.Text)
                     : new AiToolResult(outcome.Text, Card: AppCardOf(input, outcome));

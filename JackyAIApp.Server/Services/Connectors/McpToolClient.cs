@@ -64,6 +64,12 @@ namespace JackyAIApp.Server.Services.Connectors
         /// step-up): that scope, as the server wrote it. Signing in again asks for it too.
         /// </summary>
         public string? RequiredScope { get; init; }
+
+        /// <summary>
+        /// The server answered 401: it did not take the access token sent. An OAuth sign-in may have a new one for it
+        /// (<see cref="IMcpOAuthTokens.RenewRefusedAsync"/>), which a 403 (not allowed, whatever the token) would not change.
+        /// </summary>
+        public bool Unauthorized { get; init; }
     }
 
     /// <summary>The HTTP handler requests to a user's MCP server go through.</summary>
@@ -363,8 +369,11 @@ namespace JackyAIApp.Server.Services.Connectors
                     return new McpServerException(McpFailure.Unreachable, "伺服器的回應太大，沒有讀取。", ex);
                 if (e is BlockedAddressException)
                     return new McpServerException(McpFailure.Blocked, "這個網址不是公開的網路位址，基於安全不能連線。", ex);
-                if (e is HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden })
-                    return new McpServerException(McpFailure.NeedsAuth, "伺服器需要登入，或不接受目前的認證資料。", ex);
+                if (e is HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden } refused)
+                    return new McpServerException(McpFailure.NeedsAuth, "伺服器需要登入，或不接受目前的認證資料。", ex)
+                    {
+                        Unauthorized = refused.StatusCode == HttpStatusCode.Unauthorized,
+                    };
                 // It answered, with a JSON-RPC error: reachable, and the code says why (its message is the server's own text).
                 if (e is McpProtocolException protocol)
                     return new McpServerException(McpFailure.Unreachable, $"伺服器回報錯誤（JSON-RPC {(int)protocol.ErrorCode}）。", ex);
