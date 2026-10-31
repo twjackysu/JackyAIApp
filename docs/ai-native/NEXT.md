@@ -69,6 +69,7 @@
 
 ## 2. 下一步（依序）
 
+0000000000000000000000. **第 71 輪（D-255、D-256）**：原生 connector（Google／Outlook／Jira 的 `ISiteTool`）的 API 錯誤處理審完——**所有 AI 相關的面都專門審過了**。修了：帳號連線 token 剩不到 60 秒先更新（`ConnectorService.RefreshAhead`）、Google 403 用量限制改說稍後再試。接受不修：已過期＋provider 暫時沒回應時工具說「還沒有連線（或連線已失效）」（要改 master 的 `IConnectorService` 介面）。**下一輪建議**：凍結（11/3）前沒有 bug 回報或紅 CI 就**不動程式碼**；11/4–11/5 照下面 3 做 SHOWCASE 定稿（狀態行改最終版、開發日誌補到最後一輪、`git rev-list --count --no-merges origin/master..HEAD`）。D-255／D-256 只動後端，畫面沒變，不用重拍截圖。
 000000000000000000000. **第 70 輪（D-251～D-254）**：審查 MCP client 的協定層與 OAuth token 更新（之前的巡檢偏安全面，這層的正確性沒專門審過），修了 1 高 2 中 1 低：授權伺服器暫時沒回應不再登出（`McpOAuthException.Refused`）、已送出的更新不被停止打斷、工具呼叫的 JSON-RPC 錯誤回失敗結果而不是「連不上」、重新授權不沿用舊 refresh token。**下一輪建議**：照第 68／69 輪，沒有 bug 或紅 CI 就不動程式碼；11/4–11/5 做 SHOWCASE 定稿。若 11/3 前還有時間想再審，還沒專門審過正確性的只剩 native connector（Google／Outlook／Atlassian 的 `ISiteTool`）的 API 錯誤處理。
 00000000000000000000. **第 69 輪**：合併前安全檢查（不改程式碼）：master 沒有新 commit、merge-base＝master 的 tip（合回去是 fast-forward）；4 個 migration 的 `Up` 只有 `AddColumn`／`CreateTable`（有預設值或 nullable），刪除只在 `Down`；新程式碼沒有啟動時必填的新設定；`.loop/` 只被 `ai-native-ci.yml` 引用，合併時兩者一起刪是安全的。**下一輪建議**同第 68 輪：沒有 bug 回報或紅 CI 就不要動程式碼；11/4–11/5 做 SHOWCASE 定稿（狀態行、開發日誌補到最後一輪、最終統計）。
 0000000000000000000. **第 68 輪**：凍結前的全站截圖巡檢已做（33 支腳本、66 張舊截圖更新，沒有退化；PROGRESS 第 68 輪）。前端與後端的 AI 面都審過、design 文件都對過。**下一輪建議**：(1) 11/3 前若有 bug 回報或 CI 紅才動程式碼；否則不要再加功能（凍結前加的東西沒有時間再審）；(2) 11/3 最後一輪：若之後有前端改動，只重跑受影響的腳本（`compare.py` 0.05%）；(3) 11/4–11/5 照下面 3 做 SHOWCASE 定稿：狀態行改成最終版、開發日誌表補到最後一輪、最終統計（輪數、`git rev-list --count --no-merges origin/master..HEAD`）。

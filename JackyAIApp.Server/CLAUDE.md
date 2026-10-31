@@ -513,7 +513,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   (`google_calendar_events`, `Services/Connectors/Google`) reads the primary calendar (today, tomorrow or 7 days,
   whole Taipei days; scope `calendar.readonly`) as a table card; without a Google connection, or one Google refuses,
   it answers with a link card to the account connections (`ConnectorProviders.AccountsPath`, `/connectors#accounts`, which the
-  page scrolls to, D-225; Outlook's and Jira's the same) rather than an error. Its results are `OutsideText`. `OutlookCalendarTool`
+  page scrolls to, D-225; Outlook's and Jira's the same) rather than an error; a 403 that is one of Google's usage limits
+  (`IsUsageLimitAsync`: domain `usageLimits` or status `RESOURCE_EXHAUSTED`) is a failed call to try later, not a reason to reconnect
+  (D-256). `IConnectorService.GetAccessTokenAsync` refreshes a token with less than `ConnectorService.RefreshAhead` (60s) left, and hands
+  out one not yet expired when that refresh fails (D-255). Its results are `OutsideText`. `OutlookCalendarTool`
   (`outlook_calendar_events`, `Services/Connectors/Outlook`, D-134) is the same days, events and card from the Microsoft
   connection (scope `Calendars.Read`): Graph's `me/calendarView` for the range's whole Taipei days, with
   `Prefer: outlook.timezone="Taipei Standard Time"` (a time Graph still gives in UTC is converted); `CalendarRange`,

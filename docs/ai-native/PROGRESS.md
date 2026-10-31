@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-31 11:42 – 第 71 輪（審查原生 connector 的 API 錯誤處理：修 D-255、D-256）
+
+- 開工：鎖不存在（`lock.py write`）；master 沒有新 commit（merge-base＝master 的 tip）；最新 CI 41157870504 綠。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。
+- 照第 70 輪建議審查最後一塊沒專門審過正確性的：`GoogleCalendarTool`、`OutlookCalendarTool`、`JiraIssuesTool`、`JiraAddCommentTool`，以及它們拿 token 的 `ConnectorService.GetAccessTokenAsync`。四個工具本身的錯誤分類（401／403／404／400／5xx、逾時、非 JSON、寫入後的不確定）都對；修了兩處：
+  - **D-255**（中）：token 只在已過期才更新 → 剩幾秒的 token 在路上過期、工具請讀者重新連線。改成剩不到 60 秒就先更新，更新失敗而還沒過期就照用。
+  - **D-256**（低～中）：Google 的用量限制是 403，原本被當成「請重新連線」→ 讀錯誤內容，改回稍後再試。
+- 測試：`ConnectorServiceRefreshTests` 加 3 個、`GoogleCalendarToolTests` 加 4 個（3 種用量限制的 403、非 JSON 的 403）。cscheck 0 個新診斷。server CLAUDE.md 補兩句。
+- CI 41165788342（後端 commit）第一次就綠。前端沒有改動。統計：`rev-list --count --no-merges origin/master..HEAD` = 557（本輪收尾前）。
+
 ## 2026-10-31 09:42 – 第 70 輪（審查 MCP client 協定層與 OAuth token 更新：修 D-251～D-254）
 
 - 開工：鎖不存在（用 `lock.py write`）；master 沒有新 commit；最新 CI 41122644924 綠。`add_repo` 仍不存在，既有 clone 切到 `feature/ai-native`（`--unshallow`）。
